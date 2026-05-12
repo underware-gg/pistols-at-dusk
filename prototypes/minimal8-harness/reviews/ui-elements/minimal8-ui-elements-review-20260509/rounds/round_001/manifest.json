@@ -1,0 +1,127 @@
+{
+  "tileset": "minimal8@1bit_colored_bg",
+  "element_count": 8,
+  "elements": [
+    {
+      "id": "ui_outer_border_left_ornate",
+      "label": "Outer border left ornate set",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 5,
+        "height": 3
+      },
+      "notes": "Candidate left-side large-screen border pieces, including ornate corner posts and matching horizontal run fragments. Seen framing the full-screen party and dialogue references.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ]
+    },
+    {
+      "id": "ui_outer_border_right_ornate",
+      "label": "Outer border right ornate set",
+      "bounds": {
+        "x": 65,
+        "y": 4,
+        "width": 6,
+        "height": 3
+      },
+      "notes": "Candidate right-side large-screen border pieces, including mirrored corner posts, long top-run segments, and right-hand join pieces.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ]
+    },
+    {
+      "id": "ui_menu_corner_toggle_marks",
+      "label": "Menu corner and toggle marks",
+      "bounds": {
+        "x": 55,
+        "y": 7,
+        "width": 8,
+        "height": 3
+      },
+      "notes": "Small UI marks and corner fragments used inside menus: corner elbows, square markers, and compact frame fragments.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png"
+      ]
+    },
+    {
+      "id": "ui_cursor_and_small_icons",
+      "label": "Cursor and small icon set",
+      "bounds": {
+        "x": 55,
+        "y": 10,
+        "width": 4,
+        "height": 3
+      },
+      "notes": "Includes the right-pointing menu cursor, a boxed variant, and nearby small symbols used in menus and stats screens.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png"
+      ]
+    },
+    {
+      "id": "ui_separator_runs",
+      "label": "Separator and border run set",
+      "bounds": {
+        "x": 59,
+        "y": 10,
+        "width": 12,
+        "height": 4
+      },
+      "notes": "Long vertical and horizontal runs used as section dividers and border continuations inside larger panels and HUD layouts.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_panel_corner_variants",
+      "label": "Panel corner variants",
+      "bounds": {
+        "x": 55,
+        "y": 14,
+        "width": 12,
+        "height": 2
+      },
+      "notes": "A row of compact panel-corner and edge variants that look suited to smaller label boxes and inset panels.",
+      "seen_in": [
+        "reference-party-menu-character-stats.png",
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_panel_variants_and_fillers",
+      "label": "Panel variants and filler tiles",
+      "bounds": {
+        "x": 55,
+        "y": 17,
+        "width": 8,
+        "height": 2
+      },
+      "notes": "Compact frame fragments and fill/pattern tiles that may support smaller boxes, panel backgrounds, or ornamental insets.",
+      "seen_in": [
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_wordmark_and_symbols",
+      "label": "Wordmark and symbol row",
+      "bounds": {
+        "x": 55,
+        "y": 20,
+        "width": 16,
+        "height": 2
+      },
+      "notes": "Includes the minimal_8 wordmark row, curled symbol, boxy glyphs, and ornamental marks. Likely branding/decorative rather than panel construction.",
+      "seen_in": [
+        "reference-overworld-island-title-screen.png"
+      ]
+    }
+  ]
+}

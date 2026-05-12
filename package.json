@@ -1,0 +1,12 @@
+{
+  "name": "pistols-at-dusk",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "scripts": {
+    "typecheck": "bash scripts/check_pyright.sh",
+    "test:coverage": "bash scripts/check_coverage.sh"
+  },
+  "devDependencies": {
+    "pyright": "^1.1.409"
+  }
+}

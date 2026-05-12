@@ -1,0 +1,1276 @@
+from __future__ import annotations
+
+import io
+import json
+import sys
+import tempfile
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest.mock import patch
+
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import minimal8_harness as harness
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
+    family_dir = root / "family"
+    family_dir.mkdir()
+    Image.new("RGBA", (8, 16), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+    derived_dir = family_dir / "derived"
+    derived_dir.mkdir()
+    Image.new("RGBA", (8, 8), (255, 0, 255, 255)).save(derived_dir / "override.png")
+
+    _write_json(
+        family_dir / "family.json",
+        {
+            "family_id": "testfam",
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "default_variant_id": "base",
+            "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
+            "ingestion_spec": "ingestion.json",
+        },
+    )
+    _write_json(
+        family_dir / "ingestion.json",
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 1, "height": 2},
+            "regions": [{"id": "sheet.region", "bounds": {"x": 0, "y": 0, "width": 1, "height": 2}}],
+            "clusters": [{"id": "sheet.region.cluster_01", "source_region_id": "sheet.region", "bounds": {"x": 0, "y": 0, "width": 1, "height": 2}}],
+            "collections": [],
+        },
+    )
+    _write_json(
+        family_dir / "clusters.json",
+        [{"id": "cluster.valid", "scope": "family", "members": ["testfam:derived.override"]}],
+    )
+    _write_json(
+        family_dir / "tiles.json",
+        [
+            {
+                "id": "testfam:derived.override",
+                "layer": "ui",
+                "category": "ui",
+                "transparent": False,
+                "image_override": "derived/override.png",
+                "cluster_ids": ["cluster.valid"],
+                "source_group": "test.derived",
+                "meaning": "Derived override tile.",
+                "meaning_confidence": "confirmed",
+            }
+        ],
+    )
+    _write_json(family_dir / "aliases.json", {"sample.override": "testfam:derived.override"})
+
+    project_path = root / "project.json"
+    _write_json(
+        project_path,
+        {
+            "tile_family": {"path": str(family_dir), "variant_id": "base"},
+            "scene_templates_dir": str(ROOT / "prototypes/minimal8-harness/scene-templates"),
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "tilesets": {},
+            "aliases": {},
+            "metatiles": {},
+            "box_styles": {},
+        },
+    )
+    return family_dir, project_path
+
+
+def _make_composite_tileset_project(root: Path) -> Path:
+    sheet_path = root / "sheet.png"
+    sheet = Image.new("RGBA", (32, 8), (0, 0, 0, 0))
+    for y in range(8):
+        for x in range(8):
+            sheet.putpixel((x, y), (10, 20, 200, 255))
+    for y in range(8):
+        for x in range(16, 24):
+            sheet.putpixel((x, y), (220, 40, 60, 255))
+    sheet.putpixel((12, 4), (250, 240, 40, 255))
+    for x in range(24, 32):
+        sheet.putpixel((x, 0), (40, 220, 120, 255))
+        sheet.putpixel((x, 7), (40, 220, 120, 255))
+    for y in range(8):
+        sheet.putpixel((24, y), (40, 220, 120, 255))
+        sheet.putpixel((31, y), (40, 220, 120, 255))
+    sheet.save(sheet_path)
+
+    project_path = root / "project.json"
+    _write_json(
+        project_path,
+        {
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "tilesets": {
+                "sample": {
+                    "sheet": str(sheet_path),
+                    "transparent": "none",
+                    "catalog_scope": "all",
+                    "regions": {"all": {"x": 0, "y": 0, "width": 4, "height": 1}},
+                }
+            },
+            "aliases": {
+                "sample.overlay.with_underpaint": {"ref": "1,0", "underpaint": "0,0"},
+                "sample.overlay.flipped": {"ref": "1,0", "underpaint": "0,0", "flip_x": True},
+                "sample.overlay.with_offset": {
+                    "ref": "1,0",
+                    "underpaint": "0,0",
+                    "offset_left": 1,
+                    "offset_bottom": 1,
+                },
+                "sample.overlay.offset_flipped": {
+                    "ref": "1,0",
+                    "underpaint": "0,0",
+                    "offset_left": 1,
+                    "offset_bottom": 1,
+                    "flip_x": True,
+                },
+                "sample.overlay.overflow_right": {"ref": "1,0", "offset_left": 4},
+                "sample.overlay.fill_cell": {"ref": "1,0", "occlusion": "fill_cell"},
+                "sample.overlay.fill_holes": {"ref": "3,0", "occlusion": "fill_holes"},
+            },
+            "metatiles": {},
+            "box_styles": {},
+        },
+    )
+    return project_path
+
+
+class LayoutProjectLazyTilesetTests(unittest.TestCase):
+    def test_family_variants_are_instantiated_lazily(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+
+        calls: list[str] = []
+        original_init = harness.GridTileset.__init__
+
+        def wrapped_init(
+            self: harness.GridTileset,
+            tileset_id: str,
+            *,
+            sheet_path: Path,
+            tile_width: int,
+            tile_height: int,
+            margin: int = 0,
+            spacing: int = 0,
+            transparent_mode: str = "top_left",
+            catalog_scope: str = "regions",
+            regions: dict[str, harness.GridRegionBounds] | None = None,
+        ) -> None:
+            calls.append(tileset_id)
+            original_init(
+                self,
+                tileset_id,
+                sheet_path=sheet_path,
+                tile_width=tile_width,
+                tile_height=tile_height,
+                margin=margin,
+                spacing=spacing,
+                transparent_mode=transparent_mode,
+                catalog_scope=catalog_scope,
+                regions=regions,
+            )
+
+        with patch.object(harness.GridTileset, "__init__", new=wrapped_init):
+            project = harness.LayoutProject(project_path)
+            self.assertEqual(calls, ["utility_land"])
+
+            default_tileset_id = project.default_tileset_id()
+            self.assertTrue(project.has_tileset(default_tileset_id))
+            self.assertNotIn(default_tileset_id, project.tilesets)
+
+            first_default = project.get_tileset(default_tileset_id)
+            self.assertIn(default_tileset_id, project.tilesets)
+            self.assertEqual(calls[-1], default_tileset_id)
+
+            second_default = project.get_tileset(default_tileset_id)
+            self.assertIs(first_default, second_default)
+            self.assertEqual(calls.count(default_tileset_id), 1)
+
+            other_variant_id = next(
+                tileset_id
+                for tileset_id in project.family_variant_tileset_ids()
+                if tileset_id != default_tileset_id
+            )
+            self.assertNotIn(other_variant_id, project.tilesets)
+            project.get_tileset(other_variant_id)
+            self.assertEqual(calls.count(other_variant_id), 1)
+
+    def test_get_tileset_lists_available_ids_for_unknown_lookup(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        with self.assertRaisesRegex(KeyError, "Available tilesets"):
+            project.get_tileset("missing.tileset")
+
+    def test_expand_scene_rejects_unknown_template(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        with self.assertRaisesRegex(ValueError, "Unknown scene template"):
+            harness.expand_scene(
+                project,
+                {"template": "missing", "x": 0, "y": 0, "width": 1, "height": 1},
+                default_tileset=project.default_tileset_id(),
+            )
+
+    def test_validate_family_ingest_reports_complete_minimal8_family(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        report = harness.validate_family_ingest(project_path, "minimal8@1bit_colored_bg")
+
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["tile_count"], 1376)
+        self.assertEqual(report["missing_source_group"], [])
+        self.assertEqual(report["missing_cluster_ids"], [])
+        self.assertEqual(report["missing_meaning"], [])
+        self.assertEqual(report["missing_meaning_confidence"], [])
+
+    def test_minimal8_uses_true_8x8_placement_and_bottom_left_default_anchor(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+
+        self.assertIsNotNone(family)
+        assert family is not None
+        self.assertEqual(project.grid_width, 8)
+        self.assertEqual(project.grid_height, 8)
+        self.assertEqual(project.render_step_width, 8)
+        self.assertEqual(project.render_step_height, 8)
+        self.assertEqual(family.render_step_width, 8)
+        self.assertEqual(family.render_step_height, 8)
+
+        resolved = project.family_tile_for_ref("minimal8:terrain:0,15", tileset_id="minimal8@1bit_colored_bg")
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        image = project.image_for_tile(resolved)
+        self.assertEqual(image.getbbox(), (0, 1, 7, 8))
+
+    def test_minimal8_actor_aliases_resolve_to_visible_character_tiles(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        actor_aliases = [
+            "actor.bartender.nw",
+            "actor.bartender.ne",
+            "actor.bartender.sw",
+            "actor.bartender.se",
+            "actor.red.nw",
+            "actor.red.ne",
+            "actor.red.sw",
+            "actor.red.se",
+            "actor.gold.nw",
+            "actor.gold.ne",
+            "actor.gold.sw",
+            "actor.gold.se",
+            "actor.green.nw",
+            "actor.green.ne",
+            "actor.green.sw",
+            "actor.green.se",
+            "actor.orange.nw",
+            "actor.orange.ne",
+            "actor.orange.sw",
+            "actor.orange.se",
+            "actor.purple.nw",
+            "actor.purple.ne",
+            "actor.purple.sw",
+            "actor.purple.se",
+            "actor.teal.nw",
+            "actor.teal.ne",
+            "actor.teal.sw",
+            "actor.teal.se",
+            "actor.blue.nw",
+            "actor.blue.ne",
+            "actor.blue.sw",
+            "actor.blue.se",
+            "actor.salmon.nw",
+            "actor.salmon.ne",
+            "actor.salmon.sw",
+            "actor.salmon.se",
+        ]
+
+        for alias in actor_aliases:
+            resolved = project.resolve_tile(alias, default_tileset="minimal8@1bit_colored_bg")
+            spec = project.render_spec_for_tile(resolved)
+            self.assertIsNotNone(spec.image.getbbox(), alias)
+
+    def test_audit_family_semantic_usage_reports_current_reference_surface(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        report = harness.audit_family_semantic_usage(project_path, "minimal8@1bit_colored_bg")
+
+        self.assertEqual(report["tileset"], "minimal8@1bit_colored_bg")
+        self.assertGreater(report["total_references"], 0)
+        self.assertGreater(report["total_resolved_family_tiles"], 0)
+        self.assertIn("confirmed", report["by_meaning_confidence"])
+
+    def test_detect_family_source_layout_exports_detected_regions(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "detected"
+            harness.detect_family_source_layout(project_path, "minimal8@1bit_colored_bg", output_dir)
+            payload = json.loads((output_dir / "source_layout.detected.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(len(payload["regions"]), 4)
+        self.assertEqual(len(payload["clusters"]), 23)
+        self.assertGreater(len(payload["collections"]), 0)
+
+    def test_render_pattern_image_supports_family_image_override_tiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+            pattern = project.pattern_from_ref("sample.override")
+            resolved = pattern.cells[0][0]
+
+            self.assertIsNotNone(resolved)
+            assert resolved is not None
+            self.assertIsNotNone(resolved.image_override_path)
+
+            image = harness.render_pattern_image(project, pattern)
+            self.assertEqual(image.size, (8, 8))
+            self.assertEqual(image.getpixel((0, 0)), (255, 0, 255, 255))
+
+    def test_family_image_override_ref_has_no_fake_sheet_index(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+
+            resolved = project.family_tile_for_ref("sample.override", tileset_id="testfam@base")
+
+            self.assertIsNotNone(resolved)
+            assert resolved is not None
+            self.assertIsNone(resolved.index)
+            self.assertEqual(resolved.family_tile_id, "testfam:derived.override")
+            self.assertEqual(project.image_for_tile(resolved).size, (8, 8))
+
+    def test_composite_tile_ref_precomposes_underpaint_before_render(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_composite_tileset_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+
+            resolved = project.resolve_tile("sample.overlay.with_underpaint", default_tileset="sample")
+            image = project.image_for_tile(resolved)
+
+            self.assertEqual(image.getpixel((0, 0)), (10, 20, 200, 255))
+            self.assertEqual(image.getpixel((4, 4)), (250, 240, 40, 255))
+
+    def test_composite_tile_ref_flips_underpaint_and_foreground_together(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_composite_tileset_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+
+            resolved = project.resolve_tile("sample.overlay.flipped", default_tileset="sample")
+            image = project.image_for_tile(resolved)
+
+            self.assertEqual(image.getpixel((7, 0)), (10, 20, 200, 255))
+            self.assertEqual(image.getpixel((3, 4)), (250, 240, 40, 255))
+
+    def test_composite_tile_ref_supports_bottom_left_overlay_offsets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_composite_tileset_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+
+            resolved = project.resolve_tile("sample.overlay.with_offset", default_tileset="sample")
+            spec = project.render_spec_for_tile(resolved)
+            image = spec.image
+
+            self.assertEqual(spec.origin_x, 0)
+            self.assertEqual(spec.origin_y, -1)
+            self.assertEqual(image.size, (9, 9))
+            self.assertEqual(image.getpixel((0, 0)), (0, 0, 0, 0))
+            self.assertEqual(image.getpixel((0, 7)), (10, 20, 200, 255))
+            self.assertEqual(image.getpixel((5, 4)), (250, 240, 40, 255))
+
+    def test_flipped_composite_tile_ref_mirrors_overlay_offsets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_composite_tileset_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+
+            resolved = project.resolve_tile("sample.overlay.offset_flipped", default_tileset="sample")
+            spec = project.render_spec_for_tile(resolved)
+            image = spec.image
+
+            self.assertEqual(spec.origin_x, -1)
+            self.assertEqual(spec.origin_y, -1)
+            self.assertEqual(image.size, (9, 9))
+            self.assertEqual(image.getpixel((0, 0)), (0, 0, 0, 0))
+            self.assertEqual(image.getpixel((8, 1)), (10, 20, 200, 255))
+            self.assertEqual(image.getpixel((7, 7)), (10, 20, 200, 255))
+            self.assertEqual(image.getpixel((3, 4)), (250, 240, 40, 255))
+
+    def test_render_layer_image_allows_single_tile_overflow_into_neighbour_cell(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            project_path = _make_composite_tileset_project(temp_path)
+            layout_path = temp_path / "layout.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(project_path),
+                    "default_tileset": "sample",
+                    "map": {"width": 2, "height": 1, "background": "#102030"},
+                    "output": "out.png",
+                    "layers": [
+                        {"name": "actors", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "sample.overlay.overflow_right"}]}
+                    ],
+                },
+            )
+
+            output = harness.render_layout(layout_path)
+            image = Image.open(output).convert("RGBA")
+
+            self.assertEqual(image.size, (16, 8))
+            self.assertEqual(image.getpixel((8, 4)), (250, 240, 40, 255))
+            self.assertEqual(image.getpixel((9, 4)), (16, 32, 48, 255))
+
+    def test_render_pattern_image_expands_to_include_visible_overflow(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_composite_tileset_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+            resolved = project.resolve_tile("sample.overlay.overflow_right", default_tileset="sample")
+            pattern = harness.Pattern(width=1, height=1, cells=((resolved,),))
+
+            image = harness.render_pattern_image(project, pattern, snap_to_grid=True)
+
+            self.assertEqual(image.size, (12, 8))
+            self.assertEqual(image.getpixel((8, 4)), (250, 240, 40, 255))
+
+    def test_legged_table_underpaint_adds_extra_bottom_overlay_offset(self) -> None:
+        project = harness.LayoutProject(ROOT / "prototypes/minimal8-harness/project.minimal8.json")
+
+        resolved = project.resolve_tile(
+            {
+                "ref": "prop.tankard",
+                "underpaint": "indoors.table.round",
+                "offset_left": 1,
+                "offset_bottom": 1,
+            },
+            default_tileset="minimal8@1bit_colored_bg",
+        )
+
+        self.assertEqual(resolved.overlay_offset_x, 1)
+        self.assertEqual(resolved.overlay_offset_y, -3)
+
+    def test_non_legged_table_underpaint_keeps_base_bottom_overlay_offset(self) -> None:
+        project = harness.LayoutProject(ROOT / "prototypes/minimal8-harness/project.minimal8.json")
+
+        resolved = project.resolve_tile(
+            {
+                "ref": "prop.tankard",
+                "underpaint": "indoors.table.vertical.top",
+                "offset_left": 1,
+                "offset_bottom": 1,
+            },
+            default_tileset="minimal8@1bit_colored_bg",
+        )
+
+        self.assertEqual(resolved.overlay_offset_x, 1)
+        self.assertEqual(resolved.overlay_offset_y, -1)
+
+    def test_non_transparent_family_tiles_default_to_fill_cell_occlusion(self) -> None:
+        project = harness.LayoutProject(ROOT / "prototypes/minimal8-harness/project.minimal8.json")
+
+        wall = project.resolve_tile("tavern.wall.c", default_tileset="minimal8@1bit_colored_bg")
+        wall_mask = project.occlusion_mask_for_tile(wall)
+        self.assertIsNotNone(wall_mask)
+        assert wall_mask is not None
+        self.assertEqual(wall_mask.getbbox(), (0, 0, 8, 8))
+
+        table = project.resolve_tile("indoors.table.vertical.top", default_tileset="minimal8@1bit_colored_bg")
+        table_mask = project.occlusion_mask_for_tile(table)
+        self.assertIsNotNone(table_mask)
+        assert table_mask is not None
+        self.assertEqual(table_mask.getbbox(), (0, 0, 8, 8))
+
+        prop = project.resolve_tile("prop.tankard.original", default_tileset="minimal8@1bit_colored_bg")
+        self.assertIsNone(project.occlusion_mask_for_tile(prop))
+
+    def test_composite_underpaint_preserves_support_tile_occlusion(self) -> None:
+        project = harness.LayoutProject(ROOT / "prototypes/minimal8-harness/project.minimal8.json")
+
+        resolved = project.resolve_tile(
+            {
+                "ref": "indoors.light.torch.frame_2",
+                "underpaint": "minimal8:architecture:2,14",
+                "occlusion": "fill_holes",
+            },
+            default_tileset="minimal8@1bit_colored_bg",
+        )
+
+        mask = project.occlusion_mask_for_tile(resolved)
+        self.assertIsNotNone(mask)
+        assert mask is not None
+        self.assertEqual(mask.getbbox(), (0, 0, 8, 8))
+        self.assertEqual(mask.getpixel((0, 0)), 255)
+        self.assertEqual(mask.getpixel((7, 0)), 255)
+        self.assertEqual(mask.getpixel((0, 7)), 255)
+        self.assertEqual(mask.getpixel((7, 7)), 255)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            layout_path = Path(temp_dir) / "layout.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(ROOT / "prototypes/minimal8-harness/project.minimal8.json"),
+                    "default_tileset": "minimal8@1bit_colored_bg",
+                    "map": {"width": 1, "height": 1, "background": "#010203"},
+                    "output": "out.png",
+                    "layers": [
+                        {"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "tavern.floor.a"}]},
+                        {"name": "ornament", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": {
+                            "ref": "indoors.light.torch.frame_2",
+                            "underpaint": "minimal8:architecture:2,14",
+                            "occlusion": "fill_holes",
+                        }}]},
+                    ],
+                },
+            )
+
+            output = harness.render_layout(layout_path)
+            image = Image.open(output).convert("RGBA")
+            self.assertEqual(image.getpixel((0, 0)), (1, 2, 3, 255))
+
+    def test_fill_cell_occlusion_blocks_lower_layers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            project_path = _make_composite_tileset_project(temp_path)
+            layout_path = temp_path / "layout.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(project_path),
+                    "default_tileset": "sample",
+                    "map": {"width": 1, "height": 1, "background": "#102030"},
+                    "output": "out.png",
+                    "layers": [
+                        {"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "2,0"}]},
+                        {
+                            "name": "actors",
+                            "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "sample.overlay.fill_cell"}],
+                        },
+                    ],
+                },
+            )
+
+            output = harness.render_layout(layout_path)
+            image = Image.open(output).convert("RGBA")
+
+            self.assertEqual(image.getpixel((4, 4)), (250, 240, 40, 255))
+            self.assertEqual(image.getpixel((0, 0)), (16, 32, 48, 255))
+
+    def test_fill_holes_occlusion_blocks_lower_layers_inside_interior_holes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            project_path = _make_composite_tileset_project(temp_path)
+            layout_path = temp_path / "layout.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(project_path),
+                    "default_tileset": "sample",
+                    "map": {"width": 1, "height": 1, "background": "#102030"},
+                    "output": "out.png",
+                    "layers": [
+                        {"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "2,0"}]},
+                        {
+                            "name": "actors",
+                            "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "sample.overlay.fill_holes"}],
+                        },
+                    ],
+                },
+            )
+
+            output = harness.render_layout(layout_path)
+            image = Image.open(output).convert("RGBA")
+
+            self.assertEqual(image.getpixel((0, 0)), (40, 220, 120, 255))
+            self.assertEqual(image.getpixel((4, 4)), (16, 32, 48, 255))
+
+    def test_audit_family_semantic_usage_counts_synthetic_family_layout_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            layouts_dir = Path(temp_dir) / "layouts"
+            layouts_dir.mkdir()
+            _write_json(
+                layouts_dir / "override_layout.json",
+                {
+                    "project": str(project_path),
+                    "map": {"width": 1, "height": 1},
+                    "output": "out.png",
+                    "layers": [{"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "sample.override"}]}],
+                },
+            )
+
+            report = harness.audit_family_semantic_usage(
+                project_path,
+                "testfam@base",
+                layouts_dir=layouts_dir,
+            )
+
+            self.assertEqual(report["total_resolved_family_tiles"], 2)
+            self.assertEqual(report["flagged_references"], 0)
+
+    def test_apply_ascii_places_tiles_and_ignores_blank_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+            layer = harness.new_layer(3, 2)
+
+            harness.apply_ascii(
+                layer,
+                project,
+                {
+                    "kind": "ascii",
+                    "x": 0,
+                    "y": 0,
+                    "legend": {"#": "sample.override"},
+                    "rows": ["# .", "..#"],
+                },
+                default_tileset=project.default_tileset_id(),
+            )
+
+            self.assertIsNotNone(layer[0][0])
+            self.assertIsNone(layer[0][1])
+            self.assertIsNone(layer[0][2])
+            self.assertIsNone(layer[1][0])
+            self.assertIsNone(layer[1][1])
+            self.assertIsNotNone(layer[1][2])
+            assert layer[0][0] is not None
+            self.assertEqual(layer[0][0].family_tile_id, "testfam:derived.override")
+
+    def test_apply_ascii_rejects_unknown_legend_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+            layer = harness.new_layer(1, 1)
+
+            with self.assertRaisesRegex(ValueError, "ASCII legend missing entry"):
+                harness.apply_ascii(
+                    layer,
+                    project,
+                    {
+                        "kind": "ascii",
+                        "x": 0,
+                        "y": 0,
+                        "legend": {},
+                        "rows": ["#"],
+                    },
+                    default_tileset=project.default_tileset_id(),
+                )
+
+    def test_family_backed_raw_tileset_coords_use_hash_syntax(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        resolved = project.resolve_tile("minimal8@1bit_colored_bg#20,24")
+        self.assertEqual(resolved.tileset_id, "minimal8@1bit_colored_bg")
+        self.assertEqual(
+            project.get_tileset("minimal8@1bit_colored_bg").col_row_from_index(resolved.require_index()),
+            (20, 24),
+        )
+
+        tracked = project.resolve_tile("minimal8@1bit_colored_bg:44,12")
+        self.assertEqual(tracked.family_tile_id, "minimal8:characters:7,11")
+
+        with self.assertRaisesRegex(ValueError, "must use `minimal8@1bit_colored_bg#20,24`"):
+            project.resolve_tile("minimal8@1bit_colored_bg:20,24")
+
+    def test_minimal8_table_constructions_encode_single_table_shapes(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        assert family is not None
+
+        def role(cell: object) -> str | None:
+            from tile_families import TileRecord
+            if not isinstance(cell, TileRecord):
+                return None
+            return cell.compose_role
+
+        from tile_families import MetatileConstruction
+
+        square = family.lookup_construction("indoors.table.kit.square_2x2")
+        assert square is not None
+        assert isinstance(square, MetatileConstruction)
+        self.assertEqual(len(square.cells), 2)
+        self.assertEqual(len(square.cells[0]), 2)
+        self.assertEqual(role(square.cells[0][0]), "vertical_top_end")
+        self.assertEqual(role(square.cells[1][0]), "vertical_bottom_end")
+
+        horizontal = family.lookup_construction("indoors.table.kit.horizontal_2x6")
+        assert horizontal is not None
+        assert isinstance(horizontal, MetatileConstruction)
+        self.assertEqual(len(horizontal.cells), 2)
+        self.assertEqual(len(horizontal.cells[0]), 6)
+        self.assertTrue(all(role(cell) == "vertical_top_end" for cell in horizontal.cells[0]))
+        self.assertTrue(all(role(cell) == "vertical_bottom_end" for cell in horizontal.cells[1]))
+
+        vertical = family.lookup_construction("indoors.table.kit.vertical_2x6")
+        assert vertical is not None
+        assert isinstance(vertical, MetatileConstruction)
+        self.assertEqual(len(vertical.cells), 6)
+        self.assertEqual(len(vertical.cells[0]), 2)
+        self.assertTrue(all(role(cell) == "vertical_top_end" for cell in vertical.cells[0]))
+        self.assertTrue(all(role(cell) == "vertical_bottom_end" for cell in vertical.cells[-1]))
+        for row in vertical.cells[1:-1]:
+            self.assertTrue(all(role(cell) == "vertical_middle" for cell in row))
+
+        rect_vertical = family.lookup_construction("indoors.table.kit.rect_2x3")
+        assert rect_vertical is not None
+        assert isinstance(rect_vertical, MetatileConstruction)
+        self.assertEqual(len(rect_vertical.cells), 3)
+        self.assertEqual(len(rect_vertical.cells[0]), 2)
+        self.assertTrue(all(role(cell) == "vertical_top_end" for cell in rect_vertical.cells[0]))
+        self.assertTrue(all(role(cell) == "vertical_bottom_end" for cell in rect_vertical.cells[-1]))
+        self.assertTrue(all(role(cell) == "vertical_middle" for cell in rect_vertical.cells[1]))
+
+        top_left = family.lookup_construction("indoors.table.kit.l_top_left")
+        assert top_left is not None
+        assert isinstance(top_left, MetatileConstruction)
+        self.assertEqual(len(top_left.cells), 3)
+        self.assertEqual(len(top_left.cells[0]), 3)
+        self.assertEqual(role(top_left.cells[0][0]), "vertical_middle")
+        self.assertEqual(role(top_left.cells[0][1]), "horizontal_middle")
+        self.assertEqual(role(top_left.cells[0][2]), "horizontal_right_end")
+        self.assertIsNone(top_left.cells[1][1])
+        self.assertIsNone(top_left.cells[2][2])
+
+        top_right = family.lookup_construction("indoors.table.kit.l_top_right")
+        assert top_right is not None
+        assert isinstance(top_right, MetatileConstruction)
+        self.assertEqual(role(top_right.cells[0][0]), "horizontal_left_end")
+        self.assertEqual(role(top_right.cells[0][1]), "horizontal_middle")
+        self.assertEqual(role(top_right.cells[0][2]), "vertical_middle")
+
+        bottom_right = family.lookup_construction("indoors.table.kit.l_bottom_right")
+        assert bottom_right is not None
+        assert isinstance(bottom_right, MetatileConstruction)
+        self.assertEqual(len(bottom_right.cells), 3)
+        self.assertEqual(len(bottom_right.cells[0]), 3)
+        self.assertEqual(role(bottom_right.cells[2][0]), "horizontal_left_end")
+        self.assertEqual(role(bottom_right.cells[2][1]), "horizontal_middle")
+        self.assertEqual(role(bottom_right.cells[2][2]), "vertical_bottom_end")
+        self.assertIsNone(bottom_right.cells[0][0])
+        self.assertIsNone(bottom_right.cells[1][1])
+
+    def test_minimal8_grand_open_door_is_available_as_pattern_and_construction(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+        pattern = project.pattern_from_ref("@indoors_door_grand_open")
+        self.assertEqual(pattern.width, 2)
+        self.assertEqual(pattern.height, 2)
+
+        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        assert family is not None
+        construction = family.lookup_construction("indoors.door.grand.open")
+        self.assertIsNotNone(construction)
+
+    def test_export_layout_scene_runtime_preserves_resolved_entities(self) -> None:
+        layout_path = ROOT / "prototypes/minimal8-harness/layouts/fool_and_flintlock.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "fool_and_flintlock.scene_runtime.json"
+            harness.export_layout_scene_runtime(layout_path, output_path)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["entity_count"], len(payload["entities"]))
+        self.assertGreater(payload["entity_count"], 0)
+        constructions = {entity["template"]["construction_id"]: entity for entity in payload["entities"]}
+        self.assertIn("indoors.table.kit.rect_3x2", constructions)
+        table = constructions["indoors.table.kit.rect_3x2"]
+        self.assertEqual(table["template"]["collection_id"], "indoors.table.kit")
+        self.assertEqual(table["template"]["placement_anchor"], "top_left")
+        self.assertEqual(table["placement_anchor"]["kind"], "top_left")
+        self.assertEqual(table["bounds"]["width"], 3)
+        self.assertEqual(table["bounds"]["height"], 2)
+        self.assertEqual(table["occupancy"]["cell_count"], 6)
+        self.assertEqual(len(table["occupancy"]["cells"]), 6)
+        self.assertEqual(table["occupancy"]["blocking_cells"], [])
+        self.assertEqual(len(table["occupancy"]["unknown_cells"]), 6)
+        self.assertEqual(len(table["affordance_cells"]), 6)
+
+    def test_entity_instance_tracks_occupied_cells_separately_from_bounds(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        self.assertIsNotNone(family)
+        assert family is not None
+
+        entity = harness._resolve_scene_entity_request(  # type: ignore[attr-defined]
+            family,
+            harness.SceneEntityRequest(
+                entity_id="fixture.l_table",
+                source_template_id="fixture",
+                construction_id="indoors.table.kit.l_top_left",
+                layer="architecture",
+                x=10,
+                y=20,
+            ),
+        )
+
+        self.assertEqual(entity.bounds.width, 3)
+        self.assertEqual(entity.bounds.height, 3)
+        self.assertEqual(len(entity.occupied_cells), 5)
+        occupied = {(cell.relative_x, cell.relative_y) for cell in entity.occupied_cells}
+        self.assertEqual(occupied, {(0, 0), (1, 0), (2, 0), (0, 1), (0, 2)})
+        self.assertEqual(len(entity.affordance_cells), 5)
+
+    def test_metatile_catalog_previews_use_grid_aligned_dimensions(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        catalog = {
+            entry["name"]: entry
+            for entry in harness.build_metatile_catalog(project, tileset_id="minimal8@1bit_colored_bg")
+        }
+
+        self.assertEqual(catalog["temple_maze_corner"]["width_pixels"], 24)
+        self.assertEqual(catalog["temple_maze_corner"]["height_pixels"], 24)
+        self.assertEqual(catalog["gold_ui_corner"]["width_pixels"], 16)
+        self.assertEqual(catalog["gold_ui_corner"]["height_pixels"], 16)
+
+    def test_export_collection_review_pack_writes_repo_friendly_feedback_files(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_dir = Path(temp_dir) / "collection-review"
+            scratch_dir = Path(temp_dir) / "collection-review-scratch"
+            round_one_dir = harness.export_collection_review_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                root_dir,
+                scale=2,
+                scratch_output_root=scratch_dir,
+            )
+            round_two_dir = harness.export_collection_review_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                root_dir,
+                scale=2,
+                scratch_output_root=scratch_dir,
+            )
+            manifest = json.loads((round_one_dir / "manifest.json").read_text(encoding="utf-8"))
+            round_readme = (round_one_dir / "README.md").read_text(encoding="utf-8")
+            series_readme = (root_dir / "README.md").read_text(encoding="utf-8")
+            series = json.loads((root_dir / "series.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(round_one_dir.name, "round_001")
+            self.assertEqual(round_two_dir.name, "round_002")
+            self.assertEqual(manifest["tileset"], "minimal8@1bit_colored_bg")
+            self.assertEqual(manifest["collection_count"], 41)
+            self.assertIn("This pack is intended to be edited and committed.", round_readme)
+            self.assertIn("multiple committed rounds of collection feedback", series_readme)
+            self.assertEqual(series["round_count"], 2)
+            first_collection = manifest["collections"][0]
+            self.assertIn("source_region_id", first_collection)
+            self.assertIn("source_cluster_id", first_collection)
+            self.assertNotIn("region_id", first_collection)
+            self.assertNotIn("cluster_id", first_collection)
+            self.assertTrue((round_one_dir / first_collection["feedback_file"]).exists())
+            self.assertTrue((round_one_dir / first_collection["preview"]).exists())
+            self.assertTrue((scratch_dir / "round_001" / "overview.png").exists())
+            self.assertTrue((scratch_dir / "round_001" / "sheet_overlay.png").exists())
+            self.assertTrue((scratch_dir / "round_001" / "README.md").exists())
+            collection_ids = {collection["id"] for collection in manifest["collections"]}
+            self.assertIn("character.column_1.01", collection_ids)
+            self.assertIn("character.column_5.04", collection_ids)
+            self.assertIn("ui.gold_frame", collection_ids)
+
+    def test_export_collection_review_pack_migrates_legacy_single_round_root(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_dir = Path(temp_dir) / "collection-review"
+            root_dir.mkdir(parents=True, exist_ok=False)
+            (root_dir / "images").mkdir()
+            (root_dir / "collections").mkdir()
+            (root_dir / "manifest.json").write_text('{"collection_count": 1}\n', encoding="utf-8")
+            (root_dir / "README.md").write_text("# Legacy Collection Review Pack\n", encoding="utf-8")
+            (root_dir / "images" / "legacy.png").write_bytes(b"legacy")
+            (root_dir / "collections" / "legacy.md").write_text("# Legacy\n", encoding="utf-8")
+
+            round_two_dir = harness.export_collection_review_pack(project_path, "minimal8@1bit_colored_bg", root_dir, scale=2)
+            migrated_round_one_dir = root_dir / "rounds" / "round_001"
+
+            self.assertTrue((migrated_round_one_dir / "manifest.json").exists())
+            self.assertTrue((migrated_round_one_dir / "README.md").exists())
+            self.assertTrue((migrated_round_one_dir / "images" / "legacy.png").exists())
+            self.assertTrue((migrated_round_one_dir / "collections" / "legacy.md").exists())
+            self.assertEqual(round_two_dir.name, "round_002")
+
+    def test_export_public_tile_pack_writes_shareable_metadata_and_images(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = harness.export_public_tile_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                Path(temp_dir) / "public-pack",
+                scale=2,
+            )
+
+            manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            tiles = json.loads((output_dir / "tiles.json").read_text(encoding="utf-8"))
+            tile_clusters = json.loads((output_dir / "tile_clusters.json").read_text(encoding="utf-8"))
+            source_regions = json.loads((output_dir / "source_regions.json").read_text(encoding="utf-8"))
+            source_collections = json.loads((output_dir / "source_collections.json").read_text(encoding="utf-8"))
+            constructions = json.loads((output_dir / "constructions.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(manifest["tileset"], "minimal8@1bit_colored_bg")
+            self.assertEqual(manifest["family_id"], "minimal8")
+            self.assertEqual(manifest["art_convention"]["dominant_anchor"], "bottom_left")
+            self.assertEqual(manifest["art_convention"]["dominant_gutter_edges"], ["top", "right"])
+            self.assertLess(manifest["art_convention"]["sample_count"], manifest["counts"]["preview_tiles"])
+            self.assertEqual(manifest["counts"]["tiles"], len(tiles))
+            self.assertEqual(manifest["counts"]["tile_clusters"], len(tile_clusters))
+            self.assertEqual(manifest["counts"]["source_regions"], len(source_regions))
+            self.assertEqual(manifest["counts"]["source_collections"], len(source_collections))
+            self.assertEqual(manifest["counts"]["constructions"], len(constructions))
+            self.assertTrue((output_dir / "tiles.csv").exists())
+            self.assertTrue((output_dir / "README.md").exists())
+            self.assertTrue((output_dir / "images" / "sheet_annotated.png").exists())
+            self.assertTrue((output_dir / "images" / "tiles_contact_sheet.png").exists())
+            self.assertTrue((output_dir / "images" / "collections_contact_sheet.png").exists())
+            self.assertTrue((output_dir / "images" / "constructions_contact_sheet.png").exists())
+            self.assertIn("provenance", tiles[0])
+            self.assertIn("source_layout", tiles[0])
+            self.assertIn("compose", tiles[0])
+            sheet_backed_tile = next(tile for tile in tiles if tile["sheet"] is not None)
+            self.assertRegex(sheet_backed_tile["provenance"]["physical_ref"], r"^minimal8:\d+,\d+$")
+            self.assertRegex(sheet_backed_tile["provenance"]["variant_ref"], r"^minimal8@1bit_colored_bg:\d+,\d+$")
+            synthetic_tile = next(tile for tile in tiles if tile["id"] == "minimal8:derived.indoors.bookcase.middle")
+            self.assertEqual(synthetic_tile["provenance"]["kind"], "synthetic")
+            self.assertIsNone(synthetic_tile["sheet"])
+            self.assertIsNone(synthetic_tile["source_layout"])
+            table_collection = next(collection for collection in source_collections if collection["id"] == "indoors.table.kit")
+            self.assertIn("indoors.table.kit.horizontal_run", table_collection["constructions"])
+            horizontal_run = next(construction for construction in constructions if construction["id"] == "indoors.table.kit.horizontal_run")
+            self.assertEqual(horizontal_run["kind"], "parametric_run")
+            self.assertEqual(horizontal_run["start"]["role"], "horizontal_left_end")
+            self.assertEqual(horizontal_run["preview_length"], 4)
+            self.assertEqual(horizontal_run["preview"], "images/constructions/indoors_table_kit_horizontal_run.png")
+            door = next(construction for construction in constructions if construction["id"] == "indoors.door.grand.closed")
+            self.assertEqual(door["kind"], "metatile")
+            self.assertEqual(door["shape"], {"width": 2, "height": 2})
+            self.assertEqual(door["cells"][0][0]["role"], "top_left")
+            self.assertEqual(door["preview"], "images/constructions/indoors_door_grand_closed.png")
+
+    def test_export_public_tile_pack_clears_stale_output_files(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "public-pack"
+            harness.export_public_tile_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                output_dir,
+                scale=2,
+            )
+            stale_file = output_dir / "stale.txt"
+            stale_file.write_text("stale\n", encoding="utf-8")
+            stale_constructions = output_dir / "constructions.json"
+            stale_constructions_content = "{}\n"
+            stale_constructions.write_text(stale_constructions_content, encoding="utf-8")
+
+            harness.export_public_tile_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                output_dir,
+                scale=2,
+            )
+
+            self.assertFalse(stale_file.exists())
+            # constructions.json is now legitimately present (family has constructions);
+            # verify the stale content was cleared rather than persisted.
+            if stale_constructions.exists():
+                actual = stale_constructions.read_text(encoding="utf-8")
+                self.assertNotEqual(actual, stale_constructions_content)
+
+    def test_render_layout_supports_pixel_viewports_for_scene_layouts(self) -> None:
+        source_layout_path = ROOT / "prototypes/minimal8-harness/layouts/scene_template_showcase.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            layout = json.loads(source_layout_path.read_text(encoding="utf-8"))
+            layout["project"] = str(ROOT / "prototypes/minimal8-harness/project.minimal8.json")
+            layout["viewport"] = {
+                "x": 64,
+                "y": 32,
+                "width": 96,
+                "height": 64,
+                "units": "pixels",
+                "scale": 2,
+            }
+            layout["output"] = "ignored.png"
+            layout_path = temp_root / "pixel_viewport_layout.json"
+            output_path = temp_root / "pixel_viewport.png"
+            _write_json(layout_path, layout)
+
+            rendered_path = harness.render_layout(layout_path, output_path)
+
+            self.assertEqual(rendered_path, output_path)
+            self.assertTrue(output_path.exists())
+            with Image.open(output_path) as image:
+                self.assertEqual(image.size, (192, 128))
+
+    def test_render_layout_renders_box_style_gallery(self) -> None:
+        layout_path = ROOT / "prototypes/minimal8-harness/layouts/box_style_gallery.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "box_style_gallery.png"
+
+            rendered_path = harness.render_layout(layout_path, output_path)
+
+            self.assertEqual(rendered_path, output_path)
+            with Image.open(output_path) as image:
+                self.assertEqual(image.size, (2016, 576))
+
+    def test_render_layout_rejects_unknown_layer_operation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            layout_path = Path(temp_dir) / "bad_op.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(project_path),
+                    "map": {"width": 1, "height": 1},
+                    "output": "out.png",
+                    "layers": [{"name": "terrain", "ops": [{"kind": "mystery"}]}],
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "Unsupported layer operation"):
+                harness.render_layout(layout_path)
+
+    def test_render_layout_rejects_unknown_viewport_units(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            layout_path = Path(temp_dir) / "bad_viewport.json"
+            _write_json(
+                layout_path,
+                {
+                    "project": str(project_path),
+                    "map": {"width": 1, "height": 1},
+                    "output": "out.png",
+                    "layers": [{"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": "sample.override"}]}],
+                    "viewport": {"x": 0, "y": 0, "width": 8, "height": 8, "units": "frobs"},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "Unsupported viewport units"):
+                harness.render_layout(layout_path)
+
+    def test_query_semantic_catalog_filters_by_region_and_alias_prefix(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+
+        results = harness.query_semantic_catalog(
+            project_path,
+            "minimal8@1bit_colored_bg",
+            region="tileset.column_2",
+            alias_prefix="indoors.bookcase",
+        )
+
+        self.assertEqual(
+            [entry["id"] for entry in results],
+            [
+                "minimal8:terrain:8,15",
+                "minimal8:terrain:9,15",
+                "minimal8:terrain:10,15",
+            ],
+        )
+        for entry in results:
+            self.assertTrue(any(alias.startswith("indoors.bookcase") for alias in entry["aliases"]))
+
+    def test_export_semantic_review_pack_writes_filtered_assets_and_notes(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = harness.export_semantic_review_pack(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                Path(temp_dir) / "semantic-review",
+                alias_prefix="indoors.bookcase",
+                scale=2,
+            )
+            payload = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+            index_md = (output_dir / "index.md").read_text(encoding="utf-8")
+            review_notes = (output_dir / "review_notes.md").read_text(encoding="utf-8")
+
+            expected_aliases = [
+                "indoors.bookcase.single",
+                "indoors.bookcase.left",
+                "indoors.bookcase.right",
+                "indoors.bookcase.middle",
+            ]
+
+            self.assertEqual(payload["exported_count"], 4)
+            self.assertEqual(payload["unresolved_count"], 0)
+            self.assertEqual(
+                [entry["primary_alias"] for entry in payload["entries"]],
+                expected_aliases,
+            )
+            self.assertTrue((output_dir / "contact_sheet.png").exists())
+            self.assertIn("# Semantic Review Pack", index_md)
+            self.assertIn("# Review Notes", review_notes)
+            for entry in payload["entries"]:
+                self.assertTrue((output_dir / entry["file"]).exists())
+            for alias in expected_aliases:
+                self.assertIn(alias, index_md)
+                self.assertIn(alias, review_notes)
+
+    def test_inspect_tile_edges_falls_back_to_catalog_when_no_architecture_tiles_match(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, project_path = _make_override_family_and_project(Path(temp_dir))
+            project = harness.LayoutProject(project_path)
+            output_dir = Path(temp_dir) / "tile-edge-inspection"
+            output_dir.mkdir()
+
+            harness.inspect_tile_edges(project, "testfam@base", output_dir)
+            payload = json.loads((output_dir / "tile_edges.json").read_text(encoding="utf-8"))
+
+            self.assertGreaterEqual(len(payload), 1)
+            self.assertTrue(all(entry.get("layer") != "architecture" for entry in payload))
+            self.assertTrue(all("edge_contact_score" in entry for entry in payload))
+            self.assertTrue((output_dir / "seam_candidate_tiles.png").exists())
+
+    def test_inspect_family_exports_catalog_and_visual_diagnostics(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = harness.inspect_family(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                Path(temp_dir) / "family-inspection",
+            )
+            file_names = {path.name for path in output_dir.iterdir()}
+            catalog = json.loads((output_dir / "catalog.json").read_text(encoding="utf-8"))
+            tile_edges = json.loads((output_dir / "tile_edges.json").read_text(encoding="utf-8"))
+            coverage = json.loads((output_dir / "source_layout.coverage.json").read_text(encoding="utf-8"))
+
+            self.assertTrue(
+                {
+                    "catalog.json",
+                    "sheet_grid.png",
+                    "non_empty_tiles.png",
+                    "tile_edges.json",
+                    "seam_candidate_tiles.png",
+                    "metatiles.json",
+                    "box_styles.json",
+                    "source_layout.json",
+                    "source_layout.detected.json",
+                    "source_layout.coverage.json",
+                    "clusters.json",
+                    "semantic_catalog.json",
+                }.issubset(file_names)
+            )
+            self.assertGreater(len(catalog), 0)
+            self.assertGreater(len(tile_edges), 0)
+            self.assertTrue(coverage["complete"])
+
+    def test_export_tiled_kit_writes_tiled_ready_assets_and_catalogues(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = harness.export_tiled_kit(
+                project_path,
+                "minimal8@1bit_colored_bg",
+                Path(temp_dir) / "tiled-kit",
+            )
+
+            starter_map = json.loads((output_dir / "starter_c64_room.tmj").read_text(encoding="utf-8"))
+            cells_catalog = json.loads((output_dir / "cells_catalog.json").read_text(encoding="utf-8"))
+            metatiles_catalog = json.loads((output_dir / "metatiles_catalog.json").read_text(encoding="utf-8"))
+            semantic_catalog = json.loads((output_dir / "semantic_catalog.json").read_text(encoding="utf-8"))
+
+            self.assertTrue((output_dir / "cells.tsx").exists())
+            self.assertTrue((output_dir / "metatiles.tsx").exists())
+            self.assertTrue((output_dir / "README.md").exists())
+            self.assertTrue((output_dir / "cells").is_dir())
+            self.assertTrue((output_dir / "metatiles").is_dir())
+            self.assertEqual(starter_map["tilewidth"], 8)
+            self.assertEqual(starter_map["tileheight"], 8)
+            self.assertEqual(len(starter_map["tilesets"]), 2)
+            self.assertEqual(starter_map["tilesets"][1]["firstgid"], 1089)
+            self.assertEqual(len(cells_catalog), 1088)
+            self.assertGreater(len(metatiles_catalog), 0)
+            self.assertGreater(len(semantic_catalog), 0)
+
+    def test_export_tiled_kit_clears_stale_outputs(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "tiled-kit"
+            harness.export_tiled_kit(project_path, "minimal8@1bit_colored_bg", output_dir)
+            (output_dir / "tiles").mkdir()
+            stale_cell = output_dir / "cells" / "stale.txt"
+            stale_cell.write_text("stale\n", encoding="utf-8")
+            stale_readme = output_dir / "README.md"
+            stale_readme.write_text("stale\n", encoding="utf-8")
+
+            harness.export_tiled_kit(project_path, "minimal8@1bit_colored_bg", output_dir)
+
+            self.assertFalse((output_dir / "tiles").exists())
+            self.assertFalse(stale_cell.exists())
+            self.assertIn("# Tiled Kit", stale_readme.read_text(encoding="utf-8"))
+
+    def test_bootstrap_project_writes_grid_aligned_project_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sheet_path = temp_root / "sheet.png"
+            Image.new("RGBA", (16, 8), (1, 2, 3, 255)).save(sheet_path)
+            output_path = temp_root / "project.json"
+
+            written_path = harness.bootstrap_project(
+                sheet_path=sheet_path,
+                output_path=output_path,
+                tile_width=8,
+                tile_height=8,
+                transparent="none",
+                tileset_id=None,
+            )
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(written_path, output_path.resolve())
+            self.assertEqual(payload["grid"], {"tile_width": 8, "tile_height": 8})
+            self.assertIn("sheet", payload["tilesets"])
+            self.assertEqual(payload["tilesets"]["sheet"]["regions"]["all"], {"x": 0, "y": 0, "width": 2, "height": 1})
+
+    def test_bootstrap_project_rejects_non_divisible_sheet_sizes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sheet_path = temp_root / "sheet.png"
+            Image.new("RGBA", (10, 8), (1, 2, 3, 255)).save(sheet_path)
+
+            with self.assertRaisesRegex(ValueError, "is not divisible by tile size"):
+                harness.bootstrap_project(
+                    sheet_path=sheet_path,
+                    output_path=temp_root / "project.json",
+                    tile_width=8,
+                    tile_height=8,
+                    transparent="none",
+                    tileset_id="custom",
+                )
+
+    def test_main_query_semantic_prints_filtered_json(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        stdout = io.StringIO()
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "minimal8_harness.py",
+                "query-semantic",
+                str(project_path),
+                "--tileset",
+                "minimal8@1bit_colored_bg",
+                "--alias-prefix",
+                "indoors.bookcase",
+                "--limit",
+                "2",
+            ],
+        ), redirect_stdout(stdout):
+            harness.main()
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(len(payload), 2)
+        self.assertTrue(all(any(alias.startswith("indoors.bookcase") for alias in entry["aliases"]) for entry in payload))
+
+
+if __name__ == "__main__":
+    unittest.main()

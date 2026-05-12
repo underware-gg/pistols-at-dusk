@@ -1,0 +1,47 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 64,
+    "height": 40,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 12,
+    "y": 8,
+    "width": 40,
+    "height": 25,
+    "units": "tiles",
+    "scale": 4
+  },
+  "scenes": [
+    {
+      "template": "causeway",
+      "x": 26,
+      "y": 12,
+      "width": 12,
+      "height": 8,
+      "outer_style": "gold_ui_frame",
+      "stem_style": "gold_ui_frame_dense",
+      "stem_width": 6,
+      "stem_height": 8,
+      "water_margin_x": 16,
+      "water_margin_top": 2,
+      "water_margin_bottom": 8
+    }
+  ],
+  "layers": [
+    {
+      "name": "ornament",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@symbols_crown",
+          "x": 29,
+          "y": 8
+        }
+      ]
+    }
+  ],
+  "output": "../generated/causeway_approach.png"
+}

@@ -1,0 +1,29 @@
+{
+  "include": [
+    "scripts",
+    "experiments/202605-minimal8-scene-experiments/scripts",
+    "tests"
+  ],
+  "exclude": [
+    "**/generated",
+    "**/scratch.local",
+    "resources"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "strict",
+  "executionEnvironments": [
+    {
+      "root": "scripts",
+      "extraPaths": ["scripts"]
+    },
+    {
+      "root": "experiments/202605-minimal8-scene-experiments/scripts",
+      "extraPaths": ["scripts"]
+    },
+    {
+      "root": "tests",
+      "extraPaths": ["scripts"]
+    }
+  ]
+}

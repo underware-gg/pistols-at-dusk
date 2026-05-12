@@ -1,0 +1,299 @@
+{
+  "project": "prototypes/minimal8-harness/project.minimal8.json",
+  "tileset": "minimal8@1bit_colored_bg",
+  "round_id": "round_002",
+  "exported_at": "2026-05-09T13:22:05",
+  "collection_count": 4,
+  "collections": [
+    {
+      "id": "indoors.door.grand.closed",
+      "kind": "assembly",
+      "label": "Grand closed indoor door",
+      "source_region_id": "tileset.column_1",
+      "source_cluster_id": "tileset.column_1.cluster_01",
+      "bounds": {
+        "x": 4,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "alias": "indoors.door.grand.closed.tl"
+        },
+        {
+          "alias": "indoors.door.grand.closed.tr"
+        },
+        {
+          "alias": "indoors.door.grand.closed.bl"
+        },
+        {
+          "alias": "indoors.door.grand.closed.br"
+        }
+      ],
+      "resolved_members": [
+        {
+          "ref": "indoors.door.grand.closed.tl",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 4,
+            "row": 12
+          }
+        },
+        {
+          "ref": "indoors.door.grand.closed.tr",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 5,
+            "row": 12
+          }
+        },
+        {
+          "ref": "indoors.door.grand.closed.bl",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 4,
+            "row": 13
+          }
+        },
+        {
+          "ref": "indoors.door.grand.closed.br",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 5,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Authored 2x2 doorway assembly built from four reusable door tiles.",
+      "preview": "images/indoors_door_grand_closed.png",
+      "feedback_file": "collections/indoors_door_grand_closed.md"
+    },
+    {
+      "id": "indoors.table.long",
+      "kind": "assembly",
+      "label": "Long indoor table",
+      "source_region_id": "tileset.column_2",
+      "source_cluster_id": "tileset.column_2.cluster_02",
+      "bounds": {
+        "x": 20,
+        "y": 17,
+        "width": 3,
+        "height": 1
+      },
+      "members": [
+        {
+          "alias": "indoors.table.long.left"
+        },
+        {
+          "alias": "indoors.table.long.middle"
+        },
+        {
+          "alias": "indoors.table.long.right"
+        }
+      ],
+      "resolved_members": [
+        {
+          "ref": "indoors.table.long.left",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 20,
+            "row": 17
+          }
+        },
+        {
+          "ref": "indoors.table.long.middle",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 21,
+            "row": 17
+          }
+        },
+        {
+          "ref": "indoors.table.long.right",
+          "kind": "alias",
+          "sheet_cell": {
+            "col": 22,
+            "row": 17
+          }
+        }
+      ],
+      "notes": "Three-part table kit with left / middle / right reuse semantics.",
+      "preview": "images/indoors_table_long.png",
+      "feedback_file": "collections/indoors_table_long.md"
+    },
+    {
+      "id": "actor.red",
+      "kind": "assembly",
+      "label": "Red actor 2x2 sprite",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 5
+          }
+        }
+      ],
+      "resolved_members": [
+        {
+          "ref": "sheet:38,4",
+          "kind": "sheet_cell",
+          "sheet_cell": {
+            "col": 38,
+            "row": 4
+          }
+        },
+        {
+          "ref": "sheet:39,4",
+          "kind": "sheet_cell",
+          "sheet_cell": {
+            "col": 39,
+            "row": 4
+          }
+        },
+        {
+          "ref": "sheet:38,5",
+          "kind": "sheet_cell",
+          "sheet_cell": {
+            "col": 38,
+            "row": 5
+          }
+        },
+        {
+          "ref": "sheet:39,5",
+          "kind": "sheet_cell",
+          "sheet_cell": {
+            "col": 39,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Example 2x2 character assembly expressed in raw sheet cells so the source-layout layer stays honest even when runtime semantic aliases are later refined.",
+      "preview": "images/actor_red.png",
+      "feedback_file": "collections/actor_red.md"
+    },
+    {
+      "id": "ui.gold_frame",
+      "kind": "kit",
+      "label": "Gold frame border kit",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 7,
+        "height": 4
+      },
+      "members": [
+        {
+          "tile_id": "minimal8:ui:1,4"
+        },
+        {
+          "tile_id": "minimal8:ui:2,3"
+        },
+        {
+          "tile_id": "minimal8:ui:2,6"
+        },
+        {
+          "tile_id": "minimal8:ui:6,3"
+        },
+        {
+          "tile_id": "minimal8:ui:6,4"
+        },
+        {
+          "tile_id": "minimal8:ui:7,3"
+        },
+        {
+          "tile_id": "minimal8:ui:7,4"
+        }
+      ],
+      "resolved_members": [
+        {
+          "ref": "minimal8:ui:1,4",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 55,
+            "row": 5
+          }
+        },
+        {
+          "ref": "minimal8:ui:2,3",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 56,
+            "row": 4
+          }
+        },
+        {
+          "ref": "minimal8:ui:2,6",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 56,
+            "row": 7
+          }
+        },
+        {
+          "ref": "minimal8:ui:6,3",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 60,
+            "row": 4
+          }
+        },
+        {
+          "ref": "minimal8:ui:6,4",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 60,
+            "row": 5
+          }
+        },
+        {
+          "ref": "minimal8:ui:7,3",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 61,
+            "row": 4
+          }
+        },
+        {
+          "ref": "minimal8:ui:7,4",
+          "kind": "tile_id",
+          "sheet_cell": {
+            "col": 61,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Reusable gold UI boundary kit: corners and edge pieces that compose into extensible framed panels.",
+      "preview": "images/ui_gold_frame.png",
+      "feedback_file": "collections/ui_gold_frame.md"
+    }
+  ]
+}

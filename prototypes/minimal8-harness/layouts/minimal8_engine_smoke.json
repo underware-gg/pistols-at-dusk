@@ -1,0 +1,90 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 48,
+    "height": 32,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 4,
+    "y": 3,
+    "width": 40,
+    "height": 25,
+    "units": "tiles",
+    "scale": 4
+  },
+  "layers": [
+    {
+      "name": "ornament",
+      "ops": [
+        {
+          "kind": "repeat",
+          "ref": "@green_symbols",
+          "x": 0,
+          "y": 2,
+          "count": 2,
+          "dx": 32,
+          "dy": 0
+        },
+        {
+          "kind": "repeat",
+          "ref": "@meander_band",
+          "x": 9,
+          "y": 2,
+          "count": 2,
+          "dx": 15,
+          "dy": 0
+        },
+        {
+          "kind": "repeat",
+          "ref": "@water_lines",
+          "x": 4,
+          "y": 12,
+          "count": 8,
+          "dx": 0,
+          "dy": 2
+        },
+        {
+          "kind": "repeat",
+          "ref": "@water_lines",
+          "x": 39,
+          "y": 12,
+          "count": 8,
+          "dx": 0,
+          "dy": 2
+        }
+      ]
+    },
+    {
+      "name": "architecture",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@maze_block",
+          "x": 16,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "@door_arch",
+          "x": 21,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "@small_door",
+          "x": 8,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "@small_door",
+          "x": 35,
+          "y": 17
+        }
+      ]
+    }
+  ],
+  "output": "../generated/minimal8_engine_smoke.png"
+}

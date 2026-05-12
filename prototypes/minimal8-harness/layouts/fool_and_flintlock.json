@@ -1,0 +1,29 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 40,
+    "height": 25,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "width": 40,
+    "height": 25,
+    "units": "tiles",
+    "scale": 4
+  },
+  "scenes": [
+    {
+      "template": "tavern",
+      "x": 0,
+      "y": 0,
+      "width": 40,
+      "height": 25,
+      "quiet_floor_density": 0.04,
+      "quiet_floor_seed": 17
+    }
+  ],
+  "output": "../generated/fool_and_flintlock.png"
+}

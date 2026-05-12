@@ -1,0 +1,2304 @@
+{
+  "template_id": "tavern",
+  "description": "Interior tavern room with a framed back bar, compact cellar access, mixed communal and side tables, and authored drinks and patrons.",
+  "parameters": {
+    "x": {
+      "type": "int",
+      "required": true,
+      "description": "Left tile coordinate of the tavern footprint."
+    },
+    "y": {
+      "type": "int",
+      "required": true,
+      "description": "Top tile coordinate of the tavern footprint."
+    },
+    "width": {
+      "type": "int",
+      "required": true,
+      "description": "Tavern width in tiles."
+    },
+    "height": {
+      "type": "int",
+      "required": true,
+      "description": "Tavern height in tiles."
+    },
+    "terrain_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer name for floor fills and scatter."
+    },
+    "architecture_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer name for walls, furniture, and doors."
+    },
+    "ornament_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer name for small shelf and wall overlays."
+    },
+    "actors_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer name for character stamps."
+    },
+    "base_floor": {
+      "type": "tile_ref",
+      "required": false,
+      "description": "Base floor tile or metatile reference."
+    },
+    "quiet_floor_refs": {
+      "type": "list[tile_ref]",
+      "required": false,
+      "description": "Tile or metatile references used for sparse floor scatter."
+    },
+    "quiet_floor_density": {
+      "type": "float",
+      "required": false,
+      "description": "Scatter density for quiet floor accents."
+    },
+    "quiet_floor_seed": {
+      "type": "int",
+      "required": false,
+      "description": "Random seed for the quiet floor scatter pass."
+    },
+    "back_wall_x": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit left tile coordinate for the back wall run."
+    },
+    "back_wall_width": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit width of the back wall run."
+    },
+    "back_wall_y": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit top tile coordinate for the back wall run."
+    },
+    "service_left": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit left tile coordinate for the main service counter run."
+    },
+    "service_right": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit right tile coordinate for the main service counter run."
+    },
+    "service_y": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit Y coordinate for the main service counter run."
+    },
+    "door_x": {
+      "type": "int",
+      "required": false,
+      "description": "Explicit X coordinate for the grand tavern entrance door."
+    },
+    "warm_floor_refs": {
+      "type": "list[tile_ref]",
+      "required": false,
+      "description": "Warmer floor accent tiles used for a light secondary scatter pass."
+    },
+    "warm_floor_density": {
+      "type": "float",
+      "required": false,
+      "description": "Scatter density for warmer floor accents."
+    }
+  },
+  "bindings": {
+    "terrain_layer": {
+      "param": "terrain_layer",
+      "default": "terrain"
+    },
+    "architecture_layer": {
+      "param": "architecture_layer",
+      "default": "architecture"
+    },
+    "ornament_layer": {
+      "param": "ornament_layer",
+      "default": "ornament"
+    },
+    "actors_layer": {
+      "param": "actors_layer",
+      "default": "actors"
+    },
+    "base_floor": {
+      "param": "base_floor",
+      "default": "tavern.floor.quiet.base"
+    },
+    "quiet_floor_refs": {
+      "param": "quiet_floor_refs",
+      "default": [
+        "tavern.floor.quiet.sparse.a",
+        "tavern.floor.quiet.sparse.b",
+        "tavern.floor.quiet.sparse.c"
+      ]
+    },
+    "quiet_floor_density": {
+      "param": "quiet_floor_density",
+      "default": 0.03
+    },
+    "quiet_floor_seed": {
+      "param": "quiet_floor_seed",
+      "default": 13
+    },
+    "back_wall_x": {
+      "param": "back_wall_x",
+      "default": {
+        "add": [
+          {
+            "param": "x"
+          },
+          10
+        ]
+      }
+    },
+    "back_wall_width": {
+      "param": "back_wall_width",
+      "default": {
+        "min": [
+          18,
+          {
+            "max": [
+              16,
+              {
+                "sub": [
+                  {
+                    "param": "width"
+                  },
+                  20
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "back_wall_y": {
+      "param": "back_wall_y",
+      "default": {
+        "add": [
+          {
+            "param": "y"
+          },
+          3
+        ]
+      }
+    },
+    "back_room_door_x": {
+      "add": [
+        {
+          "bind": "back_wall_x"
+        },
+        1
+      ]
+    },
+    "back_room_door_y": {
+      "add": [
+        {
+          "bind": "back_wall_y"
+        },
+        2
+      ]
+    },
+    "shelf_left": {
+      "add": [
+        {
+          "bind": "back_wall_x"
+        },
+        7
+      ]
+    },
+    "shelf_length": 5,
+    "service_left": {
+      "param": "service_left",
+      "default": {
+        "add": [
+          {
+            "bind": "back_wall_x"
+          },
+          4
+        ]
+      }
+    },
+    "service_right": {
+      "param": "service_right",
+      "default": {
+        "sub": [
+          {
+            "add": [
+              {
+                "bind": "back_wall_x"
+              },
+              {
+                "bind": "back_wall_width"
+              }
+            ]
+          },
+          5
+        ]
+      }
+    },
+    "service_y": {
+      "param": "service_y",
+      "default": {
+        "add": [
+          {
+            "param": "y"
+          },
+          10
+        ]
+      }
+    },
+    "door_x": {
+      "param": "door_x",
+      "default": {
+        "sub": [
+          {
+            "add": [
+              {
+                "param": "x"
+              },
+              {
+                "floordiv": [
+                  {
+                    "param": "width"
+                  },
+                  2
+                ]
+              }
+            ]
+          },
+          1
+        ]
+      }
+    },
+    "bar_length": {
+      "add": [
+        {
+          "sub": [
+            {
+              "bind": "service_right"
+            },
+            {
+              "bind": "service_left"
+            }
+          ]
+        },
+        1
+      ]
+    },
+    "bartender_x": {
+      "add": [
+        {
+          "bind": "service_left"
+        },
+        5
+      ]
+    },
+    "scatter_inner_x": {
+      "add": [
+        {
+          "param": "x"
+        },
+        1
+      ]
+    },
+    "scatter_inner_y": {
+      "add": [
+        {
+          "param": "y"
+        },
+        1
+      ]
+    },
+    "scatter_inner_width": {
+      "sub": [
+        {
+          "param": "width"
+        },
+        2
+      ]
+    },
+    "scatter_inner_height": {
+      "sub": [
+        {
+          "param": "height"
+        },
+        2
+      ]
+    },
+    "warm_floor_refs": {
+      "param": "warm_floor_refs",
+      "default": [
+        "tavern.floor.b",
+        "tavern.floor.c"
+      ]
+    },
+    "warm_floor_density": {
+      "param": "warm_floor_density",
+      "default": 0.02
+    }
+  },
+  "slot_groups": {
+    "back_wall_stock": [
+      {
+        "id": "stock_0",
+        "x": {
+          "bind": "shelf_left"
+        },
+        "y": {
+          "add": [
+            {
+              "bind": "back_wall_y"
+            },
+            3
+          ]
+        },
+        "layer": {
+          "bind": "architecture_layer"
+        }
+      },
+      {
+        "id": "stock_1",
+        "x": {
+          "add": [
+            {
+              "bind": "shelf_left"
+            },
+            2
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "bind": "back_wall_y"
+            },
+            3
+          ]
+        },
+        "layer": {
+          "bind": "architecture_layer"
+        }
+      },
+      {
+        "id": "stock_2",
+        "x": {
+          "add": [
+            {
+              "bind": "shelf_left"
+            },
+            4
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "bind": "back_wall_y"
+            },
+            3
+          ]
+        },
+        "layer": {
+          "bind": "architecture_layer"
+        }
+      }
+    ],
+    "dining_vertical_2x6": [
+      {
+        "id": "communal_west",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            5
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            12
+          ]
+        }
+      },
+      {
+        "id": "communal_east",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            29
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            12
+          ]
+        }
+      }
+    ],
+    "dining_square_2x2": [
+      {
+        "id": "square_centre",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            18
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            13
+          ]
+        }
+      }
+    ],
+    "dining_rect_3x2": [
+      {
+        "id": "rect_lower_west",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            11
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            19
+          ]
+        }
+      }
+    ],
+    "dining_rect_2x3": [
+      {
+        "id": "rect_lower_east",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            24
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            18
+          ]
+        }
+      }
+    ],
+    "dining_square_single": [
+      {
+        "id": "single_east_nook",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            34
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            17
+          ]
+        }
+      }
+    ],
+    "dining_round_single": [
+      {
+        "id": "round_southwest",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            8
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            20
+          ]
+        }
+      },
+      {
+        "id": "round_southeast",
+        "x": {
+          "add": [
+            {
+              "param": "x"
+            },
+            29
+          ]
+        },
+        "y": {
+          "add": [
+            {
+              "param": "y"
+            },
+            20
+          ]
+        }
+      }
+    ]
+  },
+  "ops": [
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "terrain_layer"
+      },
+      "ref": {
+        "bind": "base_floor"
+      },
+      "x": {
+        "param": "x"
+      },
+      "y": {
+        "param": "y"
+      },
+      "width": {
+        "param": "width"
+      },
+      "height": {
+        "param": "height"
+      }
+    },
+    {
+      "kind": "scatter",
+      "layer": {
+        "bind": "terrain_layer"
+      },
+      "refs": {
+        "bind": "quiet_floor_refs"
+      },
+      "x": {
+        "bind": "scatter_inner_x"
+      },
+      "y": {
+        "bind": "scatter_inner_y"
+      },
+      "rows": {
+        "fill_rows": {
+          "width": {
+            "bind": "scatter_inner_width"
+          },
+          "height": {
+            "bind": "scatter_inner_height"
+          }
+        }
+      },
+      "density": {
+        "bind": "quiet_floor_density"
+      },
+      "seed": {
+        "bind": "quiet_floor_seed"
+      }
+    },
+    {
+      "kind": "scatter",
+      "layer": {
+        "bind": "terrain_layer"
+      },
+      "refs": {
+        "bind": "warm_floor_refs"
+      },
+      "x": {
+        "bind": "scatter_inner_x"
+      },
+      "y": {
+        "bind": "scatter_inner_y"
+      },
+      "rows": {
+        "fill_rows": {
+          "width": {
+            "bind": "scatter_inner_width"
+          },
+          "height": {
+            "bind": "scatter_inner_height"
+          }
+        }
+      },
+      "density": {
+        "bind": "warm_floor_density"
+      },
+      "seed": {
+        "add": [
+          {
+            "bind": "quiet_floor_seed"
+          },
+          101
+        ]
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_top",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "param": "x"
+      },
+      "y": {
+        "param": "y"
+      },
+      "width": {
+        "param": "width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_top",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "param": "x"
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          {
+            "sub": [
+              {
+                "param": "height"
+              },
+              1
+            ]
+          }
+        ]
+      },
+      "width": {
+        "param": "width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_side",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "param": "x"
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          1
+        ]
+      },
+      "width": 1,
+      "height": {
+        "sub": [
+          {
+            "param": "height"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_side",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          {
+            "sub": [
+              {
+                "param": "width"
+              },
+              1
+            ]
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          1
+        ]
+      },
+      "width": 1,
+      "height": {
+        "sub": [
+          {
+            "param": "height"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_top",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          1
+        ]
+      },
+      "width": {
+        "sub": [
+          {
+            "param": "width"
+          },
+          2
+        ]
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_top",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          {
+            "sub": [
+              {
+                "param": "height"
+              },
+              2
+            ]
+          }
+        ]
+      },
+      "width": {
+        "sub": [
+          {
+            "param": "width"
+          },
+          2
+        ]
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_side",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          2
+        ]
+      },
+      "width": 1,
+      "height": {
+        "sub": [
+          {
+            "param": "height"
+          },
+          4
+        ]
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "@tavern_outer_wall_side",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          {
+            "sub": [
+              {
+                "param": "width"
+              },
+              2
+            ]
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          2
+        ]
+      },
+      "width": 1,
+      "height": {
+        "sub": [
+          {
+            "param": "height"
+          },
+          4
+        ]
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "tavern.wall.a",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "back_wall_x"
+      },
+      "y": {
+        "bind": "back_wall_y"
+      },
+      "width": {
+        "bind": "back_wall_width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "tavern.wall.b",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "back_wall_x"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      },
+      "width": {
+        "bind": "back_wall_width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "tavern.wall.a",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "back_wall_x"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      },
+      "width": {
+        "bind": "back_wall_width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": {
+        "ref": "tavern.wall.b",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "back_wall_x"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          3
+        ]
+      },
+      "width": {
+        "bind": "back_wall_width"
+      },
+      "height": 1
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "tavern.trim.v",
+      "x": {
+        "sub": [
+          {
+            "bind": "back_wall_x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      },
+      "width": 1,
+      "height": 4
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "tavern.trim.v",
+      "x": {
+        "add": [
+          {
+            "bind": "back_wall_x"
+          },
+          {
+            "bind": "back_wall_width"
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      },
+      "width": 1,
+      "height": 4
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.door.small.open",
+      "x": {
+        "add": [
+          {
+            "bind": "back_room_door_x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_room_door_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stairs.down",
+      "x": {
+        "add": [
+          {
+            "bind": "back_room_door_x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "bind": "back_room_door_y"
+      }
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "tavern.wall.c",
+      "x": {
+        "sub": [
+          {
+            "bind": "shelf_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "bind": "back_wall_y"
+      },
+      "width": 1,
+      "height": 4
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "tavern.wall.c",
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          }
+        ]
+      },
+      "y": {
+        "bind": "back_wall_y"
+      },
+      "width": 1,
+      "height": 4
+    },
+    {
+      "kind": "fill",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "tavern.wall.c",
+      "x": {
+        "bind": "shelf_left"
+      },
+      "y": {
+        "bind": "back_wall_y"
+      },
+      "width": {
+        "bind": "shelf_length"
+      },
+      "height": 1
+    },
+    {
+      "kind": "entity",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "construction": "indoors.bookcase.tall.run",
+      "x": {
+        "bind": "shelf_left"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      },
+      "params": {
+        "length": {
+          "bind": "shelf_length"
+        }
+      }
+    },
+    {
+      "kind": "entity",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "construction": "indoors.bookcase.tall.run",
+      "x": {
+        "bind": "shelf_left"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      },
+      "params": {
+        "length": {
+          "bind": "shelf_length"
+        }
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool",
+      "x": {
+        "bind": "bartender_x"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion.blue",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          0
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.whiskey",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          0
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion.purple",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion.blue",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          2
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.whiskey",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          2
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion.purple",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.potion.blue",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          4
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.whiskey",
+        "underpaint": "indoors.bookcase.middle",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          4
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "back_wall_stock",
+      "slot_group": "back_wall_stock",
+      "seed": 31
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_2",
+        "underpaint": "tavern.wall.b",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "sub": [
+          {
+            "bind": "shelf_left"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_3",
+        "underpaint": "tavern.wall.b",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          },
+          2
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.bookcase.left",
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.bookcase.right",
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          },
+          4
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.bookcase.left",
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.bookcase.right",
+      "x": {
+        "add": [
+          {
+            "bind": "shelf_left"
+          },
+          {
+            "bind": "shelf_length"
+          },
+          4
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "back_wall_y"
+          },
+          2
+        ]
+      }
+    },
+    {
+      "kind": "entity",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "construction": "indoors.counter.low.run",
+      "x": {
+        "bind": "service_left"
+      },
+      "y": {
+        "bind": "service_y"
+      },
+      "params": {
+        "length": {
+          "bind": "bar_length"
+        }
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "underworld.pillar.a",
+      "x": {
+        "sub": [
+          {
+            "bind": "service_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "sub": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "underworld.pillar.b",
+      "x": {
+        "sub": [
+          {
+            "bind": "service_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "bind": "service_y"
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "underworld.pillar.a",
+      "x": {
+        "add": [
+          {
+            "bind": "service_right"
+          },
+          1
+        ]
+      },
+      "y": {
+        "sub": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "underworld.pillar.b",
+      "x": {
+        "add": [
+          {
+            "bind": "service_right"
+          },
+          1
+        ]
+      },
+      "y": {
+        "bind": "service_y"
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool",
+      "x": {
+        "add": [
+          {
+            "bind": "service_left"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool",
+      "x": {
+        "add": [
+          {
+            "bind": "service_left"
+          },
+          4
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool",
+      "x": {
+        "add": [
+          {
+            "bind": "service_left"
+          },
+          7
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.bottle.whiskey",
+        "underpaint": "indoors.counter.low.middle",
+        "occlusion": "fill_holes",
+        "offset_left": 0,
+        "offset_bottom": 2
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "service_left"
+          },
+          6
+        ]
+      },
+      "y": {
+        "bind": "service_y"
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "@indoors_door_grand_closed",
+      "x": {
+        "bind": "door_x"
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          {
+            "sub": [
+              {
+                "param": "height"
+              },
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_2",
+        "underpaint": "minimal8:architecture:1,13",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "sub": [
+          {
+            "bind": "door_x"
+          },
+          2
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          {
+            "sub": [
+              {
+                "param": "height"
+              },
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_4",
+        "underpaint": "minimal8:architecture:2,13",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "bind": "door_x"
+          },
+          3
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          {
+            "sub": [
+              {
+                "param": "height"
+              },
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_1",
+        "underpaint": "minimal8:architecture:1,14",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          7
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_3",
+        "underpaint": "minimal8:architecture:1,14",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          {
+            "sub": [
+              {
+                "param": "width"
+              },
+              2
+            ]
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          7
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_2",
+        "underpaint": "minimal8:architecture:2,14",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          1
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          16
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "indoors.light.torch.frame_4",
+        "underpaint": "minimal8:architecture:2,14",
+        "occlusion": "fill_holes"
+      },
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          {
+            "sub": [
+              {
+                "param": "width"
+              },
+              2
+            ]
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          16
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.brazier.frame_1",
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          2
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          21
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.brazier.frame_2",
+      "x": {
+        "add": [
+          {
+            "param": "x"
+          },
+          {
+            "sub": [
+              {
+                "param": "width"
+              },
+              3
+            ]
+          }
+        ]
+      },
+      "y": {
+        "add": [
+          {
+            "param": "y"
+          },
+          21
+        ]
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_vertical_2x6",
+      "slot_group": "dining_vertical_2x6",
+      "seed": 70,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_square_2x2",
+      "slot_group": "dining_square_2x2",
+      "seed": 71,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_rect_3x2",
+      "slot_group": "dining_rect_3x2",
+      "seed": 72,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_rect_2x3",
+      "slot_group": "dining_rect_2x3",
+      "seed": 73,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_round_single",
+      "slot_group": "dining_round_single",
+      "seed": 74,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "populate_slots",
+      "ruleset": "tavern",
+      "catalogue": "dining_square_single",
+      "slot_group": "dining_square_single",
+      "seed": 75,
+      "args": {
+        "architecture_layer": {
+          "bind": "architecture_layer"
+        },
+        "ornament_layer": {
+          "bind": "ornament_layer"
+        },
+        "actors_layer": {
+          "bind": "actors_layer"
+        }
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "tavern.hero",
+        "underpaint": "indoors.stool",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "bartender_x"
+      },
+      "y": {
+        "add": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "tavern.bartender",
+        "occlusion": "fill_cell"
+      },
+      "x": {
+        "bind": "bartender_x"
+      },
+      "y": {
+        "sub": [
+          {
+            "bind": "service_y"
+          },
+          1
+        ]
+      }
+    }
+  ]
+}

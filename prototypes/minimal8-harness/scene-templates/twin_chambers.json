@@ -1,0 +1,188 @@
+{
+  "template_id": "twin_chambers",
+  "description": "Two framed chambers connected by an optional bridge span and a centered focal doorway.",
+  "parameters": {
+    "x": {"type": "int", "required": true, "description": "Left tile coordinate of the chamber footprint."},
+    "y": {"type": "int", "required": true, "description": "Top tile coordinate of the chamber footprint."},
+    "width": {"type": "int", "required": true, "description": "Total width in tiles across both chambers and the bridge."},
+    "height": {"type": "int", "required": true, "description": "Shared chamber height in tiles."},
+    "room_layer": {"type": "str", "required": false, "description": "Layer name for chamber boxes."},
+    "ornament_layer": {"type": "str", "required": false, "description": "Layer name for the doorway stamp."},
+    "outer_style": {"type": "str", "required": false, "description": "Box style used for both outer chambers."},
+    "bridge_style": {"type": "str", "required": false, "description": "Optional box style for the connecting bridge span."},
+    "bridge_width": {"type": "int", "required": false, "description": "Bridge width in tiles."},
+    "left_width": {"type": "int", "required": false, "description": "Left chamber width in tiles."},
+    "right_width": {"type": "int", "required": false, "description": "Right chamber width in tiles."},
+    "bridge_height": {"type": "int", "required": false, "description": "Bridge height in tiles when the bridge span is enabled."},
+    "bridge_y": {"type": "int", "required": false, "description": "Explicit top Y coordinate for the bridge span."},
+    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the focal doorway."},
+    "door_target": {"type": "str", "required": false, "description": "Which chamber or bridge span the doorway should center on: left, right, or bridge."},
+    "door_x": {"type": "int", "required": false, "description": "Explicit doorway X coordinate instead of centering."},
+    "door_y": {"type": "int", "required": false, "description": "Explicit doorway Y coordinate instead of the default focal row."}
+  },
+  "bindings": {
+    "room_layer": {"param": "room_layer", "default": "rooms"},
+    "ornament_layer": {"param": "ornament_layer", "default": "ornament"},
+    "outer_style": {"param": "outer_style", "default": "gold_ui_frame"},
+    "bridge_style": {"param": "bridge_style", "default": "gold_ui_frame_dense"},
+    "bridge_width": {"param": "bridge_width", "default": {"max": [8, {"floordiv": [{"param": "width"}, 4]}]}},
+    "left_width": {
+      "param": "left_width",
+      "default": {
+        "max": [
+          10,
+          {
+            "floordiv": [
+              {"sub": [{"param": "width"}, {"bind": "bridge_width"}]},
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "right_width": {
+      "param": "right_width",
+      "default": {
+        "sub": [
+          {"sub": [{"param": "width"}, {"bind": "bridge_width"}]},
+          {"bind": "left_width"}
+        ]
+      }
+    },
+    "left_x": {"param": "x"},
+    "bridge_x": {"add": [{"param": "x"}, {"bind": "left_width"}]},
+    "right_x": {"add": [{"bind": "bridge_x"}, {"bind": "bridge_width"}]},
+    "bridge_box_enabled": {
+      "all": [
+        {"enabled": {"bind": "bridge_style"}},
+        {"gt": [{"bind": "bridge_width"}, 1]}
+      ]
+    },
+    "bridge_height": {"param": "bridge_height", "default": 4},
+    "bridge_y": {
+      "param": "bridge_y",
+      "default": {
+        "add": [
+          {"param": "y"},
+          {
+            "max": [
+              2,
+              {
+                "floordiv": [
+                  {"sub": [{"param": "height"}, {"bind": "bridge_height"}]},
+                  2
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "door_target": {"param": "door_target", "default": "right"},
+    "door_target_x": {
+      "if": {"eq": [{"bind": "door_target"}, "left"]},
+      "then": {"bind": "left_x"},
+      "else": {
+        "if": {"eq": [{"bind": "door_target"}, "bridge"]},
+        "then": {"bind": "bridge_x"},
+        "else": {"bind": "right_x"}
+      }
+    },
+    "door_target_width": {
+      "if": {"eq": [{"bind": "door_target"}, "left"]},
+      "then": {"bind": "left_width"},
+      "else": {
+        "if": {"eq": [{"bind": "door_target"}, "bridge"]},
+        "then": {"bind": "bridge_width"},
+        "else": {"bind": "right_width"}
+      }
+    },
+    "door_ref": {"param": "door_ref", "default": "@door_arch"}
+  },
+  "constraints": [
+    {
+      "condition": {
+        "all": [
+          {"gt": [{"bind": "left_width"}, 1]},
+          {"gt": [{"bind": "right_width"}, 1]},
+          {"gt": [{"bind": "bridge_width"}, -1]},
+          {
+            "gt": [
+              {"param": "width"},
+              {
+                "sub": [
+                  {"add": [{"bind": "left_width"}, {"bind": "bridge_width"}, {"bind": "right_width"}]},
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "message": "Invalid twin_chambers dimensions."
+    }
+  ],
+  "ops": [
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "style": {"bind": "outer_style"},
+      "x": {"bind": "left_x"},
+      "y": {"param": "y"},
+      "width": {"bind": "left_width"},
+      "height": {"param": "height"}
+    },
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "style": {"bind": "outer_style"},
+      "x": {"bind": "right_x"},
+      "y": {"param": "y"},
+      "width": {"bind": "right_width"},
+      "height": {"param": "height"}
+    },
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "when_present": "bridge_box_enabled",
+      "style": {"bind": "bridge_style"},
+      "x": {"bind": "bridge_x"},
+      "y": {"bind": "bridge_y"},
+      "width": {"bind": "bridge_width"},
+      "height": {"bind": "bridge_height"}
+    },
+    {
+      "kind": "stamp",
+      "layer": {"bind": "ornament_layer"},
+      "when_present": "door_ref",
+      "ref": {"bind": "door_ref"},
+      "x": {
+        "param": "door_x",
+        "default": {
+          "centered_x": {
+            "ref": {"bind": "door_ref"},
+            "x": {"bind": "door_target_x"},
+            "width": {"bind": "door_target_width"}
+          }
+        }
+      },
+      "y": {
+        "param": "door_y",
+        "default": {
+          "add": [
+            {"param": "y"},
+            {
+              "max": [
+                1,
+                {"floordiv": [{"param": "height"}, 3]}
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "notes": [
+    "Behavior is data-backed in this pass and adds only the small equality and constraint surfaces needed to preserve the twin-chambers layout grammar."
+  ]
+}

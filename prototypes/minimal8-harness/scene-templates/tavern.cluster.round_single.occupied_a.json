@@ -1,0 +1,83 @@
+{
+  "template_id": "tavern.cluster.round_single.occupied_a",
+  "description": "Occupied round tavern table with a tankard and a spare chair.",
+  "parameters": {
+    "architecture_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for furniture stamps."
+    },
+    "ornament_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for drink and prop overlays."
+    },
+    "actors_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for actor stamps."
+    }
+  },
+  "bindings": {
+    "architecture_layer": {
+      "param": "architecture_layer",
+      "default": "architecture"
+    },
+    "ornament_layer": {
+      "param": "ornament_layer",
+      "default": "ornament"
+    },
+    "actors_layer": {
+      "param": "actors_layer",
+      "default": "actors"
+    }
+  },
+  "ops": [
+    {
+      "kind": "entity",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "construction": "indoors.table.kit.round_single",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.chair.left",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.round",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 0,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.green.se",
+        "underpaint": "indoors.chair.right",
+        "occlusion": "fill_cell"
+      },
+      "x": -1,
+      "y": 0
+    }
+  ]
+}

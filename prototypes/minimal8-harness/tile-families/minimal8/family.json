@@ -1,0 +1,331 @@
+{
+  "family_id": "minimal8",
+  "title": "Minimal 8",
+  "grid": {
+    "tile_width": 8,
+    "tile_height": 8
+  },
+  "render_defaults": {
+    "render_step_width": 8,
+    "render_step_height": 8
+  },
+  "siblings_share_semantics": true,
+  "default_variant_id": "1bit_colored_bg",
+  "ingestion_spec": "ingestion.json",
+  "notes": [
+    "All sprite-sheet variants in this family share the same semantic meaning at the same grid coordinates.",
+    "Semantic meaning is anchored to family/region/grid identity rather than a specific colorway sheet.",
+    "The 1bit_colored_bg variant is the canonical first-pass review evidence sheet for cluster and meaning inference; final semantics still live at family level.",
+    "Minimal 8 uses an authoritative 8x8 tile grid, and the artist states the artwork is intentionally drawn as 7x7 inside those 8x8 cells. Grid-aligned tile ownership and runtime placement must therefore stay on the full 8x8 grid rather than following visible-pixel heuristics.",
+    "The default Minimal 8 art anchor is bottom-left: most tiles leave their intentional 1-pixel gutter on the top and right edges of the 8x8 cell. Synthetic tiles for this family should follow that same top-right gutter unless they are deliberately matching a canonical exception.",
+    "Cluster ids are intentionally dual-axis: source.* clusters track source-sheet column / cluster structure, while curated thematic clusters such as indoors.* and icons_and_items capture reuse semantics across that source structure.",
+    "Source-sheet ingest structure now lives separately in ingestion.json: regions describe top-level ingest areas, clusters describe grouped sub-areas within a region, optional ignore_regions can subtract exceptional non-tile sheet content when needed, and collections describe larger logical constructs built from multiple cells.",
+    "Synthetic or derived tiles are allowed at the family semantic layer. They do not need source-sheet ingest placement, but they should carry the same rich semantic metadata as canonical tiles plus clear provenance describing how they were generated."
+  ],
+  "variants": [
+    {
+      "variant_id": "1bit_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "blue",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_colored",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_colored.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "colored",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_cyan",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_cyan.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "cyan",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_green",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_green.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "green",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_grey",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_grey.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "grey",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_orange",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_orange.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "orange",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_purple",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_purple.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "purple",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_red",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_red.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "red",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_yellow",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_yellow.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "yellow",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "1bit_colored_bg_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "blue",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_colored.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "colored",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_cyan",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_cyan.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "cyan",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_green",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_green.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "green",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_grey",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_grey.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "grey",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_orange",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_orange.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "orange",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_purple",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_purple.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "purple",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_red",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_red.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "red",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "1bit_colored_bg_yellow",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/1bit_colored bg png/minimal_8 v2.1_1bit_colored background-1_bit_-_yellow.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "yellow",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Colored.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "colored",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_dark_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Dark_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "dark_blue",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_green",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Green.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "green",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_grey_1",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Grey_1.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "grey_1",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_grey_2",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Grey_2.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "grey_2",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_light_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Light_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "light_blue",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_orange",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Orange.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "orange",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_purple",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Purple.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "purple",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_red",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Red.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "red",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_yellow",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit png/minimal_8 v2.1_2bit-2-bit_-_Yellow.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "yellow",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_colored_bg",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_colored.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "colored",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_dark_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Dark_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "dark_blue",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_green",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Green.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "green",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_grey_1",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Grey_1.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "grey_1",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_grey_2",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Grey_2.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "grey_2",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_light_blue",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Light_blue.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "light_blue",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_orange",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Orange.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "orange",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_purple",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Purple.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "purple",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_red",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Red.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "red",
+      "background_mode": "colored_bg"
+    },
+    {
+      "variant_id": "2bit_colored_bg_yellow",
+      "sheet": "../../../../resources/Super Assets 3000/Minimal 8/2bit_colored bg png/minimal_8 v2.1_2bit_colored background-2-bit_-_Yellow.png",
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "yellow",
+      "background_mode": "colored_bg"
+    }
+  ]
+}

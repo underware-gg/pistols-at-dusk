@@ -1,0 +1,110 @@
+{
+  "template_id": "sanctum",
+  "description": "Framed shrine room with an optional inner chamber and a centered focal doorway.",
+  "parameters": {
+    "x": {"type": "int", "required": true, "description": "Left tile coordinate of the outer room."},
+    "y": {"type": "int", "required": true, "description": "Top tile coordinate of the outer room."},
+    "width": {"type": "int", "required": true, "description": "Outer room width in tiles."},
+    "height": {"type": "int", "required": true, "description": "Outer room height in tiles."},
+    "room_layer": {"type": "str", "required": false, "description": "Layer name for room boxes."},
+    "ornament_layer": {"type": "str", "required": false, "description": "Layer name for the doorway stamp."},
+    "outer_style": {"type": "str", "required": false, "description": "Box style for the outer sanctum frame."},
+    "inner_style": {"type": "str", "required": false, "description": "Optional inner chamber box style."},
+    "inner_inset_x": {"type": "int", "required": false, "description": "Default horizontal inset for the inner chamber."},
+    "inner_inset_y": {"type": "int", "required": false, "description": "Default vertical inset for the inner chamber."},
+    "inner_x": {"type": "int", "required": false, "description": "Explicit left tile coordinate for the inner chamber."},
+    "inner_y": {"type": "int", "required": false, "description": "Explicit top tile coordinate for the inner chamber."},
+    "inner_width": {"type": "int", "required": false, "description": "Explicit width of the inner chamber in tiles."},
+    "inner_height": {"type": "int", "required": false, "description": "Explicit height of the inner chamber in tiles."},
+    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the focal doorway."},
+    "door_x": {"type": "int", "required": false, "description": "Explicit doorway X coordinate instead of centering."},
+    "door_y": {"type": "int", "required": false, "description": "Explicit doorway Y coordinate instead of the default focal row."}
+  },
+  "bindings": {
+    "room_layer": {"param": "room_layer", "default": "rooms"},
+    "ornament_layer": {"param": "ornament_layer", "default": "ornament"},
+    "outer_style": {"param": "outer_style", "default": "glyph_stone_frame"},
+    "inner_style": {"param": "inner_style", "default": "gold_ui_frame"},
+    "inner_inset_x": {"param": "inner_inset_x", "default": {"max": [4, {"floordiv": [{"param": "width"}, 5]}]}},
+    "inner_inset_y": {"param": "inner_inset_y", "default": {"max": [3, {"floordiv": [{"param": "height"}, 5]}]}},
+    "inner_x": {"param": "inner_x", "default": {"add": [{"param": "x"}, {"bind": "inner_inset_x"}]}},
+    "inner_y": {"param": "inner_y", "default": {"add": [{"param": "y"}, {"bind": "inner_inset_y"}]}},
+    "inner_width": {"param": "inner_width", "default": {"sub": [{"param": "width"}, {"mul": [{"bind": "inner_inset_x"}, 2]}]}},
+    "inner_height": {"param": "inner_height", "default": {"sub": [{"param": "height"}, {"mul": [{"bind": "inner_inset_y"}, 2]}]}},
+    "inner_box_enabled": {
+      "all": [
+        {"enabled": {"bind": "inner_style"}},
+        {"gt": [{"bind": "inner_width"}, 1]},
+        {"gt": [{"bind": "inner_height"}, 1]}
+      ]
+    },
+    "door_target_x": {
+      "if": {"enabled": {"bind": "inner_style"}},
+      "then": {"bind": "inner_x"},
+      "else": {"param": "x"}
+    },
+    "door_target_y": {
+      "if": {"enabled": {"bind": "inner_style"}},
+      "then": {"bind": "inner_y"},
+      "else": {"param": "y"}
+    },
+    "door_target_width": {
+      "if": {"enabled": {"bind": "inner_style"}},
+      "then": {"bind": "inner_width"},
+      "else": {"param": "width"}
+    },
+    "door_target_height": {
+      "if": {"enabled": {"bind": "inner_style"}},
+      "then": {"bind": "inner_height"},
+      "else": {"param": "height"}
+    },
+    "door_default_y": {
+      "add": [
+        {"bind": "door_target_y"},
+        {"max": [1, {"sub": [{"floordiv": [{"bind": "door_target_height"}, 2]}, 1]}]}
+      ]
+    },
+    "door_ref": {"param": "door_ref", "default": "@door_arch"}
+  },
+  "ops": [
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "style": {"bind": "outer_style"},
+      "x": {"param": "x"},
+      "y": {"param": "y"},
+      "width": {"param": "width"},
+      "height": {"param": "height"}
+    },
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "when_present": "inner_box_enabled",
+      "style": {"bind": "inner_style"},
+      "x": {"bind": "inner_x"},
+      "y": {"bind": "inner_y"},
+      "width": {"bind": "inner_width"},
+      "height": {"bind": "inner_height"}
+    },
+    {
+      "kind": "stamp",
+      "layer": {"bind": "ornament_layer"},
+      "when_present": "door_ref",
+      "ref": {"bind": "door_ref"},
+      "x": {
+        "param": "door_x",
+        "default": {
+          "centered_x": {
+            "ref": {"bind": "door_ref"},
+            "x": {"bind": "door_target_x"},
+            "width": {"bind": "door_target_width"}
+          }
+        }
+      },
+      "y": {"param": "door_y", "default": {"bind": "door_default_y"}}
+    }
+  ],
+  "notes": [
+    "Behavior is data-backed in this pass and intentionally adds only the small boolean and conditional expression helpers needed by the sanctum layout grammar."
+  ]
+}

@@ -1,0 +1,204 @@
+{
+  "template_id": "tavern.cluster.horizontal_2x6.occupied_a",
+  "description": "Occupied communal 2x6 tavern table with mixed seated patrons and spare stools.",
+  "parameters": {
+    "architecture_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for furniture stamps."
+    },
+    "ornament_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for drink and prop overlays."
+    },
+    "actors_layer": {
+      "type": "str",
+      "required": false,
+      "description": "Layer for actor stamps."
+    }
+  },
+  "bindings": {
+    "architecture_layer": {
+      "param": "architecture_layer",
+      "default": "architecture"
+    },
+    "ornament_layer": {
+      "param": "ornament_layer",
+      "default": "ornament"
+    },
+    "actors_layer": {
+      "param": "actors_layer",
+      "default": "actors"
+    }
+  },
+  "ops": [
+    {
+      "kind": "entity",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "construction": "indoors.table.kit.horizontal_2x6",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool.left",
+      "x": 2,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "architecture_layer"
+      },
+      "ref": "indoors.stool.right",
+      "x": 3,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.vertical.top",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 0,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.vertical.bottom",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 0,
+      "y": 1
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.vertical.bottom",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 1,
+      "y": 1
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.vertical.bottom",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 4,
+      "y": 1
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "ornament_layer"
+      },
+      "ref": {
+        "ref": "prop.tankard",
+        "underpaint": "indoors.table.vertical.top",
+        "occlusion": "fill_holes",
+        "offset_left": 1,
+        "offset_bottom": 1
+      },
+      "x": 5,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.green.ne",
+        "underpaint": "indoors.chair.right",
+        "occlusion": "fill_cell"
+      },
+      "x": -1,
+      "y": 0
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.salmon.sw",
+        "underpaint": "indoors.stool.left",
+        "occlusion": "fill_cell"
+      },
+      "x": 0,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.blue.sw",
+        "underpaint": "indoors.stool.left",
+        "occlusion": "fill_cell"
+      },
+      "x": 1,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.purple.se",
+        "underpaint": "indoors.stool.right",
+        "occlusion": "fill_cell"
+      },
+      "x": 4,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": {
+        "bind": "actors_layer"
+      },
+      "ref": {
+        "ref": "actor.teal.sw",
+        "underpaint": "indoors.chair.left",
+        "occlusion": "fill_cell"
+      },
+      "x": 6,
+      "y": 1
+    }
+  ]
+}

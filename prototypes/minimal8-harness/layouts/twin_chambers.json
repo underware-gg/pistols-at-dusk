@@ -1,0 +1,65 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 64,
+    "height": 36,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 8,
+    "y": 6,
+    "width": 40,
+    "height": 25,
+    "units": "tiles",
+    "scale": 4
+  },
+  "scenes": [
+    {
+      "template": "twin_chambers",
+      "x": 11,
+      "y": 11,
+      "width": 34,
+      "height": 10,
+      "outer_style": "gold_ui_frame",
+      "bridge_style": "gold_ui_frame_dense",
+      "left_width": 12,
+      "bridge_width": 8,
+      "right_width": 14,
+      "bridge_y": 14,
+      "bridge_height": 4,
+      "door_target": "right"
+    }
+  ],
+  "layers": [
+    {
+      "name": "backdrop",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@symbols_left",
+          "x": 10,
+          "y": 4
+        },
+        {
+          "kind": "stamp",
+          "ref": "@symbols_right",
+          "x": 39,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "name": "ornament",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@door_arch",
+          "x": 15,
+          "y": 14
+        }
+      ]
+    }
+  ],
+  "output": "../generated/twin_chambers.png"
+}

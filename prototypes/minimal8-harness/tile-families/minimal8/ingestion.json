@@ -1,0 +1,2001 @@
+{
+  "sheet_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 72,
+    "height": 50
+  },
+  "regions": [
+    {
+      "id": "tileset.column_1",
+      "label": "Tileset column 1",
+      "bounds": {
+        "x": 2,
+        "y": 4,
+        "width": 15,
+        "height": 32
+      },
+      "notes": "Top-level ingest region for the first tileset column. The heading text above and the footer credit/palette below fall outside the ingest region."
+    },
+    {
+      "id": "tileset.column_2",
+      "label": "Tileset column 2",
+      "bounds": {
+        "x": 19,
+        "y": 4,
+        "width": 16,
+        "height": 39
+      },
+      "notes": "Top-level ingest region for the second tileset column."
+    },
+    {
+      "id": "characters_and_icons.column_3",
+      "label": "Characters and icons column",
+      "bounds": {
+        "x": 38,
+        "y": 4,
+        "width": 16,
+        "height": 26
+      },
+      "areas": [
+        {
+          "x": 38,
+          "y": 4,
+          "width": 14,
+          "height": 16
+        },
+        {
+          "x": 38,
+          "y": 24,
+          "width": 16,
+          "height": 1
+        },
+        {
+          "x": 38,
+          "y": 26,
+          "width": 14,
+          "height": 4
+        }
+      ],
+      "notes": "Top-level ingest region for the third column. Multiple included areas keep the visible sheet headings outside the ingest boundary while preserving the logical single-column grouping."
+    },
+    {
+      "id": "ui.column_4",
+      "label": "UI column",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 16,
+        "height": 18
+      },
+      "notes": "Top-level ingest region for the fourth column. The visible UI heading sits above the ingest boundary."
+    }
+  ],
+  "clusters": [
+    {
+      "id": "tileset.column_1.cluster_01",
+      "source_region_id": "tileset.column_1",
+      "label": "Upper architecture, walls, and arches",
+      "bounds": {
+        "x": 2,
+        "y": 4,
+        "width": 13,
+        "height": 10
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_1.cluster_02",
+      "source_region_id": "tileset.column_1",
+      "label": "Lower architecture and support blocks",
+      "bounds": {
+        "x": 2,
+        "y": 15,
+        "width": 13,
+        "height": 6
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_1.cluster_03",
+      "source_region_id": "tileset.column_1",
+      "label": "Stone floor enclosures: natural and brick",
+      "bounds": {
+        "x": 2,
+        "y": 22,
+        "width": 13,
+        "height": 6
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_1.cluster_04",
+      "source_region_id": "tileset.column_1",
+      "label": "Wind and spiral floor motifs",
+      "bounds": {
+        "x": 2,
+        "y": 29,
+        "width": 15,
+        "height": 2
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_1.cluster_05",
+      "source_region_id": "tileset.column_1",
+      "label": "Outdoor motifs: mountains, villages, ruins, and castles",
+      "notes": "Row 1 is a mountain tile collection. Cells 1-2 are standalone mountains and cell 8 is blank. The remaining row-1 cells compose into large dynamic mountain constructions that can be layered and filled to build ranges, including volcano-like peaks. Reviewed against reference-overworld-dialogue-knight-marius.png.",
+      "bounds": {
+        "x": 2,
+        "y": 32,
+        "width": 15,
+        "height": 4
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_01",
+      "source_region_id": "tileset.column_2",
+      "label": "Terrain motifs, masonry, and pattern bands",
+      "bounds": {
+        "x": 19,
+        "y": 4,
+        "width": 15,
+        "height": 12
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_02",
+      "source_region_id": "tileset.column_2",
+      "label": "Indoor furniture, storage, and utility props",
+      "bounds": {
+        "x": 19,
+        "y": 17,
+        "width": 16,
+        "height": 4
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_03",
+      "source_region_id": "tileset.column_2",
+      "label": "Baseline border strip",
+      "bounds": {
+        "x": 19,
+        "y": 22,
+        "width": 12,
+        "height": 1
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_04",
+      "source_region_id": "tileset.column_2",
+      "label": "Nature boundary sections",
+      "bounds": {
+        "x": 19,
+        "y": 24,
+        "width": 12,
+        "height": 4
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_05",
+      "source_region_id": "tileset.column_2",
+      "label": "Water boundary sections and fill tiles",
+      "bounds": {
+        "x": 19,
+        "y": 29,
+        "width": 13,
+        "height": 5
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_06",
+      "source_region_id": "tileset.column_2",
+      "label": "Water line and ripple strips",
+      "bounds": {
+        "x": 19,
+        "y": 35,
+        "width": 6,
+        "height": 3
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "tileset.column_2.cluster_07",
+      "source_region_id": "tileset.column_2",
+      "label": "Planets, moons, and stars",
+      "bounds": {
+        "x": 19,
+        "y": 39,
+        "width": 16,
+        "height": 4
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_01",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 1",
+      "bounds": {
+        "x": 38,
+        "y": 4,
+        "width": 2,
+        "height": 16
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_02",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 2",
+      "bounds": {
+        "x": 41,
+        "y": 4,
+        "width": 2,
+        "height": 16
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_03",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 3",
+      "bounds": {
+        "x": 44,
+        "y": 4,
+        "width": 2,
+        "height": 16
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_04",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 4",
+      "bounds": {
+        "x": 47,
+        "y": 4,
+        "width": 2,
+        "height": 12
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_05",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 5 upper",
+      "bounds": {
+        "x": 50,
+        "y": 4,
+        "width": 2,
+        "height": 6
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_06",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Character column 5 lower",
+      "bounds": {
+        "x": 50,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "split_axis": "column"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_07",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Icons and tools strip",
+      "bounds": {
+        "x": 38,
+        "y": 24,
+        "width": 16,
+        "height": 1
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "characters_and_icons.column_3.cluster_08",
+      "source_region_id": "characters_and_icons.column_3",
+      "label": "Icons, items, and pickups",
+      "bounds": {
+        "x": 38,
+        "y": 26,
+        "width": 14,
+        "height": 4
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "ui.column_4.cluster_01",
+      "source_region_id": "ui.column_4",
+      "label": "UI frame kits, panel builders, and outline sets",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 16,
+        "height": 12
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "ui.column_4.cluster_02",
+      "source_region_id": "ui.column_4",
+      "label": "UI border fragments, checkboxes, and selection markers",
+      "bounds": {
+        "x": 55,
+        "y": 17,
+        "width": 16,
+        "height": 2
+      },
+      "split_axis": "row"
+    },
+    {
+      "id": "ui.column_4.cluster_03",
+      "source_region_id": "ui.column_4",
+      "label": "UI junctions, symbols, and wordmark fragments",
+      "bounds": {
+        "x": 55,
+        "y": 20,
+        "width": 16,
+        "height": 2
+      },
+      "split_axis": "row"
+    }
+  ],
+  "ignore_regions": [],
+  "collections": [
+    {
+      "id": "indoors.door.grand.open",
+      "kind": "assembly",
+      "label": "Grand open indoor door",
+      "source_region_id": "tileset.column_1",
+      "source_cluster_id": "tileset.column_1.cluster_01",
+      "bounds": {
+        "x": 2,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "alias": "indoors.door.grand.open.tl"
+        },
+        {
+          "alias": "indoors.door.grand.open.tr"
+        },
+        {
+          "alias": "indoors.door.grand.open.bl"
+        },
+        {
+          "alias": "indoors.door.grand.open.br"
+        }
+      ],
+      "notes": "Authored 2x2 doorway assembly built from four reusable open-door tiles."
+    },
+    {
+      "id": "indoors.door.grand.closed",
+      "kind": "assembly",
+      "label": "Grand closed indoor door",
+      "source_region_id": "tileset.column_1",
+      "source_cluster_id": "tileset.column_1.cluster_01",
+      "bounds": {
+        "x": 4,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "alias": "indoors.door.grand.closed.tl"
+        },
+        {
+          "alias": "indoors.door.grand.closed.tr"
+        },
+        {
+          "alias": "indoors.door.grand.closed.bl"
+        },
+        {
+          "alias": "indoors.door.grand.closed.br"
+        }
+      ],
+      "notes": "Authored 2x2 doorway assembly built from four reusable door tiles."
+    },
+    {
+      "id": "indoors.table.long",
+      "kind": "assembly",
+      "label": "Long indoor table",
+      "source_region_id": "tileset.column_2",
+      "source_cluster_id": "tileset.column_2.cluster_02",
+      "bounds": {
+        "x": 20,
+        "y": 17,
+        "width": 3,
+        "height": 1
+      },
+      "members": [
+        {
+          "alias": "indoors.table.long.left"
+        },
+        {
+          "alias": "indoors.table.long.middle"
+        },
+        {
+          "alias": "indoors.table.long.right"
+        }
+      ],
+      "notes": "Three-part table kit with left / middle / right reuse semantics."
+    },
+    {
+      "id": "ui.gold_frame",
+      "kind": "kit",
+      "label": "Gold frame border kit",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 8,
+        "height": 3
+      },
+      "members": [
+        {
+          "tile_id": "minimal8:ui:1,3"
+        },
+        {
+          "tile_id": "minimal8:ui:2,3"
+        },
+        {
+          "tile_id": "minimal8:ui:3,3"
+        },
+        {
+          "tile_id": "minimal8:ui:1,4"
+        },
+        {
+          "tile_id": "minimal8:ui:2,4"
+        },
+        {
+          "tile_id": "minimal8:ui:3,4"
+        },
+        {
+          "tile_id": "minimal8:ui:1,5"
+        },
+        {
+          "tile_id": "minimal8:ui:2,5"
+        },
+        {
+          "tile_id": "minimal8:ui:3,5"
+        },
+        {
+          "tile_id": "minimal8:ui:4,3"
+        },
+        {
+          "tile_id": "minimal8:ui:5,3"
+        },
+        {
+          "tile_id": "minimal8:ui:6,3"
+        },
+        {
+          "tile_id": "minimal8:ui:4,4"
+        },
+        {
+          "tile_id": "minimal8:ui:5,4"
+        },
+        {
+          "tile_id": "minimal8:ui:6,4"
+        },
+        {
+          "tile_id": "minimal8:ui:4,5"
+        },
+        {
+          "tile_id": "minimal8:ui:5,5"
+        },
+        {
+          "tile_id": "minimal8:ui:6,5"
+        },
+        {
+          "tile_id": "minimal8:ui:7,3"
+        },
+        {
+          "tile_id": "minimal8:ui:8,3"
+        },
+        {
+          "tile_id": "minimal8:ui:7,4"
+        },
+        {
+          "tile_id": "minimal8:ui:8,4"
+        }
+      ],
+      "notes": "Border kit containing three related frame variants: a 3x3 border with open gaps and fancy corners, a 3x3 border with smooth joins and fancy corners, and a 2x2 border with simple corners that can pair with the middle connectors from either 3x3 variant."
+    },
+    {
+      "id": "character.column_1.01",
+      "kind": "pose_set",
+      "label": "Humanoid with ears, perhaps a catman",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid with ears, perhaps a catman. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.02",
+      "kind": "pose_set",
+      "label": "Humanoid with rectangular head",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 6,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 7
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 7
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid with rectangular head. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.03",
+      "kind": "pose_set",
+      "label": "Humanoid with slightly elongated rectangular head",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 8,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 9
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 9
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid with slightly elongated rectangular head. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.04",
+      "kind": "pose_set",
+      "label": "Humanoid carrying a bow",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 10,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 11
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 11
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid carrying a bow. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.05",
+      "kind": "pose_set",
+      "label": "Cat",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 13
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: cat. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.06",
+      "kind": "pose_set",
+      "label": "Some kind of flying winged creature, maybe an insect",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 14,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 15
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 15
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: some kind of flying winged creature, maybe an insect. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.07",
+      "kind": "pose_set",
+      "label": "Small circular hovering creature, perhaps a will-o-wisp",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 16,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 17
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 17
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: small circular hovering creature, perhaps a will-o-wisp. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_1.08",
+      "kind": "pose_set",
+      "label": "Small walking critter",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_01",
+      "bounds": {
+        "x": 38,
+        "y": 18,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 38,
+            "row": 19
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 39,
+            "row": 19
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: small walking critter. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.01",
+      "kind": "pose_set",
+      "label": "Humanoid with staff",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid with staff. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.02",
+      "kind": "pose_set",
+      "label": "Rogue with sword",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 6,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 7
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 7
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: rogue with sword. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.03",
+      "kind": "pose_set",
+      "label": "Knight",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 8,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 9
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 9
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: knight. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.04",
+      "kind": "pose_set",
+      "label": "Humanoid with broom",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 10,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 11
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 11
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: humanoid with broom. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.05",
+      "kind": "pose_set",
+      "label": "Cute/friendly dog with floppy ears",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 13
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: cute/friendly dog with floppy ears. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.06",
+      "kind": "pose_set",
+      "label": "Jelly or gelatinous blob maybe",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 14,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 15
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 15
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: jelly or gelatinous blob maybe. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.07",
+      "kind": "pose_set",
+      "label": "Maybe a robot with wheels",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 16,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 17
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 17
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: maybe a robot with wheels. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_2.08",
+      "kind": "pose_set",
+      "label": "Critter or ghost",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_02",
+      "bounds": {
+        "x": 41,
+        "y": 18,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 41,
+            "row": 19
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 42,
+            "row": 19
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: critter or ghost. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.01",
+      "kind": "pose_set",
+      "label": "Small humanoid, maybe a child",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: small humanoid, maybe a child. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.02",
+      "kind": "pose_set",
+      "label": "Traveller with a hat and a staff",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 6,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 7
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 7
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: traveller with a hat and a staff. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.03",
+      "kind": "pose_set",
+      "label": "Knight",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 8,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 9
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 9
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: knight. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.04",
+      "kind": "pose_set",
+      "label": "Knight with a club",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 10,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 11
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 11
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: knight with a club. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.05",
+      "kind": "pose_set",
+      "label": "Bird",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 13
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: bird. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.06",
+      "kind": "pose_set",
+      "label": "Dog",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 14,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 15
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 15
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: dog. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.07",
+      "kind": "pose_set",
+      "label": "Mushroom",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 16,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 16
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 17
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 17
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: mushroom. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_3.08",
+      "kind": "pose_set",
+      "label": "Floating skull",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_03",
+      "bounds": {
+        "x": 44,
+        "y": 18,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 18
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 44,
+            "row": 19
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 45,
+            "row": 19
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: floating skull. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.01",
+      "kind": "pose_set",
+      "label": "Villager wearing a hat",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: villager wearing a hat. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.02",
+      "kind": "pose_set",
+      "label": "Villager with a sword",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 6,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 7
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 7
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: villager with a sword. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.03",
+      "kind": "pose_set",
+      "label": "Villager with a fishing pole",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 8,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 9
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 9
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: villager with a fishing pole. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.04",
+      "kind": "pose_set",
+      "label": "Villager",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 10,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 10
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 11
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 11
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: villager. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.05",
+      "kind": "pose_set",
+      "label": "Fish",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 13
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: fish. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_4.06",
+      "kind": "pose_set",
+      "label": "Goat",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_04",
+      "bounds": {
+        "x": 47,
+        "y": 14,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 14
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 47,
+            "row": 15
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 48,
+            "row": 15
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: goat. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_5.01",
+      "kind": "pose_set",
+      "label": "Monkey",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_05",
+      "bounds": {
+        "x": 50,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 4
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 5
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 5
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: monkey. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_5.02",
+      "kind": "pose_set",
+      "label": "Wizard in a robe with a staff",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_05",
+      "bounds": {
+        "x": 50,
+        "y": 6,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 6
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 7
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 7
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: wizard in a robe with a staff. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_5.03",
+      "kind": "pose_set",
+      "label": "Rogue maybe",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_05",
+      "bounds": {
+        "x": 50,
+        "y": 8,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 8
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 9
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 9
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: rogue maybe. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "character.column_5.04",
+      "kind": "pose_set",
+      "label": "Snake",
+      "source_region_id": "characters_and_icons.column_3",
+      "source_cluster_id": "characters_and_icons.column_3.cluster_06",
+      "bounds": {
+        "x": 50,
+        "y": 12,
+        "width": 2,
+        "height": 2
+      },
+      "members": [
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 12
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 50,
+            "row": 13
+          }
+        },
+        {
+          "sheet_cell": {
+            "col": 51,
+            "row": 13
+          }
+        }
+      ],
+      "notes": "Four-state character pose set. Best-effort identity guess: snake. Top-left is tall/right-facing, top-right is short/right-facing, bottom-left is tall/left-facing, and bottom-right is short/left-facing. The shorter pose may represent sitting, ducking, or an alternate animation frame."
+    },
+    {
+      "id": "indoors.table.kit",
+      "kind": "kit",
+      "label": "Indoor table kit",
+      "source_region_id": "tileset.column_2",
+      "source_cluster_id": "tileset.column_2.cluster_02",
+      "bounds": {
+        "x": 19,
+        "y": 17,
+        "width": 4,
+        "height": 2
+      },
+      "members": [
+        {
+          "alias": "indoors.table.round"
+        },
+        {
+          "alias": "indoors.table.horizontal.left"
+        },
+        {
+          "alias": "indoors.table.horizontal.middle"
+        },
+        {
+          "alias": "indoors.table.horizontal.right"
+        },
+        {
+          "alias": "indoors.table.vertical.top"
+        },
+        {
+          "alias": "indoors.table.vertical.middle"
+        },
+        {
+          "alias": "indoors.table.vertical.bottom"
+        },
+        {
+          "alias": "indoors.table.square"
+        }
+      ],
+      "constructions": [
+        "indoors.table.kit.round_single",
+        "indoors.table.kit.square_single",
+        "indoors.table.kit.horizontal_run",
+        "indoors.table.kit.vertical_run",
+        "indoors.table.kit.square_2x2",
+        "indoors.table.kit.rect_3x2",
+        "indoors.table.kit.rect_2x3",
+        "indoors.table.kit.horizontal_2x6",
+        "indoors.table.kit.vertical_2x6",
+        "indoors.table.kit.l_top_left",
+        "indoors.table.kit.l_top_right",
+        "indoors.table.kit.l_bottom_left",
+        "indoors.table.kit.l_bottom_right"
+      ],
+      "notes": "Shared indoor table kit. Legged pieces require their south edge to remain exposed and should therefore only appear on the bottom edge of a single composed table entity. Collection-level presets should represent one valid table entity at a time; multi-table dining clusters belong in scene or metatile presets instead."
+    },
+    {
+      "id": "indoors.counter.low",
+      "kind": "kit",
+      "label": "Low counter / shelf run",
+      "source_region_id": "tileset.column_2",
+      "source_cluster_id": "tileset.column_2.cluster_02",
+      "bounds": {
+        "x": 23,
+        "y": 17,
+        "width": 4,
+        "height": 1
+      },
+      "members": [
+        {
+          "alias": "indoors.counter.low.single"
+        },
+        {
+          "alias": "indoors.counter.low.left"
+        },
+        {
+          "alias": "indoors.counter.low.middle"
+        },
+        {
+          "alias": "indoors.counter.low.right"
+        }
+      ],
+      "constructions": [
+        "indoors.counter.low.run"
+      ],
+      "notes": "Standalone and left / repeatable middle / right run pieces for short counters or low shelving."
+    },
+    {
+      "id": "indoors.bookcase.tall",
+      "kind": "kit",
+      "label": "Tall bookshelf run",
+      "source_region_id": "tileset.column_2",
+      "source_cluster_id": "tileset.column_2.cluster_02",
+      "bounds": {
+        "x": 27,
+        "y": 17,
+        "width": 3,
+        "height": 1
+      },
+      "members": [
+        {
+          "alias": "indoors.bookcase.single"
+        },
+        {
+          "alias": "indoors.bookcase.left"
+        },
+        {
+          "alias": "indoors.bookcase.middle"
+        },
+        {
+          "alias": "indoors.bookcase.right"
+        }
+      ],
+      "constructions": [
+        "indoors.bookcase.tall.run"
+      ],
+      "notes": "Standalone and left / synthetic middle / right pieces for tall bookshelf runs. The middle slice is derived per variant from the left endcap tile so longer bookcase walls can be composed without inventing a new source-sheet cell."
+    }
+  ],
+  "notes": [
+    "Current source-layout model: regions are the top-level ingest areas, clusters are bounded groups inside a region, tiles are individual grid cells inside those bounds, and collections describe larger logical constructs built from multiple cells.",
+    "For Minimal 8 specifically, the four visible source columns act as the top-level regions.",
+    "The canonical colored-background sheet is the first-pass evidence source for this layout, but the resulting tile semantics still live at family level."
+  ]
+}

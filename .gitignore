@@ -1,0 +1,25 @@
+.DS_Store
+*.swp
+*.swo
+
+# brain local state
+.brain/local/
+
+# editor / IDE
+.vscode/
+.idea/
+*.iml
+
+# node / pnpm (in case JS pipeline lands here later)
+node_modules/
+.pnpm-store/
+
+# python virtual environment
+.venv/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+
+# scratch areas (repo-wide or per-track)
+scratch.local/

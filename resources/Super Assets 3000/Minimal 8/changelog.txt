@@ -1,0 +1,21 @@
+V2.1
+	•	Several new tiles and variation of existing tiles
+	•	New colored background options
+v2 2-bit update !
+	•	All assets had been converted to 2-bit !
+v1.3 Space Update!
+	•	Several sci-fi character and robot sprites
+	•	planet tiles
+	•	Slightly tweaked some previous tiles and sprites
+v1.2.1
+	•	Added a few tiles for map making (floating island)
+v1.2
+	•	New UI elements
+	•	SF tiles
+	•	New sprites for enemies
+v1.1 :
+	•	classes!
+v1.0.1 :
+	•	slightly updated the color palette
+	•	a few new tiles for a mushroom biome
+	•	a few animals

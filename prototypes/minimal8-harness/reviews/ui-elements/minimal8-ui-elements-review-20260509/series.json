@@ -1,0 +1,15 @@
+{
+  "project": "prototypes/minimal8-harness/project.minimal8.json",
+  "tileset": "minimal8@1bit_colored_bg",
+  "round_count": 2,
+  "rounds": [
+    {
+      "id": "round_001",
+      "path": "rounds/round_001"
+    },
+    {
+      "id": "round_002",
+      "path": "rounds/round_002"
+    }
+  ]
+}

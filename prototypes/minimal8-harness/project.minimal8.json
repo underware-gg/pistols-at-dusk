@@ -1,0 +1,2061 @@
+{
+  "tile_family": {
+    "path": "./tile-families/minimal8",
+    "family_id": "minimal8",
+    "variant_id": "1bit_colored_bg"
+  },
+  "scene_rules_dir": "./scene-rules",
+  "grid": {
+    "render_step_width": 8,
+    "render_step_height": 8
+  },
+  "tilesets": {
+    "utility_land": {
+      "sheet": "./assets/utility_land_undercoat.png",
+      "catalog_scope": "all",
+      "transparent": "none",
+      "regions": {
+        "all": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        }
+      }
+    }
+  },
+  "aliases": {
+    "floor_sparse": "10,20",
+    "floor_sparse_alt": "11,20",
+    "floor_cluster": "6,20"
+  },
+  "box_styles": {
+    "gold_ui_frame": {
+      "edge_mode": "padded",
+      "recommended_scale": "compact",
+      "min_width_tiles": 8,
+      "min_height_tiles": 6,
+      "sample_width_tiles": 18,
+      "sample_height_tiles": 10,
+      "tl": "@gold_ui_corner",
+      "t": "56,4",
+      "tr": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true
+      },
+      "l": "55,5",
+      "r": {
+        "ref": "55,5",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "@gold_ui_corner",
+        "flip_y": true
+      },
+      "b": "56,7",
+      "br": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@courtyard_floor"
+    },
+    "gold_ui_frame_dense": {
+      "edge_mode": "padded",
+      "recommended_scale": "compact",
+      "min_width_tiles": 6,
+      "min_height_tiles": 4,
+      "sample_width_tiles": 12,
+      "sample_height_tiles": 6,
+      "tl": "@gold_ui_corner",
+      "t": "56,4",
+      "tr": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true
+      },
+      "l": "55,5",
+      "r": {
+        "ref": "55,5",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "@gold_ui_corner",
+        "flip_y": true
+      },
+      "b": "56,7",
+      "br": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@corridor_floor"
+    },
+    "temple_gold_court": {
+      "edge_mode": "padded",
+      "recommended_scale": "medium",
+      "min_width_tiles": 10,
+      "min_height_tiles": 7,
+      "sample_width_tiles": 18,
+      "sample_height_tiles": 10,
+      "tl": "@gold_ui_corner",
+      "t": "56,4",
+      "tr": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true
+      },
+      "l": "55,5",
+      "r": {
+        "ref": "55,5",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "@gold_ui_corner",
+        "flip_y": true
+      },
+      "b": "56,7",
+      "br": {
+        "ref": "@gold_ui_corner",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@temple_floor_sparse"
+    },
+    "glyph_stone_frame": {
+      "edge_mode": "padded",
+      "recommended_scale": "medium",
+      "min_width_tiles": 10,
+      "min_height_tiles": 7,
+      "sample_width_tiles": 18,
+      "sample_height_tiles": 10,
+      "tl": "10,11",
+      "t": "6,17",
+      "tr": {
+        "ref": "10,11",
+        "flip_x": true
+      },
+      "l": "5,18",
+      "r": {
+        "ref": "5,18",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "10,11",
+        "flip_y": true
+      },
+      "b": {
+        "ref": "6,17",
+        "flip_y": true
+      },
+      "br": {
+        "ref": "10,11",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@courtyard_floor"
+    },
+    "glyph_stone_frame_dense": {
+      "edge_mode": "padded",
+      "recommended_scale": "medium",
+      "min_width_tiles": 8,
+      "min_height_tiles": 6,
+      "sample_width_tiles": 14,
+      "sample_height_tiles": 8,
+      "tl": "10,11",
+      "t": "6,17",
+      "tr": {
+        "ref": "10,11",
+        "flip_x": true
+      },
+      "l": "5,18",
+      "r": {
+        "ref": "5,18",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "10,11",
+        "flip_y": true
+      },
+      "b": {
+        "ref": "6,17",
+        "flip_y": true
+      },
+      "br": {
+        "ref": "10,11",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@corridor_floor"
+    },
+    "temple_maze_frame": {
+      "edge_mode": "padded",
+      "recommended_scale": "large",
+      "min_width_tiles": 18,
+      "min_height_tiles": 10,
+      "sample_width_tiles": 18,
+      "sample_height_tiles": 10,
+      "tl": "@temple_maze_corner",
+      "t": "@temple_maze_top",
+      "tr": {
+        "ref": "@temple_maze_corner",
+        "flip_x": true
+      },
+      "l": "@temple_maze_side",
+      "r": {
+        "ref": "@temple_maze_side",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "@temple_maze_corner",
+        "flip_y": true
+      },
+      "b": {
+        "ref": "@temple_maze_top",
+        "flip_y": true
+      },
+      "br": {
+        "ref": "@temple_maze_corner",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@courtyard_floor"
+    },
+    "temple_maze_frame_dense": {
+      "edge_mode": "padded",
+      "recommended_scale": "large",
+      "min_width_tiles": 14,
+      "min_height_tiles": 8,
+      "sample_width_tiles": 16,
+      "sample_height_tiles": 10,
+      "tl": "@temple_maze_corner",
+      "t": "@temple_maze_top",
+      "tr": {
+        "ref": "@temple_maze_corner",
+        "flip_x": true
+      },
+      "l": "@temple_maze_side",
+      "r": {
+        "ref": "@temple_maze_side",
+        "flip_x": true
+      },
+      "bl": {
+        "ref": "@temple_maze_corner",
+        "flip_y": true
+      },
+      "b": {
+        "ref": "@temple_maze_top",
+        "flip_y": true
+      },
+      "br": {
+        "ref": "@temple_maze_corner",
+        "flip_x": true,
+        "flip_y": true
+      },
+      "fill": "@corridor_floor"
+    }
+  },
+  "metatiles": {
+    "gold_ui_corner": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "60,4",
+          "61,4"
+        ],
+        [
+          "60,5",
+          "61,5"
+        ]
+      ]
+    },
+    "courtyard_floor": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "10,20",
+          "11,20"
+        ],
+        [
+          "12,20",
+          "13,20"
+        ]
+      ]
+    },
+    "corridor_floor": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "6,20",
+          "9,20"
+        ],
+        [
+          "10,20",
+          "14,20"
+        ]
+      ]
+    },
+    "temple_floor_gold": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "6,19",
+          "7,19",
+          "8,19",
+          "9,19"
+        ],
+        [
+          "10,19",
+          "11,19",
+          "12,19",
+          "6,19"
+        ]
+      ]
+    },
+    "temple_floor_sparse": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "6,19",
+          ".",
+          ".",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          ".",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          "6,19",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          ".",
+          "."
+        ]
+      ]
+    },
+    "temple_maze_corner": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,4",
+          "3,4",
+          "4,4"
+        ],
+        [
+          "2,5",
+          "3,5",
+          "4,5"
+        ],
+        [
+          "2,6",
+          "3,6",
+          "4,6"
+        ]
+      ]
+    },
+    "temple_maze_top": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "5,4",
+          "6,4",
+          "7,4",
+          "8,4",
+          "9,4",
+          "10,4"
+        ],
+        [
+          "5,5",
+          "6,5",
+          "7,5",
+          "8,5",
+          "9,5",
+          "10,5"
+        ],
+        [
+          "5,6",
+          "6,6",
+          "7,6",
+          "8,6",
+          "9,6",
+          "10,6"
+        ]
+      ]
+    },
+    "temple_maze_side": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,7",
+          "3,7",
+          "4,7"
+        ],
+        [
+          "2,8",
+          "3,8",
+          "4,8"
+        ],
+        [
+          "2,9",
+          "3,9",
+          "4,9"
+        ],
+        [
+          "2,10",
+          "3,10",
+          "4,10"
+        ]
+      ]
+    },
+    "meander_band": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,4",
+          "3,4",
+          "4,4",
+          "5,4",
+          "6,4",
+          "7,4",
+          "8,4",
+          "9,4",
+          "10,4",
+          "11,4",
+          "12,4"
+        ],
+        [
+          "2,5",
+          "3,5",
+          "4,5",
+          "5,5",
+          "6,5",
+          "7,5",
+          "8,5",
+          "9,5",
+          "10,5",
+          "11,5",
+          "12,5"
+        ],
+        [
+          "2,6",
+          "3,6",
+          "4,6",
+          "5,6",
+          "6,6",
+          "7,6",
+          "8,6",
+          "9,6",
+          "10,6",
+          "11,6",
+          "12,6"
+        ]
+      ]
+    },
+    "maze_block": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,4",
+          "3,4",
+          "4,4",
+          "5,4",
+          "6,4",
+          "7,4",
+          "8,4",
+          "9,4",
+          "10,4",
+          "11,4",
+          "12,4",
+          "13,4"
+        ],
+        [
+          "2,5",
+          "3,5",
+          "4,5",
+          "5,5",
+          "6,5",
+          "7,5",
+          "8,5",
+          "9,5",
+          "10,5",
+          "11,5",
+          "12,5",
+          "13,5"
+        ],
+        [
+          "2,6",
+          "3,6",
+          "4,6",
+          "5,6",
+          "6,6",
+          "7,6",
+          "8,6",
+          "9,6",
+          "10,6",
+          "11,6",
+          "12,6",
+          "13,6"
+        ],
+        [
+          "2,7",
+          "3,7",
+          "4,7",
+          "5,7",
+          "6,7",
+          "7,7",
+          "8,7",
+          "9,7",
+          "10,7",
+          "11,7",
+          "12,7",
+          "13,7"
+        ],
+        [
+          "2,8",
+          "3,8",
+          "4,8",
+          "5,8",
+          "6,8",
+          "7,8",
+          "8,8",
+          "9,8",
+          "10,8",
+          "11,8",
+          "12,8",
+          "13,8"
+        ],
+        [
+          "2,9",
+          "3,9",
+          "4,9",
+          "5,9",
+          "6,9",
+          "7,9",
+          "8,9",
+          "9,9",
+          "10,9",
+          "11,9",
+          "12,9",
+          "13,9"
+        ],
+        [
+          "2,10",
+          "3,10",
+          "4,10",
+          "5,10",
+          "6,10",
+          "7,10",
+          "8,10",
+          "9,10",
+          "10,10",
+          "11,10",
+          "12,10",
+          "13,10"
+        ]
+      ]
+    },
+    "door_arch": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,11",
+          "3,11",
+          "4,11",
+          "5,11"
+        ],
+        [
+          "2,12",
+          "3,12",
+          "4,12",
+          "5,12"
+        ],
+        [
+          "2,13",
+          "3,13",
+          "4,13",
+          "5,13"
+        ]
+      ]
+    },
+    "indoors_door_grand_open": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "indoors.door.grand.open.tl",
+          "indoors.door.grand.open.tr"
+        ],
+        [
+          "indoors.door.grand.open.bl",
+          "indoors.door.grand.open.br"
+        ]
+      ]
+    },
+    "indoors_door_grand_closed": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "indoors.door.grand.closed.tl",
+          "indoors.door.grand.closed.tr"
+        ],
+        [
+          "indoors.door.grand.closed.bl",
+          "indoors.door.grand.closed.br"
+        ]
+      ]
+    },
+    "small_door": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "9,11",
+          "10,11",
+          "11,11"
+        ],
+        [
+          "9,12",
+          "10,12",
+          "11,12"
+        ],
+        [
+          "9,13",
+          "10,13",
+          "11,13"
+        ]
+      ]
+    },
+    "tavern_outer_wall_top": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "minimal8:architecture:0,13",
+          "minimal8:architecture:1,13",
+          "minimal8:architecture:2,13",
+          "minimal8:architecture:3,13"
+        ]
+      ]
+    },
+    "tavern_outer_wall_side": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "minimal8:architecture:0,14"
+        ],
+        [
+          "minimal8:architecture:1,14"
+        ],
+        [
+          "minimal8:architecture:2,14"
+        ],
+        [
+          "minimal8:architecture:3,14"
+        ]
+      ]
+    },
+    "tavern_back_wall_a": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "minimal8:architecture:2,4",
+          "minimal8:architecture:3,4",
+          "minimal8:architecture:2,5",
+          "minimal8:architecture:3,5"
+        ]
+      ]
+    },
+    "tavern_back_wall_b": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "minimal8:architecture:4,4",
+          "minimal8:architecture:5,4",
+          "minimal8:architecture:6,4",
+          "minimal8:architecture:7,4"
+        ]
+      ]
+    },
+    "indoors_band_run": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "indoors.band.left.alt_a",
+          "indoors.band.left.alt_b",
+          "indoors.band.middle",
+          "indoors.band.right.alt_b",
+          "indoors.band.right.alt_a"
+        ]
+      ]
+    },
+    "indoors_dining_cluster": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          ".",
+          "indoors.chair.right",
+          "."
+        ],
+        [
+          "indoors.table.long.left",
+          "indoors.table.long.middle",
+          "indoors.table.long.right"
+        ],
+        [
+          ".",
+          "indoors.stool.left",
+          "."
+        ]
+      ]
+    },
+    "actor_gold_full": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "actor.gold.nw",
+          "actor.gold.ne"
+        ],
+        [
+          "actor.gold.sw",
+          "actor.gold.se"
+        ]
+      ]
+    },
+    "actor_purple_full": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "actor.purple.nw",
+          "actor.purple.ne"
+        ],
+        [
+          "actor.purple.sw",
+          "actor.purple.se"
+        ]
+      ]
+    },
+    "actor_red_full": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "actor.red.nw",
+          "actor.red.ne"
+        ],
+        [
+          "actor.red.sw",
+          "actor.red.se"
+        ]
+      ]
+    },
+    "actor_teal_full": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "actor.teal.nw",
+          "actor.teal.ne"
+        ],
+        [
+          "actor.teal.sw",
+          "actor.teal.se"
+        ]
+      ]
+    },
+    "green_symbols": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,4",
+          "20,4",
+          "21,4",
+          "22,4",
+          "23,4",
+          "24,4",
+          "25,4",
+          "26,4",
+          "27,4",
+          "28,4",
+          "29,4",
+          "30,4"
+        ],
+        [
+          "19,5",
+          "20,5",
+          "21,5",
+          "22,5",
+          "23,5",
+          "24,5",
+          "25,5",
+          "26,5",
+          "27,5",
+          "28,5",
+          "29,5",
+          "30,5"
+        ],
+        [
+          "19,6",
+          "20,6",
+          "21,6",
+          "22,6",
+          "23,6",
+          "24,6",
+          "25,6",
+          "26,6",
+          "27,6",
+          "28,6",
+          "29,6",
+          "30,6"
+        ],
+        [
+          "19,7",
+          "20,7",
+          "21,7",
+          "22,7",
+          "23,7",
+          "24,7",
+          "25,7",
+          "26,7",
+          "27,7",
+          "28,7",
+          "29,7",
+          "30,7"
+        ]
+      ]
+    },
+    "symbols_left": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,4",
+          "20,4",
+          "21,4",
+          "22,4"
+        ],
+        [
+          "19,5",
+          "20,5",
+          "21,5",
+          "22,5"
+        ],
+        [
+          "19,6",
+          "20,6",
+          "21,6",
+          "22,6"
+        ],
+        [
+          "19,7",
+          "20,7",
+          "21,7",
+          "22,7"
+        ]
+      ]
+    },
+    "symbols_mid": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "23,4",
+          "24,4",
+          "25,4",
+          "26,4"
+        ],
+        [
+          "23,5",
+          "24,5",
+          "25,5",
+          "26,5"
+        ],
+        [
+          "23,6",
+          "24,6",
+          "25,6",
+          "26,6"
+        ],
+        [
+          "23,7",
+          "24,7",
+          "25,7",
+          "26,7"
+        ]
+      ]
+    },
+    "symbols_right": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "27,4",
+          "28,4",
+          "29,4",
+          "30,4"
+        ],
+        [
+          "27,5",
+          "28,5",
+          "29,5",
+          "30,5"
+        ],
+        [
+          "27,6",
+          "28,6",
+          "29,6",
+          "30,6"
+        ],
+        [
+          "27,7",
+          "28,7",
+          "29,7",
+          "30,7"
+        ]
+      ]
+    },
+    "symbols_crown": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "22,4",
+          "23,4",
+          "24,4",
+          "25,4",
+          "26,4",
+          "27,4"
+        ],
+        [
+          "22,5",
+          "23,5",
+          "24,5",
+          "25,5",
+          "26,5",
+          "27,5"
+        ]
+      ]
+    },
+    "plinth_left": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,29",
+          "3,29",
+          "4,29",
+          "5,29"
+        ],
+        [
+          "2,30",
+          "3,30",
+          "4,30",
+          "5,30"
+        ]
+      ]
+    },
+    "plinth_right": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "10,29",
+          "11,29",
+          "12,29",
+          "13,29"
+        ],
+        [
+          "10,30",
+          "11,30",
+          "12,30",
+          "13,30"
+        ]
+      ]
+    },
+    "entry_steps": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,32",
+          "3,32",
+          "4,32",
+          "5,32",
+          "6,32"
+        ],
+        [
+          "2,33",
+          "3,33",
+          "4,33",
+          "5,33",
+          "6,33"
+        ]
+      ]
+    },
+    "shrine_face_top": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,4",
+          "3,4",
+          "4,4",
+          "5,4",
+          "6,4",
+          "7,4",
+          "8,4",
+          "9,4",
+          "10,4",
+          "11,4",
+          "12,4",
+          "13,4"
+        ],
+        [
+          "2,5",
+          "3,5",
+          "4,5",
+          "5,5",
+          "6,5",
+          "7,5",
+          "8,5",
+          "9,5",
+          "10,5",
+          "11,5",
+          "12,5",
+          "13,5"
+        ],
+        [
+          "2,6",
+          "3,6",
+          "4,6",
+          "5,6",
+          "6,6",
+          "7,6",
+          "8,6",
+          "9,6",
+          "10,6",
+          "11,6",
+          "12,6",
+          "13,6"
+        ],
+        [
+          "2,7",
+          "3,7",
+          "4,7",
+          "5,7",
+          "6,7",
+          "7,7",
+          "8,7",
+          "9,7",
+          "10,7",
+          "11,7",
+          "12,7",
+          "13,7"
+        ],
+        [
+          "2,8",
+          "3,8",
+          "4,8",
+          "5,8",
+          "6,8",
+          "7,8",
+          "8,8",
+          "9,8",
+          "10,8",
+          "11,8",
+          "12,8",
+          "13,8"
+        ],
+        [
+          "2,9",
+          "3,9",
+          "4,9",
+          "5,9",
+          "6,9",
+          "7,9",
+          "8,9",
+          "9,9",
+          "10,9",
+          "11,9",
+          "12,9",
+          "13,9"
+        ],
+        [
+          "2,10",
+          "3,10",
+          "4,10",
+          "5,10",
+          "6,10",
+          "7,10",
+          "8,10",
+          "9,10",
+          "10,10",
+          "11,10",
+          "12,10",
+          "13,10"
+        ]
+      ]
+    },
+    "rock_bank_left": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          ".",
+          "24,10",
+          "25,10",
+          "26,10",
+          "27,10",
+          "28,10",
+          "29,10",
+          "30,10",
+          "31,10"
+        ],
+        [
+          "23,11",
+          "24,11",
+          "25,11",
+          "26,11",
+          "27,11",
+          "28,11",
+          "29,11",
+          "30,11",
+          "31,11"
+        ],
+        [
+          "23,12",
+          ".",
+          "25,12",
+          "26,12",
+          "27,12",
+          "28,12",
+          "29,12",
+          "30,12",
+          "31,12"
+        ]
+      ]
+    },
+    "overworld_land_cap": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,10",
+          "20,10",
+          "21,10",
+          "22,10",
+          "24,10",
+          "25,10",
+          "26,10",
+          "27,10",
+          "28,10",
+          "29,10"
+        ],
+        [
+          "19,11",
+          "20,11",
+          "21,11",
+          "22,11",
+          "24,11",
+          "25,11",
+          "26,11",
+          "27,11",
+          "28,11",
+          "29,11"
+        ],
+        [
+          "19,12",
+          "20,12",
+          "21,12",
+          "22,12",
+          "23,12",
+          "25,12",
+          "26,12",
+          "27,12",
+          "28,12",
+          "29,12"
+        ],
+        [
+          "19,13",
+          "20,13",
+          "21,13",
+          "22,13",
+          "23,13",
+          "24,13",
+          "25,13",
+          "26,13",
+          "27,13",
+          "28,13"
+        ]
+      ]
+    },
+    "overworld_mountain_bank": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "24,10",
+          "25,10",
+          "26,10",
+          "27,10",
+          "28,10",
+          "29,10",
+          "30,10",
+          "31,10",
+          "32,10"
+        ],
+        [
+          "24,11",
+          "25,11",
+          "26,11",
+          "27,11",
+          "28,11",
+          "29,11",
+          "30,11",
+          "31,11",
+          "32,11"
+        ],
+        [
+          "23,12",
+          "25,12",
+          "26,12",
+          "27,12",
+          "28,12",
+          "29,12",
+          "30,12",
+          "31,12",
+          "32,12"
+        ],
+        [
+          "22,13",
+          "23,13",
+          "24,13",
+          "25,13",
+          "26,13",
+          "27,13",
+          "28,13",
+          "29,13",
+          "30,13"
+        ]
+      ]
+    },
+    "overworld_route_strip": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,13",
+          "20,13",
+          "21,13",
+          "22,13",
+          "23,13",
+          "24,13"
+        ],
+        [
+          "25,13",
+          "26,13",
+          "27,13",
+          "28,13",
+          "29,13",
+          "30,13"
+        ]
+      ]
+    },
+    "overworld_ruin_band": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,15",
+          "20,15",
+          "21,15",
+          "22,15",
+          "23,15",
+          "24,15"
+        ]
+      ]
+    },
+    "overworld_cloud_swirl": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "24,11",
+          "25,11",
+          "23,11"
+        ]
+      ]
+    },
+    "overworld_spire": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "29,11",
+          "30,11"
+        ],
+        [
+          "29,12",
+          "30,12"
+        ]
+      ]
+    },
+    "overworld_wave_corner": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,9",
+          "20,9",
+          "21,9",
+          "22,9",
+          "23,9",
+          "24,9"
+        ],
+        [
+          "19,10",
+          "20,10",
+          "21,10",
+          "22,10",
+          "24,10",
+          "25,10"
+        ]
+      ]
+    },
+    "overworld_ground_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,4",
+          ".",
+          ".",
+          ".",
+          "20,4",
+          ".",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          "."
+        ],
+        [
+          ".",
+          "23,5",
+          ".",
+          ".",
+          ".",
+          "24,5",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          "."
+        ],
+        [
+          "25,8",
+          ".",
+          ".",
+          "26,8",
+          ".",
+          ".",
+          "."
+        ],
+        [
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          ".",
+          "."
+        ]
+      ]
+    },
+    "overworld_green_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,10",
+          "20,10",
+          "21,10",
+          "22,10",
+          "30,12",
+          "."
+        ],
+        [
+          ".",
+          "19,4",
+          ".",
+          "20,4",
+          ".",
+          "21,4"
+        ],
+        [
+          "23,4",
+          ".",
+          "24,4",
+          ".",
+          "27,8",
+          "28,8"
+        ],
+        [
+          ".",
+          "22,10",
+          ".",
+          "21,10",
+          ".",
+          "20,10"
+        ]
+      ]
+    },
+    "overworld_cyan_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "24,10",
+          "25,10",
+          "26,10",
+          "27,10",
+          "28,10",
+          "29,10"
+        ],
+        [
+          "19,14",
+          "20,14",
+          "21,14",
+          "24,10",
+          "25,10",
+          "26,10"
+        ],
+        [
+          "20,15",
+          "21,15",
+          "22,15",
+          "23,15",
+          "24,15",
+          "19,15"
+        ],
+        [
+          "27,10",
+          "28,10",
+          "29,10",
+          "30,10",
+          "31,10",
+          "32,10"
+        ]
+      ]
+    },
+    "overworld_orange_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,11",
+          "20,11",
+          "21,11",
+          "22,11",
+          "29,13",
+          "30,13"
+        ],
+        [
+          "26,11",
+          "27,11",
+          "28,11",
+          "31,11",
+          "32,11",
+          "19,11"
+        ],
+        [
+          "19,13",
+          "20,13",
+          "21,13",
+          "25,13",
+          "26,13",
+          "27,13"
+        ],
+        [
+          "28,13",
+          "29,13",
+          "30,13",
+          "26,11",
+          "27,11",
+          "28,11"
+        ]
+      ]
+    },
+    "overworld_purple_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "26,12",
+          "27,12",
+          ".",
+          "32,6",
+          ".",
+          "29,7"
+        ],
+        [
+          ".",
+          "26,12",
+          "27,12",
+          ".",
+          "30,6",
+          "."
+        ],
+        [
+          "29,6",
+          ".",
+          "27,7",
+          ".",
+          "26,12",
+          "32,6"
+        ],
+        [
+          ".",
+          "29,7",
+          ".",
+          "26,12",
+          ".",
+          "27,12"
+        ]
+      ]
+    },
+    "overworld_yellow_fill": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "21,12",
+          "22,12",
+          "27,5",
+          "28,5",
+          "21,12",
+          "."
+        ],
+        [
+          ".",
+          "21,12",
+          ".",
+          "22,12",
+          ".",
+          "27,5"
+        ],
+        [
+          "28,5",
+          ".",
+          "22,12",
+          ".",
+          "21,12",
+          "."
+        ],
+        [
+          ".",
+          "27,5",
+          ".",
+          "28,5",
+          ".",
+          "22,12"
+        ]
+      ]
+    },
+    "overworld_land_undercoat": {
+      "tileset": "utility_land",
+      "rows": [
+        [
+          "0,0"
+        ]
+      ]
+    },
+    "overworld_nature_boundary_outer_4x4": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,24",
+          "20,24",
+          "21,24",
+          "22,24"
+        ],
+        [
+          "19,25",
+          ".",
+          ".",
+          "22,25"
+        ],
+        [
+          "19,26",
+          ".",
+          ".",
+          "22,26"
+        ],
+        [
+          "19,27",
+          "20,27",
+          "21,27",
+          "22,27"
+        ]
+      ]
+    },
+    "overworld_nature_boundary_inset_4x4": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "23,24",
+          "24,24",
+          "25,24",
+          "26,24"
+        ],
+        [
+          "23,25",
+          ".",
+          ".",
+          "26,25"
+        ],
+        [
+          "23,26",
+          ".",
+          ".",
+          "26,26"
+        ],
+        [
+          "23,27",
+          "24,27",
+          "25,27",
+          "26,27"
+        ]
+      ]
+    },
+    "overworld_nature_cap_outer_4x2": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,24",
+          "20,24",
+          "21,24",
+          "22,24"
+        ],
+        [
+          "19,25",
+          ".",
+          ".",
+          "22,25"
+        ]
+      ]
+    },
+    "overworld_nature_cap_inset_4x2": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "23,24",
+          "24,24",
+          "25,24",
+          "26,24"
+        ],
+        [
+          "23,25",
+          ".",
+          ".",
+          "26,25"
+        ]
+      ]
+    },
+    "overworld_nature_boundary_strip_a": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "27,24",
+          "28,24"
+        ],
+        [
+          "27,25",
+          "28,25"
+        ]
+      ]
+    },
+    "overworld_nature_boundary_strip_b": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "29,24",
+          "30,24"
+        ],
+        [
+          "29,25",
+          "30,25"
+        ]
+      ]
+    },
+    "overworld_water_boundary_west_4x5": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,29",
+          "20,29",
+          "21,29",
+          "22,29"
+        ],
+        [
+          "19,30",
+          ".",
+          "21,30",
+          "22,30"
+        ],
+        [
+          "19,31",
+          "20,31",
+          "21,31",
+          "22,31"
+        ],
+        [
+          "19,32",
+          "20,32",
+          ".",
+          "22,32"
+        ],
+        [
+          "19,33",
+          "20,33",
+          ".",
+          "22,33"
+        ]
+      ]
+    },
+    "overworld_water_fill_4x5": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "23,29",
+          "24,29",
+          "25,29",
+          "26,29"
+        ],
+        [
+          "23,30",
+          "24,30",
+          "25,30",
+          "26,30"
+        ],
+        [
+          "23,31",
+          "24,31",
+          "25,31",
+          "26,31"
+        ],
+        [
+          "23,32",
+          "24,32",
+          "25,32",
+          "26,32"
+        ],
+        [
+          "23,33",
+          "24,33",
+          "25,33",
+          "26,33"
+        ]
+      ]
+    },
+    "overworld_water_boundary_east_5x5": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "27,29",
+          "28,29",
+          "29,29",
+          "30,29",
+          "31,29"
+        ],
+        [
+          "27,30",
+          "28,30",
+          "29,30",
+          "30,30",
+          "31,30"
+        ],
+        [
+          "27,31",
+          "28,31",
+          "29,31",
+          "30,31",
+          "31,31"
+        ],
+        [
+          "27,32",
+          "28,32",
+          "29,32",
+          "30,32",
+          "31,32"
+        ],
+        [
+          "27,33",
+          "28,33",
+          "29,33",
+          "30,33",
+          "31,33"
+        ]
+      ]
+    },
+    "overworld_mountain_cluster_large": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,32",
+          "3,32",
+          "4,32",
+          "5,32",
+          "6,32"
+        ],
+        [
+          "2,33",
+          "3,33",
+          "4,33",
+          "5,33",
+          "6,33"
+        ],
+        [
+          "2,34",
+          "3,34",
+          "4,34",
+          "5,34",
+          "6,34"
+        ],
+        [
+          "2,35",
+          "3,35",
+          "4,35",
+          "5,35",
+          "6,35"
+        ]
+      ]
+    },
+    "overworld_mountain_ridge_cluster": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,32",
+          "3,32",
+          "4,32",
+          "5,32",
+          "6,32",
+          "7,32",
+          "8,32"
+        ],
+        [
+          "2,33",
+          "3,33",
+          "4,33",
+          "5,33",
+          "6,33",
+          "7,33",
+          "8,33"
+        ],
+        [
+          "2,34",
+          "3,34",
+          "4,34",
+          "5,34",
+          "6,34",
+          "7,34",
+          "8,34"
+        ],
+        [
+          "2,35",
+          "3,35",
+          "4,35",
+          "5,35",
+          "6,35",
+          ".",
+          "8,35"
+        ]
+      ]
+    },
+    "overworld_mountain_volcano_cluster": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "8,32",
+          ".",
+          "10,32",
+          "11,32",
+          "12,32"
+        ],
+        [
+          "8,33",
+          "9,33",
+          "10,33",
+          "11,33",
+          "12,33"
+        ],
+        [
+          "8,34",
+          ".",
+          "10,34",
+          ".",
+          "12,34"
+        ],
+        [
+          "8,35",
+          "9,35",
+          ".",
+          ".",
+          "."
+        ]
+      ]
+    },
+    "overworld_mountain_ridge_top": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,32",
+          "3,32",
+          "4,32",
+          "5,32",
+          "6,32",
+          "7,32"
+        ]
+      ]
+    },
+    "overworld_mountain_volcano_band": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "2,33",
+          "3,33",
+          "4,33",
+          "5,33"
+        ]
+      ]
+    },
+    "overworld_ruin_cyan_tower": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "6,32",
+          "7,32",
+          "8,32",
+          "."
+        ],
+        [
+          "6,33",
+          "7,33",
+          "8,33",
+          "9,33"
+        ],
+        [
+          "6,34",
+          "7,34",
+          "8,34",
+          "."
+        ],
+        [
+          "6,35",
+          ".",
+          "8,35",
+          "9,35"
+        ]
+      ]
+    },
+    "overworld_ruin_yellow_keep": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "12,33",
+          "13,33"
+        ],
+        [
+          "12,34",
+          "13,34"
+        ]
+      ]
+    },
+    "overworld_grass_ridge": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 19,
+        "y": 10,
+        "width": 4,
+        "height": 1
+      }
+    },
+    "overworld_mountain_ridge": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 24,
+        "y": 10,
+        "width": 9,
+        "height": 1
+      }
+    },
+    "overworld_mountain_patch": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 24,
+        "y": 10,
+        "width": 6,
+        "height": 3
+      }
+    },
+    "overworld_continent_top": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 19,
+        "y": 10,
+        "width": 14,
+        "height": 6
+      }
+    },
+    "overworld_continent_mid": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 19,
+        "y": 13,
+        "width": 14,
+        "height": 5
+      }
+    },
+    "overworld_continent_lower": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rect": {
+        "x": 19,
+        "y": 17,
+        "width": 12,
+        "height": 6
+      }
+    },
+    "overworld_route_node": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "20,12"
+        ]
+      ]
+    },
+    "water_lines": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,9",
+          "20,9",
+          "21,9",
+          "22,9",
+          "23,9"
+        ]
+      ]
+    },
+    "water_short": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "19,9",
+          "20,9",
+          "21,9"
+        ]
+      ]
+    },
+    "indoors_ladder_access": {
+      "tileset": "minimal8@1bit_colored_bg",
+      "rows": [
+        [
+          "indoors.ladder.vertical"
+        ],
+        [
+          "indoors.ladder.down"
+        ],
+        [
+          "indoors.ladder.up"
+        ]
+      ]
+    }
+  }
+}

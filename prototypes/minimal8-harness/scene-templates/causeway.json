@@ -1,0 +1,134 @@
+{
+  "template_id": "causeway",
+  "description": "Framed island or shrine platform with surrounding water, optional stem, doorway, and symbol accents.",
+  "parameters": {
+    "x": {"type": "int", "required": true, "description": "Left tile coordinate of the island footprint."},
+    "y": {"type": "int", "required": true, "description": "Top tile coordinate of the island footprint."},
+    "width": {"type": "int", "required": true, "description": "Island width in tiles."},
+    "height": {"type": "int", "required": true, "description": "Island height in tiles."},
+    "water_layer": {"type": "str", "required": false, "description": "Layer name for the surrounding water fill."},
+    "room_layer": {"type": "str", "required": false, "description": "Layer name for the island or court boxes."},
+    "ornament_layer": {"type": "str", "required": false, "description": "Layer name for the doorway and symbol stamps."},
+    "water_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the water pattern."},
+    "water_margin_x": {"type": "int", "required": false, "description": "Horizontal water margin added to both sides of the island."},
+    "water_margin_top": {"type": "int", "required": false, "description": "Top water margin above the island."},
+    "water_margin_bottom": {"type": "int", "required": false, "description": "Bottom water margin below the island."},
+    "water_x": {"type": "int", "required": false, "description": "Explicit left tile coordinate for the water fill."},
+    "water_y": {"type": "int", "required": false, "description": "Explicit top tile coordinate for the water fill."},
+    "water_width": {"type": "int", "required": false, "description": "Explicit width of the water fill in tiles."},
+    "water_height": {"type": "int", "required": false, "description": "Explicit height of the water fill in tiles."},
+    "outer_style": {"type": "str", "required": false, "description": "Box style used for the main island frame."},
+    "stem_style": {"type": "str", "required": false, "description": "Optional box style for the downward causeway or stem."},
+    "stem_width": {"type": "int", "required": false, "description": "Stem width in tiles."},
+    "stem_height": {"type": "int", "required": false, "description": "Stem height in tiles."},
+    "stem_x": {"type": "int", "required": false, "description": "Explicit left tile coordinate for the stem."},
+    "stem_y": {"type": "int", "required": false, "description": "Explicit top tile coordinate for the stem."},
+    "stem_gap_y": {"type": "int", "required": false, "description": "Vertical gap between the island and the stem when stem_y is derived."},
+    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the focal doorway."},
+    "door_x": {"type": "int", "required": false, "description": "Explicit doorway X coordinate instead of centering."},
+    "door_y": {"type": "int", "required": false, "description": "Explicit doorway Y coordinate instead of the default focal row."},
+    "symbols_ref": {"type": "tile_ref", "required": false, "description": "Optional symbol or ornament stamp repeated above the water."},
+    "symbols_count": {"type": "int", "required": false, "description": "How many symbol stamps to place."},
+    "symbols_inset_x": {"type": "int", "required": false, "description": "Inset used when spacing repeated symbols across the water span."},
+    "symbols_y": {"type": "int", "required": false, "description": "Explicit Y coordinate for the repeated symbol row."}
+  },
+  "bindings": {
+    "water_layer": {"param": "water_layer", "default": "water"},
+    "room_layer": {"param": "room_layer", "default": "island"},
+    "ornament_layer": {"param": "ornament_layer", "default": "ornament"},
+    "water_ref": {"param": "water_ref", "default": "@water_lines"},
+    "water_margin_x": {"param": "water_margin_x", "default": {"max": [8, {"param": "width"}]}},
+    "water_margin_top": {"param": "water_margin_top", "default": 2},
+    "water_margin_bottom": {"param": "water_margin_bottom", "default": {"max": [6, {"param": "height"}]}},
+    "water_x": {"param": "water_x", "default": {"sub": [{"param": "x"}, {"bind": "water_margin_x"}]}},
+    "water_y": {"param": "water_y", "default": {"sub": [{"param": "y"}, {"bind": "water_margin_top"}]}},
+    "water_width": {"param": "water_width", "default": {"add": [{"param": "width"}, {"mul": [{"bind": "water_margin_x"}, 2]}]}},
+    "water_height": {"param": "water_height", "default": {"add": [{"param": "height"}, {"bind": "water_margin_top"}, {"bind": "water_margin_bottom"}]}},
+    "outer_style": {"param": "outer_style", "default": "gold_ui_frame"},
+    "stem_style": {"param": "stem_style", "default": "gold_ui_frame_dense"},
+    "stem_width": {"param": "stem_width", "default": {"max": [6, {"floordiv": [{"param": "width"}, 2]}]}},
+    "stem_height": {"param": "stem_height", "default": {"param": "height"}},
+    "stem_x": {"param": "stem_x", "default": {"add": [{"param": "x"}, {"max": [0, {"floordiv": [{"sub": [{"param": "width"}, {"bind": "stem_width"}]}, 2]}]}]}},
+    "stem_gap_y": {"param": "stem_gap_y", "default": 0},
+    "stem_y": {"param": "stem_y", "default": {"add": [{"param": "y"}, {"param": "height"}, {"bind": "stem_gap_y"}]}},
+    "door_ref": {"param": "door_ref", "default": "@door_arch"},
+    "symbols_ref": {"param": "symbols_ref", "default": null}
+  },
+  "ops": [
+    {
+      "kind": "fill",
+      "layer": {"bind": "water_layer"},
+      "ref": {"bind": "water_ref"},
+      "x": {"bind": "water_x"},
+      "y": {"bind": "water_y"},
+      "width": {"bind": "water_width"},
+      "height": {"bind": "water_height"}
+    },
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "style": {"bind": "outer_style"},
+      "x": {"param": "x"},
+      "y": {"param": "y"},
+      "width": {"param": "width"},
+      "height": {"param": "height"}
+    },
+    {
+      "kind": "box",
+      "layer": {"bind": "room_layer"},
+      "when_present": "stem_style",
+      "style": {"bind": "stem_style"},
+      "x": {"bind": "stem_x"},
+      "y": {"bind": "stem_y"},
+      "width": {"bind": "stem_width"},
+      "height": {"bind": "stem_height"}
+    },
+    {
+      "kind": "stamp",
+      "layer": {"bind": "ornament_layer"},
+      "when_present": "door_ref",
+      "ref": {"bind": "door_ref"},
+      "x": {
+        "param": "door_x",
+        "default": {
+          "centered_x": {
+            "ref": {"bind": "door_ref"},
+            "x": {"param": "x"},
+            "width": {"param": "width"}
+          }
+        }
+      },
+      "y": {
+        "param": "door_y",
+        "default": {
+          "add": [
+            {"param": "y"},
+            {"max": [2, {"sub": [{"floordiv": [{"param": "height"}, 2]}, 1]}]}
+          ]
+        }
+      }
+    },
+    {
+      "kind": "spread_stamps",
+      "layer": {"bind": "ornament_layer"},
+      "when_present": "symbols_ref",
+      "ref": {"bind": "symbols_ref"},
+      "count": {"param": "symbols_count", "default": 2},
+      "start": {"bind": "water_x"},
+      "span": {"bind": "water_width"},
+      "inset": {"param": "symbols_inset_x", "default": 6},
+      "y": {
+        "param": "symbols_y",
+        "default": {
+          "sub": [
+            {"add": [{"bind": "water_y"}, 1]},
+            {"pattern_height": {"param": "symbols_ref"}}
+          ]
+        }
+      }
+    }
+  ],
+  "notes": [
+    "Behavior is data-backed in this pass and intentionally uses only minimal bindings, arithmetic expressions, and a spread_stamps helper."
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "ruleset_id": "tavern",
+  "description": "Weighted tavern-specific placement catalogues for framed back-bar stock, communal tables, smaller drink tables, and occupied dining fragments.",
+  "catalogues": {
+    "back_wall_stock": [
+      {
+        "id": "stocked_a",
+        "kind": "stamp",
+        "ref": "indoors.storage.variant.stocked_a",
+        "weight": 3
+      },
+      {
+        "id": "stocked_b",
+        "kind": "stamp",
+        "ref": "indoors.storage.variant.stocked_b",
+        "weight": 3
+      },
+      {
+        "id": "cabinet",
+        "kind": "stamp",
+        "ref": "indoors.storage.cabinet.single",
+        "weight": 2
+      },
+      {
+        "id": "plain",
+        "kind": "stamp",
+        "ref": "indoors.storage.variant.plain",
+        "weight": 2
+      },
+      {
+        "id": "open_bin",
+        "kind": "stamp",
+        "ref": "indoors.storage.bin.open",
+        "weight": 1
+      }
+    ],
+    "dining_vertical_2x6": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.vertical_2x6.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.vertical_2x6.occupied_b",
+        "weight": 1
+      }
+    ],
+    "dining_rect_3x2": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.rect_3x2.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.rect_3x2.occupied_b",
+        "weight": 2
+      }
+    ],
+    "dining_rect_2x3": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.rect_2x3.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.rect_2x3.occupied_b",
+        "weight": 1
+      }
+    ],
+    "dining_square_2x2": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.square_2x2.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.square_2x2.occupied_b",
+        "weight": 1
+      }
+    ],
+    "dining_square_single": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.square_single.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.square_single.occupied_b",
+        "weight": 1
+      }
+    ],
+    "dining_round_single": [
+      {
+        "id": "occupied_a",
+        "kind": "scene",
+        "scene": "tavern.cluster.round_single.occupied_a",
+        "weight": 2
+      },
+      {
+        "id": "occupied_b",
+        "kind": "scene",
+        "scene": "tavern.cluster.round_single.occupied_b",
+        "weight": 2
+      }
+    ]
+  }
+}

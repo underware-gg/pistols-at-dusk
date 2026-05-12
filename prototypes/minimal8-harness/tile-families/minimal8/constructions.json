@@ -1,0 +1,439 @@
+{
+  "constructions": [
+    {
+      "id": "indoors.door.grand.open",
+      "collection_id": "indoors.door.grand.open",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.door.grand.closed",
+      "collection_id": "indoors.door.grand.closed",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.round_single",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "round_single"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.square_single",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "square_single"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.horizontal_run",
+      "collection_id": "indoors.table.kit",
+      "kind": "parametric_run",
+      "axis": "x",
+      "length_param": "length",
+      "start_role": "horizontal_left_end",
+      "repeat_role": "horizontal_middle",
+      "end_role": "horizontal_right_end"
+    },
+    {
+      "id": "indoors.table.kit.vertical_run",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.square_2x2",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.rect_3x2",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.rect_2x3",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.horizontal_2x6",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.vertical_2x6",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.l_top_left",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_middle"
+          },
+          {
+            "role": "horizontal_middle"
+          },
+          {
+            "role": "horizontal_right_end"
+          }
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          ".",
+          "."
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          ".",
+          "."
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.l_top_right",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "horizontal_left_end"
+          },
+          {
+            "role": "horizontal_middle"
+          },
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          ".",
+          ".",
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          ".",
+          ".",
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.l_bottom_left",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          {
+            "role": "vertical_top_end"
+          },
+          ".",
+          "."
+        ],
+        [
+          {
+            "role": "vertical_middle"
+          },
+          ".",
+          "."
+        ],
+        [
+          {
+            "role": "vertical_bottom_end"
+          },
+          {
+            "role": "horizontal_middle"
+          },
+          {
+            "role": "horizontal_right_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.table.kit.l_bottom_right",
+      "collection_id": "indoors.table.kit",
+      "kind": "metatile",
+      "cells": [
+        [
+          ".",
+          ".",
+          {
+            "role": "vertical_top_end"
+          }
+        ],
+        [
+          ".",
+          ".",
+          {
+            "role": "vertical_middle"
+          }
+        ],
+        [
+          {
+            "role": "horizontal_left_end"
+          },
+          {
+            "role": "horizontal_middle"
+          },
+          {
+            "role": "vertical_bottom_end"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.counter.low.run",
+      "collection_id": "indoors.counter.low",
+      "kind": "parametric_run",
+      "axis": "x",
+      "length_param": "length",
+      "start_role": "left_end",
+      "repeat_role": "horizontal_middle",
+      "end_role": "right_end"
+    },
+    {
+      "id": "indoors.bookcase.tall.run",
+      "collection_id": "indoors.bookcase.tall",
+      "kind": "parametric_run",
+      "axis": "x",
+      "length_param": "length",
+      "start_role": "left_end",
+      "repeat_role": "horizontal_middle",
+      "end_role": "right_end"
+    }
+  ]
+}

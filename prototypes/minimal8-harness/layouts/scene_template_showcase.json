@@ -1,0 +1,88 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 84,
+    "height": 28,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "width": 84,
+    "height": 28,
+    "units": "tiles",
+    "scale": 3
+  },
+  "scenes": [
+    {
+      "template": "sanctum",
+      "x": 4,
+      "y": 9,
+      "width": 22,
+      "height": 14,
+      "outer_style": "glyph_stone_frame",
+      "inner_style": "gold_ui_frame",
+      "inner_inset_x": 4,
+      "inner_inset_y": 3
+    },
+    {
+      "template": "twin_chambers",
+      "x": 31,
+      "y": 11,
+      "width": 24,
+      "height": 10,
+      "outer_style": "gold_ui_frame",
+      "bridge_style": "gold_ui_frame_dense",
+      "left_width": 8,
+      "bridge_width": 8,
+      "right_width": 8,
+      "bridge_y": 14,
+      "bridge_height": 4,
+      "door_target": "right"
+    },
+    {
+      "template": "causeway",
+      "x": 64,
+      "y": 11,
+      "width": 12,
+      "height": 8,
+      "outer_style": "gold_ui_frame",
+      "stem_style": "gold_ui_frame_dense",
+      "stem_width": 6,
+      "stem_height": 6,
+      "water_margin_x": 6,
+      "water_margin_top": 2,
+      "water_margin_bottom": 6,
+      "symbols_ref": "@green_symbols",
+      "symbols_count": 2,
+      "symbols_y": 7
+    }
+  ],
+  "layers": [
+    {
+      "name": "ornament",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@symbols_crown",
+          "x": 12,
+          "y": 4
+        },
+        {
+          "kind": "stamp",
+          "ref": "@symbols_mid",
+          "x": 40,
+          "y": 4
+        },
+        {
+          "kind": "stamp",
+          "ref": "@symbols_crown",
+          "x": 67,
+          "y": 4
+        }
+      ]
+    }
+  ],
+  "output": "../generated/scene_template_showcase.png"
+}

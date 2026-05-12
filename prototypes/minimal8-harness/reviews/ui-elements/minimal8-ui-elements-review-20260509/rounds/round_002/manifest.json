@@ -1,0 +1,210 @@
+{
+  "tileset": "minimal8@1bit_colored_bg",
+  "element_count": 11,
+  "elements": [
+    {
+      "id": "ui_frame_ornate_gap_3x3",
+      "label": "Ornate gap 3x3 frame",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "notes": "First ornate 3x3 UI frame variant. This is the gapped version; its corners and connectors work together as one closed set.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ],
+      "feedback": {
+        "Interpretation": "Part of the left-hand top-row family. This is the ornate 3x3 variant with visible gaps.",
+        "Missing related tiles": "Reviewed as part of the same family as the adjacent ornate smooth 3x3 and the simple 2x2 frame.",
+        "Composition / usage notes": "Use as a fixed 3x3 extensible frame variant. Its one-pixel extensions are part of how this specific set closes its gaps, so it should not be mixed with the smooth variant.",
+        "Rename suggestions": "",
+        "Action later (do not change yet)": "When semantic authoring is actioned, record its connector roles explicitly and link any exact duplicate connector placements rather than duplicating semantics."
+      }
+    },
+    {
+      "id": "ui_frame_ornate_smooth_3x3",
+      "label": "Ornate smooth 3x3 frame",
+      "bounds": {
+        "x": 58,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "notes": "Second ornate 3x3 UI frame variant. This is the smooth/no-gap version; it is a distinct closed set from the gapped variant.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ],
+      "feedback": {
+        "Interpretation": "Part of the left-hand top-row family. This is the ornate 3x3 variant without gaps.",
+        "Missing related tiles": "Reviewed alongside the ornate gap 3x3 and simple 2x2 frame, but not interchangeable with them.",
+        "Composition / usage notes": "Use as its own self-contained 3x3 frame. The closure logic differs from the gapped variant, so its connectors and corners should stay grouped with this style.",
+        "Rename suggestions": "",
+        "Action later (do not change yet)": "Capture its connector roles and any exact duplicate placements as linked uses, not copied semantics."
+      }
+    },
+    {
+      "id": "ui_frame_simple_2x2_gap_compatible",
+      "label": "Simple 2x2 frame",
+      "bounds": {
+        "x": 61,
+        "y": 4,
+        "width": 2,
+        "height": 2
+      },
+      "notes": "Compact 2x2 frame variant to the right of the ornate pair. Simpler corners; pairs with the gap-style connector logic rather than the smooth ornate variant.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ],
+      "feedback": {
+        "Interpretation": "Third member of the left-hand top-row family: a simple-corner 2x2 frame.",
+        "Missing related tiles": "Treat as part of the same reviewed family as the two ornate 3x3s, but with its own corner style.",
+        "Composition / usage notes": "The 2x2 lines up with the gap-connector family, not the smooth one. It is a separate compact frame variant, not just a crop of either ornate 3x3.",
+        "Rename suggestions": "",
+        "Action later (do not change yet)": "Record which connector family it is compatible with when the UI kit semantics are actioned."
+      }
+    },
+    {
+      "id": "ui_frame_less_ornate_gap_3x3",
+      "label": "Less ornate gap 3x3 frame",
+      "bounds": {
+        "x": 65,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "notes": "First 3x3 of the right-hand top-row pair. Same broad family as its neighbor, but this is the gapped version with less ornate corners.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ],
+      "feedback": {
+        "Interpretation": "First member of the right-hand top-row pair: a less ornate 3x3 frame with gaps.",
+        "Missing related tiles": "Reviewed as a pair with the adjacent less ornate smooth/no-gap 3x3.",
+        "Composition / usage notes": "Working assumption from review: this pair behaves like the ornate pair, with a distinct gap variant and no-gap variant that should not be mixed.",
+        "Rename suggestions": "",
+        "Action later (do not change yet)": "Verify connector roles and exact duplicate placements before semantic promotion."
+      }
+    },
+    {
+      "id": "ui_frame_less_ornate_smooth_3x3",
+      "label": "Less ornate smooth 3x3 frame",
+      "bounds": {
+        "x": 68,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "notes": "Second 3x3 of the right-hand top-row pair. Less ornate corners, smooth/no-gap closure, and not interchangeable with the gapped partner.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-overworld-dialogue-knight-marius.png"
+      ],
+      "feedback": {
+        "Interpretation": "Second member of the right-hand top-row pair: a less ornate 3x3 frame without gaps.",
+        "Missing related tiles": "Treat as the paired smooth/no-gap variant of the adjacent less ornate gap 3x3.",
+        "Composition / usage notes": "Do not treat this as interchangeable with the gap version; same family, different closure logic.",
+        "Rename suggestions": "",
+        "Action later (do not change yet)": "Verify exact connector matches against lower UI panel sets before collapsing any semantics."
+      }
+    },
+    {
+      "id": "ui_menu_corner_toggle_marks",
+      "label": "Menu corner and toggle marks",
+      "bounds": {
+        "x": 55,
+        "y": 7,
+        "width": 11,
+        "height": 3
+      },
+      "notes": "Three adjacent compact UI frame/widget clusters from the middle UI block; recut to include the full right edge of the third cluster.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png"
+      ]
+    },
+    {
+      "id": "ui_cursor_and_small_icons",
+      "label": "Cursor and small icon set",
+      "bounds": {
+        "x": 55,
+        "y": 10,
+        "width": 4,
+        "height": 3
+      },
+      "notes": "Includes the right-pointing menu cursor, a boxed variant, and nearby small symbols used in menus and stats screens.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png"
+      ]
+    },
+    {
+      "id": "ui_separator_runs",
+      "label": "Separator and border run set",
+      "bounds": {
+        "x": 59,
+        "y": 10,
+        "width": 12,
+        "height": 4
+      },
+      "notes": "Long vertical and horizontal runs used as section dividers and border continuations inside larger panels and HUD layouts.",
+      "seen_in": [
+        "reference-party-menu-region-selection.png",
+        "reference-party-menu-character-stats.png",
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_panel_corner_variants",
+      "label": "Panel corner variants",
+      "bounds": {
+        "x": 55,
+        "y": 14,
+        "width": 12,
+        "height": 2
+      },
+      "notes": "A row of compact panel-corner and edge variants that look suited to smaller label boxes and inset panels.",
+      "seen_in": [
+        "reference-party-menu-character-stats.png",
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_panel_variants_and_fillers",
+      "label": "Panel variants and filler tiles",
+      "bounds": {
+        "x": 55,
+        "y": 17,
+        "width": 8,
+        "height": 2
+      },
+      "notes": "Compact frame fragments and fill/pattern tiles that may support smaller boxes, panel backgrounds, or ornamental insets.",
+      "seen_in": [
+        "reference-dungeon-hud-character-sheet.png"
+      ]
+    },
+    {
+      "id": "ui_wordmark_and_symbols",
+      "label": "Wordmark and symbol row",
+      "bounds": {
+        "x": 55,
+        "y": 20,
+        "width": 16,
+        "height": 2
+      },
+      "notes": "Includes the minimal_8 wordmark row, curled symbol, boxy glyphs, and ornamental marks. Likely branding/decorative rather than panel construction.",
+      "seen_in": [
+        "reference-overworld-island-title-screen.png"
+      ]
+    }
+  ]
+}
