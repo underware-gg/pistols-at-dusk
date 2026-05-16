@@ -109,6 +109,7 @@ The functional content of the codebase is also documented co-located with the mo
 - [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / metatile / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn a resolved render-grid transform into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens.
+- [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered `8x8` reference cells to a chosen family variant source sheet and report exact matches, candidate matches, and unresolved cells.
 
 ## Tests As Documentation
 
@@ -119,6 +120,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 - [test_minimal8_harness.py](../../tests/test_minimal8_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.
 - [test_reference_grid.py](../../tests/test_reference_grid.py) — render-grid crop math, exact base-tile recovery from scaled screenshots, and non-destructive guide overlay placement.
+- [test_reference_tile_match.py](../../tests/test_reference_tile_match.py) — exact duplicate detection, structural candidate scoring, and no-match classification for recovered reference cells.
 
 Test naming follows the `test_<unit>_<behaviour>` convention; each test reads as a behavioural claim. Run the engine tests with the repo-local virtual environment:
 

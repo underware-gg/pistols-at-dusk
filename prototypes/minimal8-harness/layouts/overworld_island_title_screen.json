@@ -1,532 +1,3928 @@
 {
   "project": "../project.minimal8.2bit.json",
-  "default_tileset": "minimal8@2bit_colored",
+  "default_tileset": "minimal8@2bit_colored_bg",
   "map": {
     "width": 39,
-    "height": 27,
+    "height": 26,
     "background": "#24192A"
   },
   "viewport": {
     "x": 0,
     "y": 0,
     "width": 39,
-    "height": 27,
+    "height": 26,
     "units": "tiles",
     "scale": 4
   },
   "layers": [
     {
-      "name": "water",
-      "ops": [
-        {
-          "kind": "fill",
-          "ref": "@water_lines",
-          "x": 0,
-          "y": 8,
-          "width": 39,
-          "height": 19
-        }
-      ]
-    },
-    {
-      "name": "backdrop",
+      "name": "matched_reference",
       "ops": [
         {
           "kind": "stamp",
-          "ref": "@overworld_cloud_swirl",
-          "x": 2,
+          "ref": "minimal8@2bit_colored_bg#2,29",
+          "x": 4,
           "y": 3
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_cloud_swirl",
-          "x": 10,
+          "ref": "minimal8@2bit_colored_bg#3,29",
+          "x": 5,
+          "y": 3
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#6,29",
+          "x": 6,
+          "y": 3
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,29",
+          "x": 25,
           "y": 6
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_cloud_swirl",
-          "x": 19,
+          "ref": "minimal8@2bit_colored_bg#3,29",
+          "x": 26,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#6,29",
+          "x": 27,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,29",
+          "x": 34,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 35,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#61,11",
+          "x": 36,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 37,
+          "y": 6
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,29",
+          "x": 11,
           "y": 7
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_cloud_swirl",
-          "x": 25,
-          "y": 5
+          "ref": "minimal8@2bit_colored_bg#3,29",
+          "x": 12,
+          "y": 7
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_cloud_swirl",
-          "x": 7,
+          "ref": "minimal8@2bit_colored_bg#6,29",
+          "x": 13,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 34,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#25,24",
+          "x": 35,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#25,24",
+          "x": 36,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,31",
+          "x": 37,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,29",
+          "x": 2,
           "y": 8
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:68,9",
-          "x": 35,
-          "y": 4
-        },
-        {
-          "kind": "stamp",
-          "ref": "minimal8@2bit_colored:69,9",
-          "x": 36,
-          "y": 5
-        }
-      ]
-    },
-    {
-      "name": "terrain",
-      "ops": [
-        {
-          "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
-          "x": 0,
-          "y": 13,
-          "rows": [
-            "  ##########                           ",
-            " ###########                           ",
-            "#############                          ",
-            "###############                        ",
-            "################                       ",
-            "################                       ",
-            "#################                      ",
-            "################                       ",
-            "###############                        ",
-            "##############                         ",
-            "############                           "
-          ]
-        },
-        {
-          "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
-          "x": 5,
-          "y": 15,
-          "rows": [
-            "        #######################",
-            "     ##########################",
-            "   ############################",
-            "  #############################",
-            " ##############################",
-            "###############################",
-            "###############################",
-            "###############################",
-            "###############################"
-          ]
-        },
-        {
-          "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
-          "x": 21,
-          "y": 10,
-          "rows": [
-            "     ##########        ",
-            "   ###############     ",
-            "  ##################   ",
-            " ####################  ",
-            "###################### ",
-            "#######################",
-            "#######################",
-            "###################### ",
-            " ##################### ",
-            "  ##################   ",
-            "   ################    ",
-            "     ############      "
-          ]
-        },
-        {
-          "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
-          "x": 10,
-          "y": 14,
-          "rows": [
-            "      #######        ",
-            "   ############      ",
-            " #################   ",
-            "###################  ",
-            " #################   "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,4",
-            "20,4",
-            "23,5",
-            "24,5",
-            "23,4",
-            "24,4",
-            "25,8",
-            "26,8"
-          ],
-          "x": 0,
-          "y": 13,
-          "density": 0.075,
-          "seed": 31,
-          "rows": [
-            "  ##########                           ",
-            " ###########                           ",
-            "#############                          ",
-            "###############                        ",
-            "################                       ",
-            "################                       ",
-            "#################                      ",
-            "################                       ",
-            "###############                        ",
-            "##############                         ",
-            "############                           "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,4",
-            "20,4",
-            "23,5",
-            "24,5",
-            "23,4",
-            "24,4",
-            "25,8",
-            "26,8"
-          ],
-          "x": 8,
-          "y": 18,
-          "density": 0.05,
-          "seed": 17,
-          "rows": [
-            "        #######################",
-            "     ##########################",
-            "   ############################",
-            "  #############################",
-            " ##############################",
-            "###############################",
-            "###############################",
-            "###############################",
-            "###############################"
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,4",
-            "20,4",
-            "23,5",
-            "24,5",
-            "23,4",
-            "24,4",
-            "25,8",
-            "26,8"
-          ],
-          "x": 21,
-          "y": 10,
-          "density": 0.055,
-          "seed": 23,
-          "rows": [
-            "     ##########        ",
-            "   ###############     ",
-            "  ##################   ",
-            " ####################  ",
-            "###################### ",
-            "#######################",
-            "#######################",
-            "###################### ",
-            " ##################### ",
-            "  ##################   ",
-            "   ################    ",
-            "     ############      "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,4",
-            "20,4",
-            "23,5",
-            "24,5",
-            "23,4",
-            "24,4",
-            "25,8",
-            "26,8"
-          ],
-          "x": 10,
-          "y": 14,
-          "density": 0.035,
-          "seed": 47,
-          "rows": [
-            "      #######        ",
-            "   ############      ",
-            " #################   ",
-            "###################  ",
-            " #################   "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "24,10",
-            "25,10",
-            "26,10",
-            "27,10",
-            "28,10",
-            "29,10"
-          ],
-          "x": 2,
-          "y": 13,
-          "density": 0.22,
-          "seed": 5,
-          "rows": [
-            "###########                            ",
-            "#############                          ",
-            "###############                        "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,11",
-            "20,11",
-            "21,11",
-            "26,11",
-            "27,11",
-            "28,11"
-          ],
-          "x": 4,
-          "y": 14,
-          "density": 0.16,
-          "seed": 13,
-          "rows": [
-            "######                                 ",
-            "#######                                ",
-            "######                                 ",
-            "#####                                  "
-          ]
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "19,24",
-            "20,24",
-            "21,24",
-            "22,24",
-            "24,24",
-            "25,24",
-            "26,24",
-            "27,24",
-            "28,24",
-            "29,24",
-            "30,24",
-            "19,27",
-            "20,27",
-            "21,27",
-            "22,27",
-            "23,27",
-            "24,27"
-          ],
-          "x": 5,
-          "y": 15,
-          "density": 0.03,
-          "seed": 19,
-          "rows": [
-            "        #######################",
-            "     ##########################",
-            "   ############################",
-            "  #############################",
-            " ##############################",
-            "###############################",
-            "###############################",
-            "###############################",
-            "###############################"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "coastline",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_cap_outer_4x2",
-          "x": 4,
-          "y": 13
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_cap_inset_4x2",
-          "x": 8,
-          "y": 14
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_cap_outer_4x2",
-          "x": 24,
-          "y": 10
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_cap_inset_4x2",
-          "x": 28,
-          "y": 10
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_boundary_strip_a",
-          "x": 32,
-          "y": 10
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_boundary_strip_b",
-          "x": 34,
-          "y": 11
-        }
-      ]
-    },
-    {
-      "name": "left_mountain_segment",
-      "ops": [
-        {
-          "kind": "fill",
-          "ref": "@overworld_land_undercoat",
-          "x": 0,
-          "y": 12,
-          "width": 14,
-          "height": 12
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_water_boundary_west_4x5",
-          "x": 0,
-          "y": 12
-        },
-        {
-          "kind": "stamp",
-          "ref": "@overworld_nature_cap_outer_4x2",
+          "ref": "minimal8@2bit_colored_bg#3,29",
           "x": 3,
-          "y": 12
+          "y": 8
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_mountain_ridge_top",
-          "x": 2,
-          "y": 14
+          "ref": "minimal8@2bit_colored_bg#6,29",
+          "x": 4,
+          "y": 8
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_mountain_volcano_band",
+          "ref": "minimal8@2bit_colored_bg#2,29",
+          "x": 19,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,29",
+          "x": 20,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#6,29",
+          "x": 21,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,6",
+          "x": 28,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#61,11",
+          "x": 35,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#11,32",
+          "x": 36,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#10,29",
           "x": 6,
-          "y": 15
-        },
-        {
-          "kind": "scatter",
-          "refs": [
-            "2,35",
-            "4,35",
-            "5,35",
-            "2,32",
-            "3,32",
-            "4,32"
-          ],
-          "x": 0,
-          "y": 16,
-          "density": 0.12,
-          "seed": 61,
-          "rows": [
-            "###########    ",
-            "############   ",
-            "#############  ",
-            "#############  ",
-            "############   ",
-            "###########    ",
-            "##########     "
-          ]
-        }
-      ]
-    },
-    {
-      "name": "architecture",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "@overworld_ruin_band",
-          "x": 26,
-          "y": 11
+          "y": 9
         },
         {
           "kind": "stamp",
-          "ref": "@overworld_spire",
+          "ref": "minimal8@2bit_colored_bg#6,6",
           "x": 28,
           "y": 9
-        }
-      ]
-    },
-    {
-      "name": "detail",
-      "ops": [
-        {
-          "kind": "repeat",
-          "ref": "minimal8@2bit_colored:62,10",
-          "x": 29,
-          "y": 12,
-          "count": 3,
-          "dx": 0,
-          "dy": 1
-        },
-        {
-          "kind": "repeat",
-          "ref": "minimal8@2bit_colored:61,10",
-          "x": 27,
-          "y": 17,
-          "count": 5,
-          "dx": -1,
-          "dy": 2
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:44,12",
-          "x": 23,
-          "y": 21
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 0,
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:21,14",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 1,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 2,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 3,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 4,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 5,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 6,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,29",
+          "x": 7,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 8,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 9,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 10,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 11,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
           "x": 12,
-          "y": 18
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:21,14",
-          "x": 31,
-          "y": 16
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 13,
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:29,15",
-          "x": 32,
-          "y": 22
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 14,
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:29,15",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 15,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
           "x": 16,
-          "y": 24
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:20,12",
+          "ref": "minimal8@2bit_colored_bg#30,31",
           "x": 17,
-          "y": 11
+          "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:20,12",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 21,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
           "x": 22,
           "y": 10
         },
         {
           "kind": "stamp",
-          "ref": "minimal8@2bit_colored:20,12",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 23,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 24,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 25,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 26,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#5,26",
+          "x": 27,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#6,6",
+          "x": 28,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#7,26",
+          "x": 29,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 30,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 31,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 32,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 0,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 1,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 2,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,29",
+          "x": 3,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,9",
+          "x": 4,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,9",
+          "x": 5,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#7,32",
+          "x": 6,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,32",
+          "x": 7,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,9",
+          "x": 8,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 9,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 10,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 11,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 12,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 13,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 14,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 15,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 16,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 17,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 21,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 22,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 23,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 24,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,6",
+          "x": 26,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#5,27",
+          "x": 27,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#10,4",
+          "x": 28,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#7,27",
+          "x": 29,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,6",
+          "x": 30,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 31,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 32,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 11
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,29",
+          "x": 0,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,9",
+          "x": 1,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,32",
+          "x": 2,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,31",
+          "x": 3,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 4,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#7,32",
+          "x": 5,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#6,32",
+          "x": 6,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,33",
+          "x": 7,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#61,11",
+          "x": 8,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 9,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,9",
+          "x": 10,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#25,24",
+          "x": 11,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#25,24",
+          "x": 12,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 13,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 14,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 15,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 16,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 17,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 21,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 22,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 23,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#41,5",
+          "x": 24,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,7",
+          "x": 26,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 29,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,7",
+          "x": 30,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 32,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,31",
+          "x": 0,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 1,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,30",
+          "x": 2,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 3,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 4,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 5,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 6,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 7,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 8,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 9,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 10,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 11,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 12,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 13,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#25,24",
+          "x": 14,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 15,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 16,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 17,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 21,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 22,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#50,5",
+          "x": 23,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 29,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,26",
+          "x": 32,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 0,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 1,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,30",
+          "x": 2,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 3,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#13,32",
+          "x": 4,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 5,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 6,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 7,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 8,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 9,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 10,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 11,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 12,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 13,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 14,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 15,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 16,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 17,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 21,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#50,7",
+          "x": 22,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 25,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 27,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,26",
+          "x": 32,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 14
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 0,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 1,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 2,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,29",
+          "x": 3,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 4,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 5,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 6,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 7,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#32,8",
+          "x": 8,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 9,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 10,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 11,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 12,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 13,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 14,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 15,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 16,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,29",
+          "x": 17,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 20,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,26",
+          "x": 21,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 27,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 29,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,6",
+          "x": 31,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,26",
+          "x": 32,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 15
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 0,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#13,32",
+          "x": 1,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 2,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,30",
+          "x": 3,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 4,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#33,8",
+          "x": 5,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 6,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 7,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 8,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#13,32",
+          "x": 9,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 10,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 11,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 12,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 13,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 14,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 15,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 16,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,26",
+          "x": 17,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 18,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 19,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 20,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 22,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 27,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,7",
+          "x": 31,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,26",
+          "x": 32,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 16
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 0,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#3,32",
+          "x": 1,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 2,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,30",
+          "x": 3,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 4,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 5,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 6,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#33,8",
+          "x": 7,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 8,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 9,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 10,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 11,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,6",
+          "x": 12,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 13,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 14,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 15,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 16,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 17,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,6",
+          "x": 18,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 19,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 24,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 28,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,26",
+          "x": 32,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 33,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 34,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 17
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 0,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 1,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,29",
+          "x": 2,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,31",
+          "x": 3,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 4,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 5,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 6,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 7,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 8,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 9,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 10,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 11,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,7",
+          "x": 12,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 13,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 14,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 16,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,7",
+          "x": 18,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 31,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 32,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 33,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
           "x": 34,
           "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 35,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 36,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 18
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 0,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 1,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,30",
+          "x": 2,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#2,32",
+          "x": 3,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 4,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 5,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#32,8",
+          "x": 6,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 7,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 8,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 9,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 10,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 12,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 13,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 16,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 18,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,6",
+          "x": 32,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 34,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 35,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 36,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 37,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,31",
+          "x": 38,
+          "y": 19
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 0,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,29",
+          "x": 1,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,31",
+          "x": 2,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 3,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#23,4",
+          "x": 4,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 5,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 6,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 7,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 8,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 9,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,26",
+          "x": 10,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 12,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 13,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 15,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 16,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 17,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 18,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#10,34",
+          "x": 22,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 23,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,19",
+          "x": 24,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,7",
+          "x": 32,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 34,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 35,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,24",
+          "x": 37,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,24",
+          "x": 38,
+          "y": 20
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 0,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,30",
+          "x": 1,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 2,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 3,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 4,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 5,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 6,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 7,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 8,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 9,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 10,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 12,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 13,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 16,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 18,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 20,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 22,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,11",
+          "x": 23,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 24,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 32,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 34,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 35,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 37,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 38,
+          "y": 21
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 0,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,30",
+          "x": 1,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 2,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 3,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 4,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 5,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 6,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#61,11",
+          "x": 7,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 8,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,26",
+          "x": 9,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 10,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 12,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 13,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 16,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 18,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 22,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 23,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 24,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,6",
+          "x": 29,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 32,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 33,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 34,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 35,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 37,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 38,
+          "y": 22
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 0,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#26,31",
+          "x": 1,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,29",
+          "x": 2,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,29",
+          "x": 3,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 4,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#4,32",
+          "x": 5,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#61,11",
+          "x": 6,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 7,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 8,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,26",
+          "x": 9,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 10,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 12,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 13,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 14,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,6",
+          "x": 16,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 18,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,4",
+          "x": 19,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#20,7",
+          "x": 29,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 30,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 32,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 34,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,6",
+          "x": 35,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 37,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 38,
+          "y": 23
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 0,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 1,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 2,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,30",
+          "x": 3,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 4,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 5,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 6,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 7,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 8,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,26",
+          "x": 9,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 10,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 11,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 13,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#21,7",
+          "x": 16,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 18,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 22,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 32,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#24,4",
+          "x": 34,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#22,7",
+          "x": 35,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 37,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 38,
+          "y": 24
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 0,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 1,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 2,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#31,30",
+          "x": 3,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#29,8",
+          "x": 4,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 5,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#27,8",
+          "x": 6,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#28,8",
+          "x": 7,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#19,24",
+          "x": 8,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 9,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 10,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 11,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 12,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 13,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 14,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 15,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#30,5",
+          "x": 16,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 17,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 18,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 19,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 20,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 21,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 22,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 23,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 24,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 25,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 26,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#8,20",
+          "x": 27,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 28,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 29,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 30,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 31,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 32,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 33,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 34,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 35,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 36,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 37,
+          "y": 25
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@2bit_colored_bg#12,20",
+          "x": 38,
+          "y": 25
         }
       ]
     }
