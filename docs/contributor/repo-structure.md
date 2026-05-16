@@ -6,14 +6,17 @@ How the repo is laid out, and the ownership rules contributors must follow when 
 
 | Path | Purpose |
 |---|---|
-| `scripts/` | Shared engine code. `scripts/minimal8_harness.py` is the harness CLI; `scripts/tile_families.py` is the family loader/query module; `scripts/scene_templates.py` is the scene DSL evaluator. |
+| `scripts/` | Shared engine code plus contributor tooling. Engine: `scripts/minimal8_harness.py` (harness CLI), `scripts/tile_families.py` (family loader/query), `scripts/scene_templates.py` (scene DSL evaluator). Contributor tooling: `scripts/release_workflow.py` (version-bundle and stable-release validation; invoked by hooks and contributors), `scripts/check_pyright.sh`, `scripts/check_coverage.sh`. |
 | `prototypes/minimal8-harness/` | The main prototype track. Owns its tile-family package, scene templates, and generated outputs. |
 | `experiments/202605-minimal8-scene-experiments/` | Separate exploratory scene-composition experiment track. Not the canonical architecture. |
 | `resources/references/` | Shared human-provided references and source inspiration. |
 | `resources/Super Assets 3000/` | Vendor / source asset packs. Treat as upstream — keep clean. |
 | `tests/` | Test suite for shared engine modules. |
-| `tools/` | Repo tooling (e.g. `git-hooks/`). |
-| `docs/` | The four documentation layers. Start at [docs/README.md](../README.md). |
+| `tools/` | Repo tooling. `tools/git-hooks/` holds the opt-in distributed `pre-commit` and `commit-msg` hooks; activate with `git config core.hooksPath tools/git-hooks`. |
+| `.canaries/` | Canary briefs that gate subjective contributor work. `.canaries/pre-commit.md` is the current pre-commit brief; the matching transient `.canary--pre-commit` receipt is gitignored. See [docs/standards/canary.md](../standards/canary.md). |
+| `docs/` | The five documentation layers (user, functional, architecture, contributor, standards). Start at [docs/README.md](../README.md). |
+| `docs/standards/` | Cross-cutting standards: versioning, changelog, commit messages, canary. See [docs/standards/README.md](../standards/README.md). |
+| `docs/changelog/` | One file per shipped version (`vX.Y.Z.md`) and a `releases/` subfolder for stable promotions. The newest-first index is [docs/CHANGELOG.md](../CHANGELOG.md). |
 
 ## Minimal 8 split
 

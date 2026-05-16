@@ -14,7 +14,7 @@ Per principle P6 (ratcheting improvement), the floor is the level we have reache
 
 ## Layer adoption
 
-The four required layers are present and indexed:
+The four required layers from the standard, plus an imported Standards layer for cross-cutting documentation standards, are present and indexed:
 
 | Layer | Layer index | Notes |
 |---|---|---|
@@ -22,8 +22,9 @@ The four required layers are present and indexed:
 | Functional | [docs/functional/README.md](../functional/README.md) | Reference shape of the family-package format and addressing |
 | Architecture | [docs/architecture/README.md](../architecture/README.md) | Subsystem structure, decisions router, cross-cutting notes |
 | Contributor | [docs/contributor/README.md](README.md) | This layer — the home for everyone working in the repo |
+| Standards | [docs/standards/README.md](../standards/README.md) | Cross-cutting documentation standards (versioning, changelog, commit messages, canary) shared with sibling Underware repos |
 
-No additional project-defined layers at this time.
+The Standards layer mirrors the pattern used by sibling Underware repos. It holds policy documents — the "what" and "how" of versioning, commits, changelog, canary; enforcement of those policies lives in `tools/git-hooks/` and `scripts/release_workflow.py`.
 
 ## Bootstrap
 

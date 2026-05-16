@@ -1,6 +1,6 @@
 # Working Rules
 
-Practical guidance for contributors and agents working in this repo. Repo layout and ownership rules live in [repo-structure.md](repo-structure.md); documentation standard adoption lives in [documentation-standard.md](documentation-standard.md).
+Practical guidance for contributors and agents working in this repo. Repo layout and ownership rules live in [repo-structure.md](repo-structure.md); documentation standard adoption lives in [documentation-standard.md](documentation-standard.md); verification, hooks, and release workflow live in [process.md](process.md) and [release-workflow.md](release-workflow.md); commit/version/changelog rules live in [docs/standards/](../standards/README.md).
 
 ## Code design
 
@@ -42,24 +42,15 @@ The engine does not parse freeform human notes automatically — humans translat
 - **Update docs alongside code.** Per the agent-ready documentation standard, behavioural changes carry doc changes in the same change. See [documentation-standard.md](documentation-standard.md).
 - **Identity / routing changes need a decision record.** When you change identity or routing rules, update the relevant ADR or add a new one under [docs/architecture/decisions/](../architecture/decisions). Do not rewrite a landed decision record — supersede it.
 - **Generated output stays in the owning prototype or experiment** — see [repo-structure.md](repo-structure.md).
-- **Versioned changes bump `VERSION` and update the changelog package.** When a change ships a new repo version, update `VERSION`, add a row to [docs/CHANGELOG.md](../CHANGELOG.md), and add `docs/changelog/vX.Y.Z.md`. See [changelog-standard.md](changelog-standard.md).
+- **Versioned changes ship the full bundle in one commit.** When a change ships a new latest version, bump `VERSION`, create `docs/changelog/vX.Y.Z.md`, add the row to `docs/CHANGELOG.md`, update the README badge, and commit with the canonical `<Summary> (vX.Y.Z)` subject. See [docs/standards/versioning.md](../standards/versioning.md), [docs/standards/changelog.md](../standards/changelog.md), and [release-workflow.md](release-workflow.md).
 
-## Verification
+## Verification, hooks, and commits
 
-- Tooling bootstrap for this repo:
-  - install the pinned runtime via `asdf` (`.tool-versions` currently pins `python 3.12.13`)
-  - create the repo-local virtual environment with `asdf exec python -m venv .venv`
-  - install Python dependencies with `.venv/bin/python -m pip install -r requirements-dev.txt`
-  - install the repo-local Node tooling with `pnpm install`
-- For typed engine changes, run `bash scripts/check_pyright.sh` before committing.
-- `pnpm typecheck` runs the same repo-local typecheck entrypoint.
-- Run `bash scripts/check_coverage.sh` or `pnpm test:coverage` to inspect Python line and branch coverage across the repo scripts.
-- Test commands for the harness modules:
-  - `.venv/bin/python -m unittest tests.test_tile_families tests.test_minimal8_harness tests.test_scene_expansion tests.test_prototype_output`
-- To enable the tracked local pre-commit hook, run `git config core.hooksPath tools/git-hooks`.
+Verification expectations, hook activation, the canary brief, and commit/version/changelog rules are the canonical responsibility of the contributor process and standards layer. Start there:
 
-## Commits
-
-- One commit per logically distinct change. Do not bundle unrelated changes.
-- Behavioural change → tests and docs update in the same change.
-- Versioned commit subjects reuse the canonical changelog Summary text as `<Summary> (vX.Y.Z)`; non-versioned support commits use `docs:`, `test:`, or `chore:` prefixes. See [commit-messages.md](commit-messages.md).
+- [process.md](process.md) — verification commands, hook activation, canary workflow
+- [release-workflow.md](release-workflow.md) — latest-version and stable-release flows
+- [docs/standards/commit-messages.md](../standards/commit-messages.md) — versioned, release, support, and `WIP:` subject rules
+- [docs/standards/versioning.md](../standards/versioning.md) — pre-1.0 semver policy, one-version-per-commit, branch policy
+- [docs/standards/changelog.md](../standards/changelog.md) — changelog package shape
+- [docs/standards/canary.md](../standards/canary.md) — canary brief pattern

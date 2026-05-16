@@ -7,6 +7,6 @@
     "test:coverage": "bash scripts/check_coverage.sh"
   },
   "devDependencies": {
-    "pyright": "^1.1.409"
+    "pyright": "1.1.409"
   }
 }

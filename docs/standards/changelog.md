@@ -38,7 +38,7 @@ When promoting an existing latest version on `main` to stable (a `main`-only ste
 2. Add the matching `Release: <title>` row to `docs/CHANGELOG.md`
 3. Use the stable promotion subject from [Commit Messages](commit-messages.md)
 
-Contributors may use `python scripts/release_workflow.py release-prepare` as a structural scaffold for the release file and changelog release row, but the release title and narrative remain authored content.
+Contributors may use `python scripts/release_workflow.py release-prepare` as a structural scaffold for the release file and changelog release row, but the release title and narrative remain authored content. Both `release-prepare` and `release` are `main`-only steps and fail loudly when run from any other branch.
 
 Do not silently rewrite older entries to make history look cleaner. If a correction is needed, add it explicitly in a newer entry or in a clearly marked historical note.
 

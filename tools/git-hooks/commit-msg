@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+MSG_FILE="${1:-}"
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+  printf >&2 '%s\n' "commit-msg: expected commit message file path"
+  exit 1
+fi
+
+BRANCH="${HOOK_BRANCH_OVERRIDE:-$(git branch --show-current 2>/dev/null || true)}"
+
+python3 scripts/release_workflow.py commit-msg-check "$MSG_FILE" "$BRANCH"

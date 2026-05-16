@@ -14,6 +14,9 @@
 node_modules/
 .pnpm-store/
 
+# npm lockfile — pnpm is the canonical package manager; reject accidental npm install artefacts
+package-lock.json
+
 # python virtual environment
 .venv/
 __pycache__/
@@ -23,3 +26,6 @@ htmlcov/
 
 # scratch areas (repo-wide or per-track)
 scratch.local/
+
+# canary receipts (transient pre-commit log)
+.canary--pre-commit

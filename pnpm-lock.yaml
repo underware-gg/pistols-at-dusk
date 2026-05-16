@@ -9,7 +9,7 @@ importers:
   .:
     devDependencies:
       pyright:
-        specifier: ^1.1.409
+        specifier: 1.1.409
         version: 1.1.409
 
 packages:

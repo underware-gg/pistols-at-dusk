@@ -1,6 +1,6 @@
 # Pistols at Dusk
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
 
 Pistols at Dusk game repository, currently centered on tileset and layout tooling: Minimal 8 sprite-family ingestion, semantic tile catalogs, and grid-based scene-composition experiments.
 
@@ -37,3 +37,4 @@ The repo conforms to the [Agent-Ready Documentation Standard v1.0](https://githu
 - Functional docs: [docs/functional/README.md](docs/functional/README.md)
 - Architecture docs: [docs/architecture/README.md](docs/architecture/README.md)
 - Contributor docs: [docs/contributor/README.md](docs/contributor/README.md)
+- Standards: [docs/standards/README.md](docs/standards/README.md) — versioning, changelog, commit-message, and canary standards

@@ -1,36 +1,31 @@
-# Contributing
+# Contributing to Pistols at Dusk
 
-This is the contributor layer's public-facing landing page. Full contributor documentation lives at [docs/contributor/README.md](docs/contributor/README.md).
+Guide for anyone changing this repo. If you are working as an agent, also read [docs/contributor/agents.md](docs/contributor/agents.md).
 
-## Baseline
+## Documentation Entry Point
 
-- The repo conforms to the **Agent-Ready Documentation Standard v1.0** ([adoption notes](docs/contributor/documentation-standard.md), [standard source](https://github.com/Rob-Morris/obsidian-brain/blob/main/docs/standards/agent-ready-documentation.md)).
-- The contributor layer is the home of working rules, repo structure, and change discipline. Read it before contributing — `AGENTS.md` is bootstrap-only.
-- Update docs alongside the code change that affects them. Behavioural changes that are not reflected in docs regress the project's maturity level.
+This repo adopts the [Agent-Ready Documentation Standard v1.0](https://github.com/Rob-Morris/obsidian-brain/blob/main/docs/standards/agent-ready-documentation.md). Adoption notes are in [docs/contributor/documentation-standard.md](docs/contributor/documentation-standard.md).
+
+Start with [docs/README.md](docs/README.md), which routes to the current documentation layers:
+
+- [User](docs/user/README.md) — task-oriented workflows for ingestion, inspection, review packs, and harness usage
+- [Functional](docs/functional/README.md) — family-package format, addressing forms, project consumption model, review-pack workflow
+- [Architecture](docs/architecture/README.md) — system structure, ingestion/render layering, runtime shape, decision records
+- [Contributor](docs/contributor/README.md) — contributor workflow, verification, release process, and agent-specific entry points
+- [Standards](docs/standards/README.md) — versioning, changelog, commit-message, and canary standards
+
+## Start Here
+
+- [docs/contributor/process.md](docs/contributor/process.md) — shared contributor workflow, verification, hooks, and canary usage
+- [docs/contributor/release-workflow.md](docs/contributor/release-workflow.md) — how dev work becomes latest versions and stable releases
+- [docs/contributor/agents.md](docs/contributor/agents.md) — agent-only workflow help and the "When To Update Which Layer" table
+- [docs/contributor/README.md](docs/contributor/README.md) — contributor layer router
+- [docs/standards/README.md](docs/standards/README.md) — versioning, changelog, commit-message, and canary standards
+
+## Baseline Expectations
+
+- This is a pre-`1.0.0` repo. Expect breaking changes to tooling, data formats, layouts, and contributor-facing conventions. See [docs/standards/versioning.md](docs/standards/versioning.md).
+- Repo versioning uses pre-1.0 [semver](https://semver.org/). `VERSION` at the repo root is the source of truth; shipped release history lives in [docs/CHANGELOG.md](docs/CHANGELOG.md) and `docs/changelog/`.
+- Keep living docs accurate when behaviour changes. Update the affected layers in the same change. The `.canaries/pre-commit.md` brief lists the layer-by-layer checks.
 - Markdown links and path references should be repo-relative. Do not commit absolute filesystem paths such as `/Users/...`.
-- Repo versioning uses pre-1.0 [semver](https://semver.org/). `VERSION` at the repo root is the source of truth; shipped release history lives in [docs/CHANGELOG.md](docs/CHANGELOG.md) and [docs/changelog/vX.Y.Z.md](docs/changelog/v0.1.0.md).
-- Architectural decisions land as decision records under [docs/architecture/decisions/](docs/architecture/decisions). Records are immutable once landed; supersede them rather than rewriting.
-
-## Quick links
-
-- Full contributor index: [docs/contributor/README.md](docs/contributor/README.md).
-- Repo structure & ownership rules: [docs/contributor/repo-structure.md](docs/contributor/repo-structure.md).
-- Working rules (code design, review workflow, verification, commits): [docs/contributor/working-rules.md](docs/contributor/working-rules.md).
-- Changelog standard: [docs/contributor/changelog-standard.md](docs/contributor/changelog-standard.md).
-- Commit message standard: [docs/contributor/commit-messages.md](docs/contributor/commit-messages.md).
-- Documentation standard adoption: [docs/contributor/documentation-standard.md](docs/contributor/documentation-standard.md).
-
-## Verification
-
-- Install the pinned Python runtime with `asdf` (`.tool-versions` pins `python 3.12.13`).
-- Create the repo-local virtual environment with `asdf exec python -m venv .venv`.
-- Install Python dependencies with `.venv/bin/python -m pip install -r requirements-dev.txt`.
-- Install the repo-local Node tooling with `pnpm install`.
-- For typed engine changes, run `bash scripts/check_pyright.sh` before committing.
-- `pnpm typecheck` runs the same repo-local typecheck entrypoint.
-- Run `bash scripts/check_coverage.sh` or `pnpm test:coverage` for a repo-local Python coverage report.
-- To wire the repo into a local pre-commit check, run `git config core.hooksPath tools/git-hooks`.
-
-## Bootstrap
-
-Agents start at [AGENTS.md](AGENTS.md); humans coming via this file should follow the quick links above into the contributor layer.
+- Follow the linked contributor and standards docs rather than inventing local variations.
