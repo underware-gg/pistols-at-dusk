@@ -1,11 +1,10 @@
 # Changelog
 
-Follows a pre-1.0 [semver](https://semver.org/) policy: backward-compatible
-changes are patch; breaking repo/tooling/data-contract changes are minor; major
-is reserved for a fundamental model reset.
+Live history for latest experimental versions and later stable releases.
 
-Version-by-version release history for Pistols at Dusk. Every shipped version
-has its own file under `docs/changelog/`.
+Follow [docs/standards/changelog.md](standards/changelog.md) for the current changelog rules.
+
+Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling, or contributor-facing infrastructure change; `MINOR` = shipped, breaking engine, tooling, or data-contract change; `MAJOR` is reserved until the first major production release. Support-prefixed commits (`docs:`, `test:`, `chore:`) do not require versioning. Latest experimental versions and later stable releases share the same semver. See [docs/standards/versioning.md](standards/versioning.md).
 
 | Version | Date | Summary |
 |---|---|---|

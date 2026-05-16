@@ -49,8 +49,10 @@ Versioned release history lives in:
 - `docs/changelog/vX.Y.Z.md` — one file per shipped version
 
 Contributor-facing rules for this package live in
-[changelog-standard.md](changelog-standard.md) and
-[commit-messages.md](commit-messages.md).
+[docs/standards/changelog.md](../standards/changelog.md),
+[docs/standards/commit-messages.md](../standards/commit-messages.md),
+and [docs/standards/versioning.md](../standards/versioning.md).
+The release flow is documented in [release-workflow.md](release-workflow.md).
 
 ## Decision records
 
