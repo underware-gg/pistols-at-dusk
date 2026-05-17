@@ -57,12 +57,20 @@ Projects do not own sheet semantics anymore. They consume a family package and p
 }
 ```
 
+At runtime, the harness now derives a compatibility view from that package before doing ordinary scene work:
+
+- the family package remains the source-shaped catalogue and provenance container
+- the runtime consumes a `TileLibraryUnit` compatibility surface derived from the selected family, carrying only the runtime data and lookups needed for normal scene work
+- hot-path runtime tasks such as variant-backed tileset registration, ref resolution, construction lookup, and bounds-aware validation now go through that compatibility surface instead of reaching straight through the raw family object
+
 Projects still own:
 
 - metatiles
 - box styles
 - scene templates
 - local extra tilesets such as utility undercoats
+
+Inspect/export/audit tooling may still use the richer source-shaped family object directly, but normal runtime composition should treat the compatibility view as the primary boundary.
 
 ## Scene Entity Runtime
 

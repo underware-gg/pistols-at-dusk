@@ -5,11 +5,12 @@ import json
 import os
 import re
 from collections import defaultdict
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from difflib import get_close_matches
+from functools import cached_property
 from pathlib import Path
 from types import MappingProxyType
-from typing import Iterable, Literal, Mapping, TypedDict, Union, cast
+from typing import Iterable, Literal, Mapping, Protocol, TypedDict, Union, cast
 
 from typing_extensions import NotRequired, TypeAlias
 
@@ -725,8 +726,175 @@ class ResolvedFamilyTile:
         return f"{self.family_id}:{self.sheet_col},{self.sheet_row}"
 
 
+class RuntimeConstructionCatalog(Protocol):
+    def lookup_construction(self, construction_id: str) -> Construction | None:
+        ...
+
+    def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class TileLibraryUnit(RuntimeConstructionCatalog):
+    family_id: str
+    tile_width: int
+    tile_height: int
+    render_step_width: int | None
+    render_step_height: int | None
+    default_variant_id: str
+    root: Path = field(repr=False)
+    variants: Mapping[str, TileFamilyVariant] = field(repr=False)
+    tiles: Mapping[str, TileRecord] = field(repr=False)
+    aliases: Mapping[str, str] = field(repr=False)
+    tiles_by_sheet_cell_index: Mapping[tuple[int, int], TileRecord] = field(repr=False)
+    constructions: Mapping[str, Construction] = field(repr=False)
+
+    @classmethod
+    def from_family(cls, family: TileFamily) -> TileLibraryUnit:
+        return cls(
+            family_id=family.family_id,
+            tile_width=family.tile_width,
+            tile_height=family.tile_height,
+            render_step_width=family.render_step_width,
+            render_step_height=family.render_step_height,
+            default_variant_id=family.default_variant_id,
+            root=family.root,
+            variants=family.variants,
+            tiles=family.tiles,
+            aliases=family.aliases,
+            tiles_by_sheet_cell_index=family.tiles_by_sheet_cell,
+            constructions=family.constructions,
+        )
+
+    @property
+    def variant_ids(self) -> tuple[str, ...]:
+        return tuple(self.variants.keys())
+
+    def variant(self, variant_id: str | None = None) -> TileFamilyVariant:
+        resolved_variant_id = variant_id or self.default_variant_id
+        return self.variants[resolved_variant_id]
+
+    def runtime_tileset_id(self, variant_id: str | None = None) -> str:
+        resolved_variant_id = variant_id or self.default_variant_id
+        return f"{self.family_id}@{resolved_variant_id}"
+
+    def tile_record(self, tile_id: str) -> TileRecord | None:
+        return self.tiles.get(tile_id)
+
+    def tile_at_sheet_cell(self, *, sheet_col: int, sheet_row: int) -> TileRecord | None:
+        return self.tiles_by_sheet_cell_index.get((sheet_col, sheet_row))
+
+    def lookup_construction(self, construction_id: str) -> Construction | None:
+        return self.constructions.get(construction_id)
+
+    def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
+        construction = self.lookup_construction(construction_id)
+        if construction is None:
+            return None
+        return entity_template_from_construction(construction)
+
+    def resolve_ref(self, ref: str, *, variant_id: str | None = None) -> ResolvedFamilyTile | None:
+        return _resolve_family_ref(
+            family_id=self.family_id,
+            root=self.root,
+            default_variant_id=self.default_variant_id,
+            variants=self.variants,
+            tiles=self.tiles,
+            aliases=self.aliases,
+            tiles_by_sheet_cell=self.tiles_by_sheet_cell_index,
+            ref=ref,
+            variant_id=variant_id,
+        )
+
+
 def tile_record_to_dict(tile: TileRecord) -> TileRecordData:
     return cast(TileRecordData, {field.name: getattr(tile, field.name) for field in fields(TileRecord)})
+
+
+def _resolved_family_tile(
+    *,
+    family_id: str,
+    root: Path,
+    tile: TileRecord,
+    variant_id: str,
+) -> ResolvedFamilyTile:
+    return ResolvedFamilyTile(
+        family_id=family_id,
+        variant_id=variant_id,
+        tile_id=tile.id,
+        sheet_col=tile.sheet_col,
+        sheet_row=tile.sheet_row,
+        image_override_path=(
+            _resolve_tile_image_override_path(
+                root=root,
+                image_override=tile.image_override,
+                variant_id=variant_id,
+            )
+            if tile.image_override is not None
+            else None
+        ),
+    )
+
+
+def _resolve_family_ref(
+    *,
+    family_id: str,
+    root: Path,
+    default_variant_id: str,
+    variants: Mapping[str, TileFamilyVariant],
+    tiles: Mapping[str, TileRecord],
+    aliases: Mapping[str, str],
+    tiles_by_sheet_cell: Mapping[tuple[int, int], TileRecord],
+    ref: str,
+    variant_id: str | None = None,
+) -> ResolvedFamilyTile | None:
+    resolved_variant_id = variant_id or default_variant_id
+
+    variant_match = VARIANT_TILE_RE.match(ref)
+    if variant_match:
+        if variant_match.group("family") != family_id:
+            return None
+        explicit_variant_id = variant_match.group("variant")
+        if explicit_variant_id not in variants:
+            raise ValueError(f"Unknown variant ref: {ref}")
+        tile = tiles_by_sheet_cell.get((int(variant_match.group("col")), int(variant_match.group("row"))))
+        if tile is None:
+            return None
+        return _resolved_family_tile(
+            family_id=family_id,
+            root=root,
+            tile=tile,
+            variant_id=explicit_variant_id,
+        )
+
+    physical_match = PHYSICAL_TILE_RE.match(ref)
+    if physical_match:
+        if physical_match.group("family") != family_id:
+            return None
+        tile = tiles_by_sheet_cell.get((int(physical_match.group("col")), int(physical_match.group("row"))))
+        if tile is None:
+            return None
+        return _resolved_family_tile(
+            family_id=family_id,
+            root=root,
+            tile=tile,
+            variant_id=resolved_variant_id,
+        )
+
+    tile = tiles.get(ref)
+    if tile is None:
+        alias_target = aliases.get(ref)
+        if alias_target is None:
+            return None
+        tile = tiles.get(alias_target)
+        if tile is None:
+            return None
+    return _resolved_family_tile(
+        family_id=family_id,
+        root=root,
+        tile=tile,
+        variant_id=resolved_variant_id,
+    )
 
 
 def _cluster_bounds_from_raw(raw_bounds: ClusterBoundsConfig | None) -> ClusterBounds | None:
@@ -1205,7 +1373,7 @@ def _construction_footprint_spec(construction: Construction) -> EntityFootprintS
     )
 
 
-def _entity_template_from_construction(construction: Construction) -> EntityTemplateRecord:
+def entity_template_from_construction(construction: Construction) -> EntityTemplateRecord:
     tiles = _construction_tiles(construction)
 
     def _sorted_unique(values: Iterable[str | None]) -> tuple[str, ...]:
@@ -1549,10 +1717,10 @@ class TileFamily:
         self.notes = notes
         self.default_variant_id = default_variant_id
         self.source_layout = source_layout
-        self.variants = variants
-        self.clusters = clusters
-        self.tiles = tiles
-        self.aliases = aliases
+        self.variants = MappingProxyType(dict(variants))
+        self.clusters = MappingProxyType(dict(clusters))
+        self.tiles = MappingProxyType(dict(tiles))
+        self.aliases = MappingProxyType(dict(aliases))
         self.aliases_by_tile = _group_aliases_by_tile(aliases)
         self.tiles_by_sheet_cell: Mapping[tuple[int, int], TileRecord] = (
             MappingProxyType(dict(tiles_by_sheet_cell))
@@ -1563,6 +1731,10 @@ class TileFamily:
             MappingProxyType(dict(constructions)) if constructions is not None else MappingProxyType({})
         )
 
+    @cached_property
+    def runtime_unit(self) -> TileLibraryUnit:
+        return TileLibraryUnit.from_family(self)
+
     def lookup_construction(self, construction_id: str) -> Construction | None:
         return self.constructions.get(construction_id)
 
@@ -1570,10 +1742,10 @@ class TileFamily:
         construction = self.lookup_construction(construction_id)
         if construction is None:
             return None
-        return _entity_template_from_construction(construction)
+        return entity_template_from_construction(construction)
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
-        return [_entity_template_from_construction(construction) for construction in self.constructions.values()]
+        return [entity_template_from_construction(construction) for construction in self.constructions.values()]
 
     @classmethod
     def load(cls, family_dir: Path) -> TileFamily:
@@ -2143,56 +2315,7 @@ class TileFamily:
         return aliases
 
     def resolve_ref(self, ref: str, *, variant_id: str | None = None) -> ResolvedFamilyTile | None:
-        variant = variant_id or self.default_variant_id
-
-        def resolved_family_tile(tile: TileRecord, *, resolved_variant_id: str) -> ResolvedFamilyTile:
-            return ResolvedFamilyTile(
-                family_id=self.family_id,
-                variant_id=resolved_variant_id,
-                tile_id=tile.id,
-                sheet_col=tile.sheet_col,
-                sheet_row=tile.sheet_row,
-                image_override_path=(
-                    _resolve_tile_image_override_path(
-                        root=self.root,
-                        image_override=tile.image_override,
-                        variant_id=resolved_variant_id,
-                    )
-                    if tile.image_override is not None
-                    else None
-                ),
-            )
-
-        variant_match = VARIANT_TILE_RE.match(ref)
-        if variant_match:
-            if variant_match.group("family") != self.family_id:
-                return None
-            resolved_variant_id = variant_match.group("variant")
-            if resolved_variant_id not in self.variants:
-                raise ValueError(f"Unknown variant ref: {ref}")
-            sheet_col = int(variant_match.group("col"))
-            sheet_row = int(variant_match.group("row"))
-            tile = self.tile_at_sheet_cell(sheet_col=sheet_col, sheet_row=sheet_row)
-            if tile is None:
-                return None
-            return resolved_family_tile(tile, resolved_variant_id=resolved_variant_id)
-
-        physical_match = PHYSICAL_TILE_RE.match(ref)
-        if physical_match:
-            if physical_match.group("family") != self.family_id:
-                return None
-            sheet_col = int(physical_match.group("col"))
-            sheet_row = int(physical_match.group("row"))
-            tile = self.tile_at_sheet_cell(sheet_col=sheet_col, sheet_row=sheet_row)
-            if tile is None:
-                return None
-            return resolved_family_tile(tile, resolved_variant_id=variant)
-
-        if ref in self.tiles:
-            return resolved_family_tile(self.tiles[ref], resolved_variant_id=variant)
-        if ref in self.aliases:
-            return resolved_family_tile(self.by_alias(ref), resolved_variant_id=variant)
-        return None
+        return self.runtime_unit.resolve_ref(ref, variant_id=variant_id)
 
 
 def compute_non_empty_tile_mask(

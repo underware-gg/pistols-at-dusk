@@ -237,22 +237,74 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
     def test_minimal8_uses_true_8x8_placement_and_bottom_left_default_anchor(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = harness.LayoutProject(project_path)
-        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
+        tile_library = project.tile_library_unit_for_tileset("minimal8@1bit_colored_bg")
 
         self.assertIsNotNone(family)
+        self.assertIsNotNone(tile_library)
         assert family is not None
+        assert tile_library is not None
         self.assertEqual(project.grid_width, 8)
         self.assertEqual(project.grid_height, 8)
         self.assertEqual(project.render_step_width, 8)
         self.assertEqual(project.render_step_height, 8)
         self.assertEqual(family.render_step_width, 8)
         self.assertEqual(family.render_step_height, 8)
+        self.assertEqual(tile_library.render_step_width, 8)
+        self.assertEqual(tile_library.render_step_height, 8)
 
         resolved = project.family_tile_for_ref("minimal8:terrain:0,15", tileset_id="minimal8@1bit_colored_bg")
         self.assertIsNotNone(resolved)
         assert resolved is not None
         image = project.image_for_tile(resolved)
         self.assertEqual(image.getbbox(), (0, 1, 7, 8))
+
+    def test_runtime_tile_library_unit_resolves_refs_without_reaching_through_tile_family(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        tile_library = project.tile_library_unit_for_tileset("minimal8@1bit_colored_bg")
+
+        self.assertIsNotNone(tile_library)
+        assert tile_library is not None
+        resolved = tile_library.resolve_ref("minimal8:terrain:0,15", variant_id="1bit_colored_bg")
+
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertEqual(resolved.tile_id, "minimal8:terrain:0,15")
+        self.assertEqual(tile_library.runtime_tileset_id("1bit_colored_bg"), "minimal8@1bit_colored_bg")
+
+    def test_tile_library_unit_tile_record_returns_none_for_missing_tile(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        tile_library = project.tile_library_unit_for_tileset("minimal8@1bit_colored_bg")
+
+        self.assertIsNotNone(tile_library)
+        assert tile_library is not None
+        self.assertIsNone(tile_library.tile_record("missing.tile"))
+
+    def test_runtime_hot_path_does_not_need_source_family_access(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        def forbid_source_family_access(tileset_id: str) -> harness.TileFamily | None:
+            raise AssertionError(f"runtime should not require source family access for {tileset_id}")
+
+        project.source_family_for_tileset = forbid_source_family_access  # type: ignore[method-assign]
+
+        resolved = project.family_tile_for_ref("minimal8:terrain:0,15", tileset_id="minimal8@1bit_colored_bg")
+        self.assertIsNotNone(resolved)
+        project.validate_ref_without_loading(
+            "minimal8:terrain:0,15",
+            default_tileset="minimal8@1bit_colored_bg",
+        )
+        runtime = harness.expand_scene_runtime(
+            project,
+            {"template": "tavern", "x": 0, "y": 0, "width": 40, "height": 25},
+            default_tileset="minimal8@1bit_colored_bg",
+        )
+        self.assertGreater(len(runtime.entities), 0)
 
     def test_minimal8_actor_aliases_resolve_to_visible_character_tiles(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
@@ -684,7 +736,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
     def test_minimal8_table_constructions_encode_single_table_shapes(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = harness.LayoutProject(project_path)
-        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
         assert family is not None
 
         def role(cell: object) -> str | None:
@@ -766,7 +818,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertEqual(pattern.width, 2)
         self.assertEqual(pattern.height, 2)
 
-        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
         assert family is not None
         construction = family.lookup_construction("indoors.door.grand.open")
         self.assertIsNotNone(construction)
@@ -797,7 +849,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
     def test_entity_instance_tracks_occupied_cells_separately_from_bounds(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = harness.LayoutProject(project_path)
-        family = project.tile_family_for_tileset("minimal8@1bit_colored_bg")
+        family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
         self.assertIsNotNone(family)
         assert family is not None
 

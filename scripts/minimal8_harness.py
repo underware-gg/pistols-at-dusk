@@ -56,8 +56,10 @@ from tile_families import (
     SourceLayoutIngestion,
     TileFamily,
     TileFamilyIngestReport,
+    TileLibraryUnit,
     TileClusterRecord,
     TileRecord,
+    RuntimeConstructionCatalog,
     bootstrap_family as bootstrap_tile_family,
     collection_member_ref,
     collection_member_to_config,
@@ -506,12 +508,16 @@ def humanize_identifier(value: str) -> str:
 @dataclass(frozen=True)
 class TileFamilySelection:
     path: Path
-    family: TileFamily
+    source_family: TileFamily
     selected_variant_id: str
 
     @property
+    def runtime_unit(self) -> TileLibraryUnit:
+        return self.source_family.runtime_unit
+
+    @property
     def selected_tileset_id(self) -> str:
-        return self.family.runtime_tileset_id(self.selected_variant_id)
+        return self.runtime_unit.runtime_tileset_id(self.selected_variant_id)
 
 
 def load_tile_family_selection(
@@ -525,7 +531,7 @@ def load_tile_family_selection(
         family = TileFamily.load(family_path)
         return TileFamilySelection(
             path=family_path,
-            family=family,
+            source_family=family,
             selected_variant_id=family.default_variant_id,
         )
     if "path" not in spec:
@@ -544,7 +550,7 @@ def load_tile_family_selection(
         )
     return TileFamilySelection(
         path=family_path,
-        family=family,
+        source_family=family,
         selected_variant_id=selected_variant_id,
     )
 
@@ -806,15 +812,15 @@ class GridTileset:
     def from_variant(
         cls,
         *,
-        family: TileFamily,
+        tile_library: TileLibraryUnit,
         variant_id: str,
     ) -> GridTileset:
-        variant = family.variant(variant_id)
+        variant = tile_library.variant(variant_id)
         return cls(
-            family.runtime_tileset_id(variant_id),
+            tile_library.runtime_tileset_id(variant_id),
             sheet_path=variant.sheet_path,
-            tile_width=family.tile_width,
-            tile_height=family.tile_height,
+            tile_width=tile_library.tile_width,
+            tile_height=tile_library.tile_height,
             transparent_mode=variant.transparent_mode,
             catalog_scope="all",
         )
@@ -855,20 +861,24 @@ class LayoutProject:
         )
 
     def _resolve_grid_dimensions(self, grid: ProjectGridConfig) -> tuple[int, int, int, int]:
-        family = self.tile_family_selection.family if self.tile_family_selection else None
-        family_grid_width = family.tile_width if family else 8
-        family_grid_height = family.tile_height if family else 8
+        tile_library = self.tile_family_selection.runtime_unit if self.tile_family_selection else None
+        family_grid_width = tile_library.tile_width if tile_library else 8
+        family_grid_height = tile_library.tile_height if tile_library else 8
         configured_grid_width = grid.get("tile_width")
         configured_grid_height = grid.get("tile_height")
-        if family is not None:
+        if tile_library is not None:
             if configured_grid_width not in (None, family_grid_width):
                 raise ValueError("Project grid tile_width must match the selected tile family tile width")
             if configured_grid_height not in (None, family_grid_height):
                 raise ValueError("Project grid tile_height must match the selected tile family tile height")
         grid_width = int(configured_grid_width or family_grid_width)
         grid_height = int(configured_grid_height or family_grid_height)
-        default_render_step_width = family.render_step_width if family and family.render_step_width is not None else grid_width
-        default_render_step_height = family.render_step_height if family and family.render_step_height is not None else grid_height
+        default_render_step_width = (
+            tile_library.render_step_width if tile_library and tile_library.render_step_width is not None else grid_width
+        )
+        default_render_step_height = (
+            tile_library.render_step_height if tile_library and tile_library.render_step_height is not None else grid_height
+        )
         return (
             grid_width,
             grid_height,
@@ -879,9 +889,9 @@ class LayoutProject:
     def _register_family_tilesets(self) -> None:
         if self.tile_family_selection is None:
             return
-        family = self.tile_family_selection.family
-        for variant_id in family.variants:
-            self._family_variant_ids_by_tileset[family.runtime_tileset_id(variant_id)] = variant_id
+        tile_library = self.tile_family_selection.runtime_unit
+        for variant_id in tile_library.variant_ids:
+            self._family_variant_ids_by_tileset[tile_library.runtime_tileset_id(variant_id)] = variant_id
 
     def _build_project_tilesets(self) -> dict[str, GridTileset]:
         return {
@@ -909,7 +919,7 @@ class LayoutProject:
         return self.scene_rules_library.require(ruleset_id)
 
     def _validate_scene_rules(self) -> None:
-        family = self.tile_family_selection.family if self.tile_family_selection is not None else None
+        tile_library = self.tile_family_selection.runtime_unit if self.tile_family_selection is not None else None
         default_tileset = self.default_tileset_id()
         for ruleset in self.scene_rules_library.specs.values():
             for catalogue_id, candidates in ruleset.catalogues.items():
@@ -930,12 +940,12 @@ class LayoutProject:
                     if isinstance(candidate, SceneRuleSceneCandidate):
                         self.scene_template_library.require(candidate.scene_id)
                         continue
-                    if family is None:
+                    if tile_library is None:
                         raise ValueError(
                             f"{context} references construction {candidate.construction_id!r}, "
                             "but the project has no tile family loaded"
                         )
-                    if family.lookup_construction(candidate.construction_id) is None:
+                    if tile_library.lookup_construction(candidate.construction_id) is None:
                         raise ValueError(
                             f"{context} references unknown construction "
                             f"{candidate.construction_id!r}"
@@ -951,10 +961,10 @@ class LayoutProject:
         # was registered (only _register_family_tilesets writes to it, and it
         # early-returns when tile_family_selection is None).
         assert self.tile_family_selection is not None
-        family = self.tile_family_selection.family
+        tile_library = self.tile_family_selection.runtime_unit
         variant_id = self._family_variant_ids_by_tileset[tileset_id]
         tileset = GridTileset.from_variant(
-            family=family,
+            tile_library=tile_library,
             variant_id=variant_id,
         )
         self.tilesets[tileset.id] = tileset
@@ -965,24 +975,36 @@ class LayoutProject:
             return self.tile_family_selection.selected_tileset_id
         return next(iter(self.tilesets.keys()))
 
-    def tile_family_for_tileset(self, tileset_id: str) -> TileFamily | None:
+    def _family_selection_for_tileset(self, tileset_id: str) -> TileFamilySelection | None:
         if self.tile_family_selection is None:
             return None
         if tileset_id not in self._family_variant_ids_by_tileset:
             return None
-        return self.tile_family_selection.family
+        return self.tile_family_selection
+
+    def source_family_for_tileset(self, tileset_id: str) -> TileFamily | None:
+        selection = self._family_selection_for_tileset(tileset_id)
+        if selection is None:
+            return None
+        return selection.source_family
+
+    def tile_library_unit_for_tileset(self, tileset_id: str) -> TileLibraryUnit | None:
+        selection = self._family_selection_for_tileset(tileset_id)
+        if selection is None:
+            return None
+        return selection.runtime_unit
 
     def family_tile_record_for_resolved_tile(self, tile: ResolvedTile) -> TileRecord | None:
-        family = self.tile_family_for_tileset(tile.tileset_id)
-        if family is None:
+        tile_library = self.tile_library_unit_for_tileset(tile.tileset_id)
+        if tile_library is None:
             return None
         if tile.family_tile_id is not None:
-            return family.tiles.get(tile.family_tile_id)
+            return tile_library.tile_record(tile.family_tile_id)
         if tile.index is None:
             return None
         tileset = self.get_tileset(tile.tileset_id)
         col, row = tileset.col_row_from_index(tile.index)
-        return family.tiles_by_sheet_cell.get((col, row))
+        return tile_library.tile_at_sheet_cell(sheet_col=col, sheet_row=row)
 
     def _effective_occlusion_mode_for_tile(
         self,
@@ -1016,14 +1038,14 @@ class LayoutProject:
         return self._family_variant_ids_by_tileset.get(tileset_id)
 
     def family_tile_for_ref(self, ref: str, *, tileset_id: str) -> ResolvedTile | None:
-        family = self.tile_family_for_tileset(tileset_id)
-        if family is None:
+        tile_library = self.tile_library_unit_for_tileset(tileset_id)
+        if tile_library is None:
             return None
         variant_id = self._family_variant_ids_by_tileset[tileset_id]
-        resolved = family.resolve_ref(ref, variant_id=variant_id)
+        resolved = tile_library.resolve_ref(ref, variant_id=variant_id)
         if resolved is None:
             return None
-        runtime_tileset_id = family.runtime_tileset_id(resolved.variant_id)
+        runtime_tileset_id = tile_library.runtime_tileset_id(resolved.variant_id)
         tileset = self.get_tileset(runtime_tileset_id)
         if resolved.sheet_col is None or resolved.sheet_row is None:
             return ResolvedTile(
@@ -1049,13 +1071,13 @@ class LayoutProject:
         if tileset_id in self._tileset_grid_metrics_cache:
             return self._tileset_grid_metrics_cache[tileset_id]
 
-        family = self.tile_family_for_tileset(tileset_id)
-        if family is not None and not allow_family_tileset_load and tileset_id not in self.tilesets:
+        tile_library = self.tile_library_unit_for_tileset(tileset_id)
+        if tile_library is not None and not allow_family_tileset_load and tileset_id not in self.tilesets:
             variant_id = self._family_variant_ids_by_tileset[tileset_id]
-            variant = family.variant(variant_id)
+            variant = tile_library.variant(variant_id)
             with Image.open(variant.sheet_path) as image:
-                columns = image.width // family.tile_width
-                rows = image.height // family.tile_height
+                columns = image.width // tile_library.tile_width
+                rows = image.height // tile_library.tile_height
             metrics = TilesetGridMetrics(columns=columns, rows=rows, tile_count=columns * rows)
         else:
             tileset = self.get_tileset(tileset_id)
@@ -1090,7 +1112,7 @@ class LayoutProject:
         if ":" in token:
             maybe_tileset, maybe_raw = token.split(":", 1)
             if self.has_tileset(maybe_tileset):
-                if self.tile_family_for_tileset(maybe_tileset) is not None and COORD_RE.match(maybe_raw):
+                if self.tile_library_unit_for_tileset(maybe_tileset) is not None and COORD_RE.match(maybe_raw):
                     raise ValueError(
                         "Raw coordinates on family-backed tilesets must use "
                         f"`{maybe_tileset}#{maybe_raw}`, not `{token}`"
@@ -1495,9 +1517,9 @@ class LayoutProject:
             return
 
         tileset_id = default_tileset or self.default_tileset_id()
-        family = self.tile_family_for_tileset(tileset_id)
+        tile_library = self.tile_library_unit_for_tileset(tileset_id)
         variant_id = self.variant_id_for_tileset(tileset_id)
-        if family is not None and family.resolve_ref(token, variant_id=variant_id) is not None:
+        if tile_library is not None and tile_library.resolve_ref(token, variant_id=variant_id) is not None:
             return
 
         target = self._direct_tile_ref_target(token, default_tileset=default_tileset)
@@ -2208,7 +2230,7 @@ def _entity_occupancy_cells(
 
 
 def expand_entity_stamps(
-    family: TileFamily,
+    tile_library: RuntimeConstructionCatalog,
     construction_id: str,
     x: int,
     y: int,
@@ -2216,7 +2238,7 @@ def expand_entity_stamps(
     context: str,
     params: Mapping[str, object] | None = None,
 ) -> list[StampOp]:
-    construction = family.lookup_construction(construction_id)
+    construction = tile_library.lookup_construction(construction_id)
     if construction is None:
         raise ValueError(
             f"Unknown construction {construction_id!r} ({context})"
@@ -2234,15 +2256,15 @@ def expand_entity_stamps(
 
 
 def _resolve_scene_entity_request(
-    family: TileFamily,
+    tile_library: RuntimeConstructionCatalog,
     request: SceneEntityRequest,
 ) -> EntityInstance:
-    construction = family.lookup_construction(request.construction_id)
+    construction = tile_library.lookup_construction(request.construction_id)
     if construction is None:
         raise ValueError(
             f"Unknown construction {request.construction_id!r} (scene entity {request.entity_id!r})"
         )
-    template = family.entity_template(request.construction_id)
+    template = tile_library.entity_template(request.construction_id)
     if template is None:
         raise ValueError(
             f"Unable to derive entity template for construction {request.construction_id!r}"
@@ -2298,7 +2320,7 @@ def expand_scene_runtime(
         raise ValueError("Scene is missing required 'template' field")
     template_spec = project.scene_template_spec(template)
     validate_scene_template_input(scene, template_spec)
-    family = project.tile_family_selection.family if project.tile_family_selection else None
+    tile_library = project.tile_family_selection.runtime_unit if project.tile_family_selection else None
 
     runtime = SceneTemplateRuntime(
         pattern_dimensions=lambda ref: pattern_dimensions(
@@ -2321,15 +2343,18 @@ def expand_scene_runtime(
         template_spec,
         runtime=runtime,
     )
-    if expanded.entities and family is None:
-        raise ValueError(
-            f"entity op requires a tile family; scene template {template_spec.template_id!r} "
-            "requested entity constructions but no tile family is loaded"
+    if not expanded.entities:
+        resolved_entities = ()
+    else:
+        if tile_library is None:
+            raise ValueError(
+                f"entity op requires a tile family; scene template {template_spec.template_id!r} "
+                "requested entity constructions but no tile family is loaded"
+            )
+        resolved_entities = tuple(
+            _resolve_scene_entity_request(tile_library, request)
+            for request in expanded.entities
         )
-    resolved_entities = tuple(
-        _resolve_scene_entity_request(family, request)  # type: ignore[arg-type]
-        for request in expanded.entities
-    )
     merged_layers: SceneLayers = {
         layer_name: list(ops)
         for layer_name, ops in expanded.layers.items()
@@ -2674,7 +2699,7 @@ def render_layout(layout_path: Path, output_override: Path | None = None) -> Pat
 
 def build_catalog(project: LayoutProject, tileset_id: str) -> list[RawCatalogEntry]:
     tileset = project.get_tileset(tileset_id)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
 
     def region_for_cell(col: int, row: int) -> str | None:
         if family is None or family.source_layout is None:
@@ -2705,7 +2730,7 @@ def build_semantic_catalog_entries(
     include_empty: bool = False,
     tile_records: Sequence[TileRecord] | None = None,
 ) -> list[SemanticCatalogEntry]:
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         return []
 
@@ -3408,7 +3433,7 @@ def _tile_cluster_payloads(family: TileFamily) -> list[dict[str, object]]:
 
 
 def inspect_source_layout(project: LayoutProject, tileset_id: str, output_dir: Path) -> None:
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None or family.source_layout is None:
         return
 
@@ -3509,7 +3534,7 @@ def inspect_source_layout(project: LayoutProject, tileset_id: str, output_dir: P
 
 
 def inspect_clusters(project: LayoutProject, tileset_id: str, output_dir: Path) -> None:
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None or not family.clusters:
         return
 
@@ -3914,7 +3939,7 @@ def export_collection_review_pack(
     scratch_output_root: Path | None = None,
 ) -> Path:
     project = LayoutProject(project_path)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None or family.source_layout is None:
         raise ValueError(f"Tileset {tileset_id!r} does not expose a source-layout ingestion model")
 
@@ -4107,7 +4132,7 @@ def _infer_art_convention(
     tileset_id: str,
     entries: Sequence[SemanticCatalogEntry],
 ) -> dict[str, object]:
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
@@ -4697,7 +4722,7 @@ def _write_public_sheet_annotated(
     *,
     scale: int,
 ) -> None:
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
@@ -4984,7 +5009,7 @@ def export_public_tile_pack(
     scale: int = 8,
 ) -> Path:
     project = LayoutProject(project_path)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
@@ -5300,7 +5325,7 @@ def query_semantic_catalog(
     limit: int | None = None,
 ) -> list[SemanticCatalogEntry]:
     project = LayoutProject(project_path)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         return []
     records = family.query(
@@ -5331,7 +5356,7 @@ def query_semantic_catalog(
 def inspect_family(project_path: Path, tileset_id: str, output_dir: Path) -> Path:
     project = LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     raw_catalog = build_catalog(project, tileset_id)
@@ -5417,7 +5442,7 @@ def detect_family_source_layout(project_path: Path, tileset_id: str, output_dir:
 
 def validate_family_ingest(project_path: Path, tileset_id: str) -> TileFamilyIngestReport:
     project = LayoutProject(project_path)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
     return family.ingest_report()
@@ -5496,7 +5521,7 @@ def audit_family_semantic_usage(
     layouts_dir: Path | None = None,
 ) -> SemanticUsageAuditReport:
     project = LayoutProject(project_path)
-    family = project.tile_family_for_tileset(tileset_id)
+    family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
@@ -5504,7 +5529,7 @@ def audit_family_semantic_usage(
 
     def entry_for_resolved_tile(tile: ResolvedTile) -> SemanticCatalogEntry | None:
         if tile.tileset_id not in resolved_by_tileset:
-            tile_family = project.tile_family_for_tileset(tile.tileset_id)
+            tile_family = project.source_family_for_tileset(tile.tileset_id)
             if tile_family is None:
                 resolved_by_tileset[tile.tileset_id] = ({}, {})
             else:

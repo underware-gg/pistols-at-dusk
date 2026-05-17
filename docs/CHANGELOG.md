@@ -8,5 +8,6 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.1.2](changelog/v0.1.2.md) | 2026-05-18 | Extract a self-contained runtime tile library boundary |
 | [v0.1.1](changelog/v0.1.1.md) | 2026-05-16 | Adopt the Underware contributor model and its enforcement |
 | [v0.1.0](changelog/v0.1.0.md) | 2026-05-12 | Ship the Minimal 8 harness as the repo's first public baseline |

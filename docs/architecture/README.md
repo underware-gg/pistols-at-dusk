@@ -2,7 +2,9 @@
 
 ## Overview
 
-The ingestion/render stack is split into five layers:
+The current prototype now has a clearer boundary between source-shaped ingestion data and the runtime surface that scene composition consumes.
+
+Source-shaped family packages still contain the detailed ingestion catalogue:
 
 1. **Family manifest**
    - grid facts
@@ -19,18 +21,35 @@ The ingestion/render stack is split into five layers:
 5. **Alias resolver**
    - human-facing semantic names mapped onto physical tile identities
 
-That split keeps the source of truth aligned with the asset itself:
+The harness runtime now derives a compatibility surface over that package:
 
-- sheet facts live with the family
-- semantic meaning lives with tiles and clusters
+- `TileFamily` remains the source-shaped loader/query object
+- `TileLibraryUnit` is the runtime-facing compatibility view over one logical family package, carrying only the runtime data and lookups the harness needs
+- hot-path runtime concerns consume `TileLibraryUnit` rather than reading the whole source catalogue directly
+
+That split keeps the source of truth aligned with the asset itself while also giving the runtime a narrower seam:
+
+- sheet facts and provenance live with the family package
+- semantic meaning still lives with tiles, aliases, and constructions
 - constructions define legal multi-tile arrangements without becoming scene instances
-- scene composition consumes those semantics instead of inventing them
+- scene composition consumes a runtime-facing library surface instead of inventing semantics on demand
 
 ## Current Runtime Shape
 
 - Loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
 - Harness entrypoint: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py)
 - Minimal 8 family package: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
+
+In the current phase:
+
+- `tile_families.py` still owns loading, validation, provenance, and rich source-family queries
+- the harness derives `TileLibraryUnit` from the selected family and uses it for runtime-path work such as:
+  - grid defaults
+  - family-backed tileset registration
+  - family-backed ref resolution
+  - construction and entity-template lookup
+  - bounds-aware family ref validation
+- inspect/export/audit flows may still use `TileFamily` directly while this boundary extraction is in progress
 
 Scene templates now expand in two phases:
 

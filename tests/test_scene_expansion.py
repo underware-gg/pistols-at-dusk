@@ -16,7 +16,13 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import minimal8_harness as harness
 import scene_templates
-from tile_families import MetatileConstruction, ParametricRunConstruction, TileRecord
+from tile_families import (
+    EntityTemplateRecord,
+    MetatileConstruction,
+    ParametricRunConstruction,
+    TileRecord,
+    entity_template_from_construction,
+)
 
 
 PROJECT_PATH = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
@@ -1153,6 +1159,12 @@ class _FakeFamily:
 
     def lookup_construction(self, construction_id: str) -> MetatileConstruction | ParametricRunConstruction | None:
         return self._constructions.get(construction_id)
+
+    def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
+        construction = self.lookup_construction(construction_id)
+        if construction is None:
+            return None
+        return entity_template_from_construction(construction)
 
 
 def _make_fixture_family() -> _FakeFamily:
