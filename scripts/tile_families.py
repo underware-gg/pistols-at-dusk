@@ -807,6 +807,77 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class TileLibraryRegistry(RuntimeConstructionCatalog):
+    units_by_id: Mapping[str, TileLibraryUnit] = field(repr=False)
+    construction_entries_by_id: Mapping[str, tuple[str, Construction]] = field(repr=False)
+    alias_unit_ids: Mapping[str, str] = field(repr=False)
+
+    @classmethod
+    def from_units(cls, units: Iterable[TileLibraryUnit]) -> TileLibraryRegistry:
+        units_by_id: dict[str, TileLibraryUnit] = {}
+        construction_entries_by_id: dict[str, tuple[str, Construction]] = {}
+        alias_unit_ids: dict[str, str] = {}
+        for unit in units:
+            existing_unit = units_by_id.get(unit.family_id)
+            if existing_unit is not None:
+                raise ValueError(f"Duplicate tile library unit id {unit.family_id!r}")
+            units_by_id[unit.family_id] = unit
+            for construction_id, construction in unit.constructions.items():
+                existing_construction = construction_entries_by_id.get(construction_id)
+                if existing_construction is not None:
+                    raise ValueError(
+                        f"Duplicate construction id across tile library units: {construction_id!r} "
+                        f"owned by {existing_construction[0]!r} and {unit.family_id!r}"
+                    )
+                construction_entries_by_id[construction_id] = (unit.family_id, construction)
+            for alias in unit.aliases:
+                existing_alias_owner = alias_unit_ids.get(alias)
+                if existing_alias_owner is not None:
+                    raise ValueError(
+                        f"Duplicate alias across tile library units: {alias!r} "
+                        f"owned by {existing_alias_owner!r} and {unit.family_id!r}"
+                    )
+                alias_unit_ids[alias] = unit.family_id
+        return cls(
+            units_by_id=MappingProxyType(dict(units_by_id)),
+            construction_entries_by_id=MappingProxyType(dict(construction_entries_by_id)),
+            alias_unit_ids=MappingProxyType(dict(alias_unit_ids)),
+        )
+
+    @property
+    def unit_ids(self) -> tuple[str, ...]:
+        return tuple(self.units_by_id.keys())
+
+    def unit(self, unit_id: str) -> TileLibraryUnit | None:
+        return self.units_by_id.get(unit_id)
+
+    def unit_for_construction(self, construction_id: str) -> TileLibraryUnit | None:
+        entry = self.construction_entries_by_id.get(construction_id)
+        if entry is None:
+            return None
+        unit_id, _construction = entry
+        return self.units_by_id[unit_id]
+
+    def alias_owner(self, alias: str) -> TileLibraryUnit | None:
+        unit_id = self.alias_unit_ids.get(alias)
+        if unit_id is None:
+            return None
+        return self.units_by_id[unit_id]
+
+    def lookup_construction(self, construction_id: str) -> Construction | None:
+        entry = self.construction_entries_by_id.get(construction_id)
+        if entry is None:
+            return None
+        return entry[1]
+
+    def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
+        unit = self.unit_for_construction(construction_id)
+        if unit is None:
+            return None
+        return unit.entity_template(construction_id)
+
+
 def tile_record_to_dict(tile: TileRecord) -> TileRecordData:
     return cast(TileRecordData, {field.name: getattr(tile, field.name) for field in fields(TileRecord)})
 

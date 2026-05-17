@@ -25,7 +25,8 @@ The harness runtime now derives a compatibility surface over that package:
 
 - `TileFamily` remains the source-shaped loader/query object
 - `TileLibraryUnit` is the runtime-facing compatibility view over one logical family package, carrying only the runtime data and lookups the harness needs
-- hot-path runtime concerns consume `TileLibraryUnit` rather than reading the whole source catalogue directly
+- `TileLibraryRegistry` is the runtime-facing registry over one or more loaded `TileLibraryUnit`s
+- hot-path runtime concerns consume that runtime library surface rather than reading the whole source catalogue directly
 
 That split keeps the source of truth aligned with the asset itself while also giving the runtime a narrower seam:
 
@@ -43,7 +44,7 @@ That split keeps the source of truth aligned with the asset itself while also gi
 In the current phase:
 
 - `tile_families.py` still owns loading, validation, provenance, and rich source-family queries
-- the harness derives `TileLibraryUnit` from the selected family and uses it for runtime-path work such as:
+- the harness derives `TileLibraryUnit` from the selected family, wraps loaded units in `TileLibraryRegistry`, and uses that runtime surface for work such as:
   - grid defaults
   - family-backed tileset registration
   - family-backed ref resolution

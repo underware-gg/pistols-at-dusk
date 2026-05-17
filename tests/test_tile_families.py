@@ -22,6 +22,7 @@ from tile_families import (
     ParametricRunConstruction,
     ParametricRunConstructionConfig,
     TileFamily,
+    TileLibraryRegistry,
     TileRecord,
     build_construction,
     compute_non_empty_tile_mask,
@@ -40,12 +41,15 @@ def make_family_dir(
     cluster_ids: list[str],
     sheet_columns: int = 1,
     sheet_rows: int = 1,
+    family_id: str = "testfam",
+    alias_name: str = "sample.alias",
+    directory_name: str = "family",
+    construction_id: str | None = None,
 ) -> Path:
-    family_dir = root / "family"
+    family_dir = root / directory_name
     family_dir.mkdir()
     Image.new("RGBA", (sheet_columns * 8, sheet_rows * 8), (0, 0, 0, 255)).save(family_dir / "sheet.png")
 
-    family_id = "testfam"
     tile_id = f"{family_id}:all:0,0"
 
     write_json(
@@ -119,10 +123,32 @@ def make_family_dir(
                 "source_group": "test.group",
                 "meaning": "Test floor tile.",
                 "meaning_confidence": "confirmed",
+                **(
+                    {
+                        "compose_group": construction_id,
+                        "compose_role": "single",
+                    }
+                    if construction_id is not None
+                    else {}
+                ),
             }
         ],
     )
-    write_json(family_dir / "aliases.json", {"sample.alias": tile_id})
+    write_json(family_dir / "aliases.json", {alias_name: tile_id})
+    if construction_id is not None:
+        write_json(
+            family_dir / "constructions.json",
+            {
+                "constructions": [
+                    {
+                        "id": construction_id,
+                        "collection_id": construction_id,
+                        "kind": "metatile",
+                        "cells": [[{"role": "single"}]],
+                    }
+                ]
+            },
+        )
     return family_dir
 
 
@@ -930,6 +956,127 @@ class ConstructionLoaderTests(unittest.TestCase):
                 TileFamily.load(family_dir)
             self.assertIn("sheet.region.collection_01", str(ctx.exception))
             self.assertIn("missing.construction", str(ctx.exception))
+
+
+class TileLibraryRegistryTests(unittest.TestCase):
+    def test_registry_over_disjoint_units_preserves_alias_and_construction_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.a",
+                    alias_name="alias.a",
+                    directory_name="family_a",
+                    construction_id="construction.a",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.b",
+                    alias_name="alias.b",
+                    directory_name="family_b",
+                    construction_id="construction.b",
+                )
+            )
+
+            registry = TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+            self.assertEqual(registry.unit_ids, ("family.a", "family.b"))
+            alias_a_owner = registry.alias_owner("alias.a")
+            alias_b_owner = registry.alias_owner("alias.b")
+            construction_a = registry.lookup_construction("construction.a")
+            construction_b = registry.lookup_construction("construction.b")
+            self.assertIsNotNone(alias_a_owner)
+            self.assertIsNotNone(alias_b_owner)
+            self.assertIsNotNone(construction_a)
+            self.assertIsNotNone(construction_b)
+            assert alias_a_owner is not None
+            assert alias_b_owner is not None
+            assert construction_a is not None
+            assert construction_b is not None
+            self.assertEqual(alias_a_owner.family_id, "family.a")
+            self.assertEqual(alias_b_owner.family_id, "family.b")
+            self.assertEqual(construction_a.id, "construction.a")
+            self.assertEqual(construction_b.id, "construction.b")
+            self.assertIsNotNone(registry.entity_template("construction.a"))
+            self.assertIsNotNone(registry.entity_template("construction.b"))
+
+    def test_registry_rejects_duplicate_unit_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="duplicate.family",
+                    directory_name="family_a",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="duplicate.family",
+                    directory_name="family_b",
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Duplicate tile library unit id"):
+                TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+    def test_registry_rejects_duplicate_construction_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.a",
+                    directory_name="family_a",
+                    construction_id="shared.construction",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.b",
+                    directory_name="family_b",
+                    construction_id="shared.construction",
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Duplicate construction id across tile library units"):
+                TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+    def test_registry_rejects_duplicate_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.a",
+                    alias_name="shared.alias",
+                    directory_name="family_a",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.b",
+                    alias_name="shared.alias",
+                    directory_name="family_b",
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Duplicate alias across tile library units"):
+                TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
 
 
 class ConstructionValidationAdjacencyTests(unittest.TestCase):

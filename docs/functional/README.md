@@ -61,6 +61,7 @@ At runtime, the harness now derives a compatibility view from that package befor
 
 - the family package remains the source-shaped catalogue and provenance container
 - the runtime consumes a `TileLibraryUnit` compatibility surface derived from the selected family, carrying only the runtime data and lookups needed for normal scene work
+- loaded units are wrapped in `TileLibraryRegistry`, which owns cross-unit construction and alias lookup
 - hot-path runtime tasks such as variant-backed tileset registration, ref resolution, construction lookup, and bounds-aware validation now go through that compatibility surface instead of reaching straight through the raw family object
 
 Projects still own:

@@ -57,6 +57,7 @@ from tile_families import (
     TileFamily,
     TileFamilyIngestReport,
     TileLibraryUnit,
+    TileLibraryRegistry,
     TileClusterRecord,
     TileRecord,
     RuntimeConstructionCatalog,
@@ -832,6 +833,7 @@ class LayoutProject:
         self.config = load_project_config(self.project_path)
         self.base_dir = self.project_path.parent
         self.tile_family_selection = load_tile_family_selection(self.base_dir, self.config.get("tile_family"))
+        self.tile_library_registry = self._build_tile_library_registry()
         self.scene_template_library: SceneTemplateLibrary = load_scene_template_library(
             self.base_dir,
             self.config.get("scene_templates_dir"),
@@ -893,6 +895,11 @@ class LayoutProject:
         for variant_id in tile_library.variant_ids:
             self._family_variant_ids_by_tileset[tile_library.runtime_tileset_id(variant_id)] = variant_id
 
+    def _build_tile_library_registry(self) -> TileLibraryRegistry | None:
+        if self.tile_family_selection is None:
+            return None
+        return TileLibraryRegistry.from_units([self.tile_family_selection.runtime_unit])
+
     def _build_project_tilesets(self) -> dict[str, GridTileset]:
         return {
             tileset_id: GridTileset.from_project_spec(
@@ -919,7 +926,7 @@ class LayoutProject:
         return self.scene_rules_library.require(ruleset_id)
 
     def _validate_scene_rules(self) -> None:
-        tile_library = self.tile_family_selection.runtime_unit if self.tile_family_selection is not None else None
+        tile_library_registry = self.tile_library_registry
         default_tileset = self.default_tileset_id()
         for ruleset in self.scene_rules_library.specs.values():
             for catalogue_id, candidates in ruleset.catalogues.items():
@@ -940,12 +947,12 @@ class LayoutProject:
                     if isinstance(candidate, SceneRuleSceneCandidate):
                         self.scene_template_library.require(candidate.scene_id)
                         continue
-                    if tile_library is None:
+                    if tile_library_registry is None:
                         raise ValueError(
                             f"{context} references construction {candidate.construction_id!r}, "
                             "but the project has no tile family loaded"
                         )
-                    if tile_library.lookup_construction(candidate.construction_id) is None:
+                    if tile_library_registry.lookup_construction(candidate.construction_id) is None:
                         raise ValueError(
                             f"{context} references unknown construction "
                             f"{candidate.construction_id!r}"
@@ -2320,7 +2327,7 @@ def expand_scene_runtime(
         raise ValueError("Scene is missing required 'template' field")
     template_spec = project.scene_template_spec(template)
     validate_scene_template_input(scene, template_spec)
-    tile_library = project.tile_family_selection.runtime_unit if project.tile_family_selection else None
+    tile_library = project.tile_library_registry
 
     runtime = SceneTemplateRuntime(
         pattern_dimensions=lambda ref: pattern_dimensions(
