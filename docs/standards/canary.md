@@ -63,6 +63,7 @@ Rules:
 - `done` means the action was actually performed
 - `skip` requires a real reason based on what was evaluated
 - canary logs are transient and gitignored
+- canary logs must stay unstaged and uncommitted; the pre-commit hook rejects `.canary--pre-commit` if it is staged as an added or modified path
 
 ## Checker Behaviour
 
@@ -70,9 +71,10 @@ The distributed pre-commit hook:
 
 1. checks that the `README.md` version badge matches `VERSION`
 2. reads `.canaries/pre-commit.md`
-3. extracts all task IDs between `## Tasks` and `## Log`
-4. verifies `.canary--pre-commit` exists and covers every task ID with valid formatting
-5. deletes the log file after a successful check so stale receipts cannot be reused
+3. rejects the commit if `.canary--pre-commit` is staged as an added or modified path
+4. extracts all task IDs between `## Tasks` and `## Log`
+5. verifies `.canary--pre-commit` exists and covers every task ID with valid formatting
+6. deletes the log file after a successful check so stale receipts cannot be reused
 
 ## Related
 

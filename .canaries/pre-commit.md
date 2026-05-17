@@ -30,6 +30,7 @@ Follow before every commit.
 
 After following the tasks above, ALWAYS write a log file named `.canary--pre-commit` to the repo root.
 Write one log line per task ID. The hook requires full task coverage with valid formatting; keep the receipt to one line per task to avoid ambiguity. Optionally indent sub-items for readability.
+The receipt is transient local state only: do not stage or commit `.canary--pre-commit`.
 
 Log format: `[id] Short name: status, comment`
 

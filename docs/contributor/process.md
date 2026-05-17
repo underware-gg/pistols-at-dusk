@@ -73,9 +73,9 @@ git config core.hooksPath tools/git-hooks
 
 When enabled:
 
-- `tools/git-hooks/pre-commit` runs `scripts/check_pyright.sh`, then rejects commits if the `README.md` version badge does not match `VERSION`, then enforces a complete `.canary--pre-commit` receipt against the brief and deletes the receipt on success
+- `tools/git-hooks/pre-commit` runs `scripts/check_pyright.sh`, then rejects commits if the `README.md` version badge does not match `VERSION`, rejects staged `.canary--pre-commit` receipts, then enforces a complete local `.canary--pre-commit` receipt against the brief and deletes the receipt on success
 - `tools/git-hooks/commit-msg` strictly enforces `WIP:` vs versioned vs `release:` subject rules by branch, and checks latest-version and stable-release subjects against the changelog files via `scripts/release_workflow.py`
-- write `.canary--pre-commit` at the repo root before committing; the hook validates it and deletes it on success
+- write `.canary--pre-commit` at the repo root before committing; leave it unstaged and untracked, and let the hook validate it and delete it on success
 
 ## Commit, Versioning, And Changelog
 

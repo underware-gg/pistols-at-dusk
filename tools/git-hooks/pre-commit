@@ -26,10 +26,20 @@ fi
 # 3. Canary brief: enforce .canary--pre-commit receipt
 CANARY_DEF="$REPO_ROOT/.canaries/pre-commit.md"
 CANARY_LOG="$REPO_ROOT/.canary--pre-commit"
+STAGED_CANARY=$(git diff --cached --name-only --diff-filter=ACMR -- .canary--pre-commit || true)
 
 if [ ! -f "$CANARY_DEF" ]; then
   printf '%s\n' "pre-commit: .canaries/pre-commit.md not found - skipping canary check"
   exit 0
+fi
+
+if [ -n "$STAGED_CANARY" ]; then
+  printf >&2 '%s\n' ""
+  printf >&2 '%s\n' "pre-commit: .canary--pre-commit is staged for commit."
+  printf >&2 '%s\n' "pre-commit: the canary receipt is transient local state and must remain untracked."
+  printf >&2 '%s\n' "pre-commit: unstage it with 'git restore --staged .canary--pre-commit' and try again."
+  printf >&2 '%s\n' ""
+  exit 1
 fi
 
 tasks_section=$(awk '/^## Tasks$/{f=1;next}/^## Log$/{f=0}f' "$CANARY_DEF")
