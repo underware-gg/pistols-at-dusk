@@ -1,6 +1,6 @@
 # Pistols at Dusk
 
-[![Version](https://img.shields.io/badge/version-0.1.3-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
+[![Version](https://img.shields.io/badge/version-0.1.4-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
 
 Pistols at Dusk game repository, currently centered on tileset and layout tooling: Minimal 8 sprite-family ingestion, semantic tile catalogs, and grid-based scene-composition experiments.
 

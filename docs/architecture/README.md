@@ -50,6 +50,7 @@ In the current phase:
   - family-backed ref resolution
   - construction and entity-template lookup
   - bounds-aware family ref validation
+- when more than one family-backed unit is loaded, the project must nominate an explicit `default_tileset` for bare ref resolution
 - inspect/export/audit flows may still use `TileFamily` directly while this boundary extraction is in progress
 
 Scene templates now expand in two phases:

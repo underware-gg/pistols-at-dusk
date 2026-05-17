@@ -88,6 +88,80 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
     return family_dir, project_path
 
 
+def _make_minimal_family_dir(root: Path, *, directory_name: str, family_id: str) -> Path:
+    family_dir = root / directory_name
+    family_dir.mkdir()
+    Image.new("RGBA", (8, 8), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+    tile_id = f"{family_id}:all:0,0"
+    _write_json(
+        family_dir / "family.json",
+        {
+            "family_id": family_id,
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "default_variant_id": "base",
+            "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
+            "ingestion_spec": "ingestion.json",
+        },
+    )
+    _write_json(
+        family_dir / "ingestion.json",
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 1, "height": 1},
+            "regions": [{"id": "sheet.region", "bounds": {"x": 0, "y": 0, "width": 1, "height": 1}}],
+            "clusters": [{"id": "sheet.region.cluster_01", "source_region_id": "sheet.region", "bounds": {"x": 0, "y": 0, "width": 1, "height": 1}}],
+            "collections": [],
+        },
+    )
+    _write_json(
+        family_dir / "clusters.json",
+        [{"id": "cluster.valid", "scope": "family", "members": [tile_id]}],
+    )
+    _write_json(
+        family_dir / "tiles.json",
+        [
+            {
+                "id": tile_id,
+                "sheet_col": 0,
+                "sheet_row": 0,
+                "layer": "map",
+                "category": "tile",
+                "transparent": False,
+                "cluster_ids": ["cluster.valid"],
+                "source_group": "test.group",
+                "meaning": "Test tile.",
+                "meaning_confidence": "confirmed",
+            }
+        ],
+    )
+    _write_json(family_dir / "aliases.json", {f"{family_id}.alias": tile_id})
+    return family_dir
+
+
+def _make_multi_family_project(
+    root: Path,
+    *,
+    default_tileset: str | None,
+) -> Path:
+    family_a = _make_minimal_family_dir(root, directory_name="family_a", family_id="family.a")
+    family_b = _make_minimal_family_dir(root, directory_name="family_b", family_id="family.b")
+    project_path = root / "project.json"
+    payload: dict[str, object] = {
+        "tile_families": [
+            {"path": str(family_a), "variant_id": "base"},
+            {"path": str(family_b), "variant_id": "base"},
+        ],
+        "grid": {"tile_width": 8, "tile_height": 8},
+        "tilesets": {},
+        "aliases": {},
+        "metatiles": {},
+        "box_styles": {},
+    }
+    if default_tileset is not None:
+        payload["default_tileset"] = default_tileset
+    _write_json(project_path, payload)
+    return project_path
+
+
 def _make_composite_tileset_project(root: Path) -> Path:
     sheet_path = root / "sheet.png"
     sheet = Image.new("RGBA", (32, 8), (0, 0, 0, 0))
@@ -211,6 +285,32 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         with self.assertRaisesRegex(KeyError, "Available tilesets"):
             project.get_tileset("missing.tileset")
+
+    def test_project_supports_multiple_tile_families_with_explicit_default_tileset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_multi_family_project(
+                Path(temp_dir),
+                default_tileset="family.b@base",
+            )
+
+            project = harness.LayoutProject(project_path)
+
+            self.assertEqual(project.default_tileset_id(), "family.b@base")
+            self.assertEqual(project.family_variant_tileset_ids(), ["family.a@base", "family.b@base"])
+            self.assertIsNotNone(project.tile_library_registry)
+            assert project.tile_library_registry is not None
+            self.assertEqual(project.tile_library_registry.unit_ids, ("family.a", "family.b"))
+            self.assertIsNotNone(project.tile_library_unit_for_tileset("family.a@base"))
+            self.assertIsNotNone(project.tile_library_unit_for_tileset("family.b@base"))
+            self.assertIsNotNone(project.source_family_for_tileset("family.a@base"))
+            self.assertIsNotNone(project.source_family_for_tileset("family.b@base"))
+
+    def test_project_rejects_multiple_tile_families_without_explicit_default_tileset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_multi_family_project(Path(temp_dir), default_tileset=None)
+
+            with self.assertRaisesRegex(ValueError, "must define default_tileset"):
+                harness.LayoutProject(project_path)
 
     def test_expand_scene_rejects_unknown_template(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"

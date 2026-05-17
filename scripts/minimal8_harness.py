@@ -187,6 +187,8 @@ class BoxStyleConfig(TypedDict, total=False):
 
 class ProjectConfig(TypedDict, total=False):
     tile_family: str | ProjectTileFamilyConfig
+    tile_families: list[str | ProjectTileFamilyConfig]
+    default_tileset: str
     scene_templates_dir: str
     scene_rules_dir: str
     grid: ProjectGridConfig
@@ -556,6 +558,29 @@ def load_tile_family_selection(
     )
 
 
+def load_tile_family_selections(
+    base_dir: Path,
+    *,
+    singular_spec: str | ProjectTileFamilyConfig | None,
+    plural_specs: list[str | ProjectTileFamilyConfig] | None,
+) -> tuple[TileFamilySelection, ...]:
+    if singular_spec not in (None, "") and plural_specs:
+        raise ValueError("Project config may define either tile_family or tile_families, not both")
+    if plural_specs:
+        return tuple(
+            selection
+            for selection in (
+                load_tile_family_selection(base_dir, spec)
+                for spec in plural_specs
+            )
+            if selection is not None
+        )
+    selection = load_tile_family_selection(base_dir, singular_spec)
+    if selection is None:
+        return ()
+    return (selection,)
+
+
 @dataclass(frozen=True)
 class ResolvedTile:
     tileset_id: str
@@ -832,7 +857,12 @@ class LayoutProject:
         self.project_path = project_path.resolve()
         self.config = load_project_config(self.project_path)
         self.base_dir = self.project_path.parent
-        self.tile_family_selection = load_tile_family_selection(self.base_dir, self.config.get("tile_family"))
+        self.tile_family_selections = load_tile_family_selections(
+            self.base_dir,
+            singular_spec=self.config.get("tile_family"),
+            plural_specs=self.config.get("tile_families"),
+        )
+        self.tile_family_selection = self.tile_family_selections[0] if len(self.tile_family_selections) == 1 else None
         self.tile_library_registry = self._build_tile_library_registry()
         self.scene_template_library: SceneTemplateLibrary = load_scene_template_library(
             self.base_dir,
@@ -849,9 +879,11 @@ class LayoutProject:
         self.box_styles: dict[str, BoxStyleConfig] = dict(self.config.get("box_styles", {}))
         self.tilesets: dict[str, GridTileset] = self._build_project_tilesets()
         self._family_variant_ids_by_tileset: dict[str, str] = {}
+        self._family_selections_by_tileset: dict[str, TileFamilySelection] = {}
         self._register_family_tilesets()
         if not self.tilesets and not self._family_variant_ids_by_tileset:
             raise ValueError("Project must define either a tile_family or at least one tileset")
+        self._default_tileset_id = self._resolve_default_tileset_id()
         self._pattern_cache: dict[str, Pattern] = {}
         self._custom_tile_image_cache: dict[tuple[Path, bool, bool], Image.Image] = {}
         self._resolved_tile_render_spec_cache: dict[ResolvedTile, TileRenderSpec] = {}
@@ -863,16 +895,22 @@ class LayoutProject:
         )
 
     def _resolve_grid_dimensions(self, grid: ProjectGridConfig) -> tuple[int, int, int, int]:
-        tile_library = self.tile_family_selection.runtime_unit if self.tile_family_selection else None
+        tile_libraries = [selection.runtime_unit for selection in self.tile_family_selections]
+        tile_library = tile_libraries[0] if tile_libraries else None
         family_grid_width = tile_library.tile_width if tile_library else 8
         family_grid_height = tile_library.tile_height if tile_library else 8
         configured_grid_width = grid.get("tile_width")
         configured_grid_height = grid.get("tile_height")
         if tile_library is not None:
+            for current_tile_library in tile_libraries:
+                if current_tile_library.tile_width != family_grid_width:
+                    raise ValueError("All loaded tile families must share the same tile_width")
+                if current_tile_library.tile_height != family_grid_height:
+                    raise ValueError("All loaded tile families must share the same tile_height")
             if configured_grid_width not in (None, family_grid_width):
-                raise ValueError("Project grid tile_width must match the selected tile family tile width")
+                raise ValueError("Project grid tile_width must match the loaded tile family tile width")
             if configured_grid_height not in (None, family_grid_height):
-                raise ValueError("Project grid tile_height must match the selected tile family tile height")
+                raise ValueError("Project grid tile_height must match the loaded tile family tile height")
         grid_width = int(configured_grid_width or family_grid_width)
         grid_height = int(configured_grid_height or family_grid_height)
         default_render_step_width = (
@@ -881,6 +919,22 @@ class LayoutProject:
         default_render_step_height = (
             tile_library.render_step_height if tile_library and tile_library.render_step_height is not None else grid_height
         )
+        if tile_library is not None:
+            for current_tile_library in tile_libraries[1:]:
+                current_step_width = (
+                    current_tile_library.render_step_width
+                    if current_tile_library.render_step_width is not None
+                    else grid_width
+                )
+                current_step_height = (
+                    current_tile_library.render_step_height
+                    if current_tile_library.render_step_height is not None
+                    else grid_height
+                )
+                if current_step_width != default_render_step_width:
+                    raise ValueError("All loaded tile families must share the same render_step_width")
+                if current_step_height != default_render_step_height:
+                    raise ValueError("All loaded tile families must share the same render_step_height")
         return (
             grid_width,
             grid_height,
@@ -889,16 +943,19 @@ class LayoutProject:
         )
 
     def _register_family_tilesets(self) -> None:
-        if self.tile_family_selection is None:
-            return
-        tile_library = self.tile_family_selection.runtime_unit
-        for variant_id in tile_library.variant_ids:
-            self._family_variant_ids_by_tileset[tile_library.runtime_tileset_id(variant_id)] = variant_id
+        for selection in self.tile_family_selections:
+            tile_library = selection.runtime_unit
+            for variant_id in tile_library.variant_ids:
+                tileset_id = tile_library.runtime_tileset_id(variant_id)
+                if tileset_id in self._family_variant_ids_by_tileset:
+                    raise ValueError(f"Duplicate family-backed tileset id {tileset_id!r}")
+                self._family_variant_ids_by_tileset[tileset_id] = variant_id
+                self._family_selections_by_tileset[tileset_id] = selection
 
     def _build_tile_library_registry(self) -> TileLibraryRegistry | None:
-        if self.tile_family_selection is None:
+        if not self.tile_family_selections:
             return None
-        return TileLibraryRegistry.from_units([self.tile_family_selection.runtime_unit])
+        return TileLibraryRegistry.from_units(selection.runtime_unit for selection in self.tile_family_selections)
 
     def _build_project_tilesets(self) -> dict[str, GridTileset]:
         return {
@@ -918,6 +975,24 @@ class LayoutProject:
     def family_variant_tileset_ids(self) -> list[str]:
         """Tileset ids registered for the project's tile family variants."""
         return list(self._family_variant_ids_by_tileset.keys())
+
+    def _resolve_default_tileset_id(self) -> str:
+        explicit_default = self.config.get("default_tileset")
+        if explicit_default is not None:
+            if not self.has_tileset(explicit_default):
+                available = sorted(set(self.tilesets) | set(self._family_variant_ids_by_tileset))
+                raise ValueError(
+                    f"Configured default_tileset {explicit_default!r} is unknown. "
+                    f"Available tilesets: {', '.join(available)}"
+                )
+            return explicit_default
+        if len(self.tile_family_selections) == 1:
+            return self.tile_family_selections[0].selected_tileset_id
+        if len(self.tile_family_selections) > 1:
+            raise ValueError(
+                "Project with multiple tile_families must define default_tileset for bare ref resolution"
+            )
+        return next(iter(self.tilesets.keys()))
 
     def scene_template_spec(self, template_id: str) -> SceneTemplateSpec:
         return self.scene_template_library.require(template_id)
@@ -964,11 +1039,8 @@ class LayoutProject:
         if tileset_id not in self._family_variant_ids_by_tileset:
             available = sorted(set(self.tilesets) | set(self._family_variant_ids_by_tileset))
             raise KeyError(f"Unknown tileset: {tileset_id}. Available tilesets: {', '.join(available)}")
-        # Membership in _family_variant_ids_by_tileset implies a tile_family_selection
-        # was registered (only _register_family_tilesets writes to it, and it
-        # early-returns when tile_family_selection is None).
-        assert self.tile_family_selection is not None
-        tile_library = self.tile_family_selection.runtime_unit
+        selection = self._family_selections_by_tileset[tileset_id]
+        tile_library = selection.runtime_unit
         variant_id = self._family_variant_ids_by_tileset[tileset_id]
         tileset = GridTileset.from_variant(
             tile_library=tile_library,
@@ -978,16 +1050,10 @@ class LayoutProject:
         return tileset
 
     def default_tileset_id(self) -> str:
-        if self.tile_family_selection is not None:
-            return self.tile_family_selection.selected_tileset_id
-        return next(iter(self.tilesets.keys()))
+        return self._default_tileset_id
 
     def _family_selection_for_tileset(self, tileset_id: str) -> TileFamilySelection | None:
-        if self.tile_family_selection is None:
-            return None
-        if tileset_id not in self._family_variant_ids_by_tileset:
-            return None
-        return self.tile_family_selection
+        return self._family_selections_by_tileset.get(tileset_id)
 
     def source_family_for_tileset(self, tileset_id: str) -> TileFamily | None:
         selection = self._family_selection_for_tileset(tileset_id)

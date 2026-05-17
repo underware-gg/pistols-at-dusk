@@ -57,6 +57,18 @@ Projects do not own sheet semantics anymore. They consume a family package and p
 }
 ```
 
+Projects may also load multiple family-backed runtime units:
+
+```json
+{
+  "tile_families": [
+    {"path": "./tile-families/minimal8", "variant_id": "1bit_colored_bg"},
+    {"path": "./tile-families/mini-medieval", "variant_id": "default"}
+  ],
+  "default_tileset": "minimal8@1bit_colored_bg"
+}
+```
+
 At runtime, the harness now derives a compatibility view from that package before doing ordinary scene work:
 
 - the family package remains the source-shaped catalogue and provenance container
