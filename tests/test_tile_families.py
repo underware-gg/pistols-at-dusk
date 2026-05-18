@@ -45,12 +45,13 @@ def make_family_dir(
     alias_name: str = "sample.alias",
     directory_name: str = "family",
     construction_id: str | None = None,
+    tile_id: str | None = None,
 ) -> Path:
     family_dir = root / directory_name
     family_dir.mkdir()
     Image.new("RGBA", (sheet_columns * 8, sheet_rows * 8), (0, 0, 0, 255)).save(family_dir / "sheet.png")
 
-    tile_id = f"{family_id}:all:0,0"
+    tile_id = tile_id or f"{family_id}:all:0,0"
 
     write_json(
         family_dir / "family.json",
@@ -1002,6 +1003,9 @@ class TileLibraryRegistryTests(unittest.TestCase):
             self.assertEqual(alias_b_owner.family_id, "family.b")
             self.assertEqual(construction_a.id, "construction.a")
             self.assertEqual(construction_b.id, "construction.b")
+            self.assertEqual(registry.unit_for_ref("family.a:0,0"), alias_a_owner)
+            self.assertEqual(registry.unit_for_ref("alias.b"), alias_b_owner)
+            self.assertEqual(registry.unit_for_ref("family.a:all:0,0"), alias_a_owner)
             self.assertIsNotNone(registry.entity_template("construction.a"))
             self.assertIsNotNone(registry.entity_template("construction.b"))
 
@@ -1076,6 +1080,56 @@ class TileLibraryRegistryTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "Duplicate alias across tile library units"):
+                TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+    def test_registry_rejects_cross_unit_alias_tile_id_collisions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.a",
+                    alias_name="shared.ref",
+                    directory_name="family_a",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.b",
+                    directory_name="family_b",
+                    tile_id="shared.ref",
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Cross-unit ref collision between tile id and alias"):
+                TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+    def test_registry_rejects_duplicate_tile_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.a",
+                    directory_name="family_a",
+                    tile_id="shared.tile",
+                )
+            )
+            family_b = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.b",
+                    directory_name="family_b",
+                    tile_id="shared.tile",
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Duplicate tile id across tile library units"):
                 TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
 
 

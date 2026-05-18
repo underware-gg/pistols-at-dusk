@@ -51,6 +51,7 @@ In the current phase:
   - construction and entity-template lookup
   - bounds-aware family ref validation
 - when more than one family-backed unit is loaded, the project must nominate an explicit `default_tileset` for bare ref resolution
+- the runtime registry owns cross-unit routing for explicit family refs and unique family-owned aliases/tile ids
 - inspect/export/audit flows may still use `TileFamily` directly while this boundary extraction is in progress
 
 Scene templates now expand in two phases:

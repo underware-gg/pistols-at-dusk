@@ -88,20 +88,37 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
     return family_dir, project_path
 
 
-def _make_minimal_family_dir(root: Path, *, directory_name: str, family_id: str) -> Path:
+def _make_minimal_family_dir(
+    root: Path,
+    *,
+    directory_name: str,
+    family_id: str,
+    tile_width: int = 8,
+    tile_height: int = 8,
+    render_step_width: int | None = None,
+    render_step_height: int | None = None,
+) -> Path:
     family_dir = root / directory_name
     family_dir.mkdir()
-    Image.new("RGBA", (8, 8), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+    Image.new("RGBA", (tile_width, tile_height), (0, 0, 0, 255)).save(family_dir / "sheet.png")
     tile_id = f"{family_id}:all:0,0"
+    family_payload: dict[str, object] = {
+        "family_id": family_id,
+        "grid": {"tile_width": tile_width, "tile_height": tile_height},
+        "default_variant_id": "base",
+        "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
+        "ingestion_spec": "ingestion.json",
+    }
+    render_defaults: dict[str, int] = {}
+    if render_step_width is not None:
+        render_defaults["render_step_width"] = render_step_width
+    if render_step_height is not None:
+        render_defaults["render_step_height"] = render_step_height
+    if render_defaults:
+        family_payload["render_defaults"] = render_defaults
     _write_json(
         family_dir / "family.json",
-        {
-            "family_id": family_id,
-            "grid": {"tile_width": 8, "tile_height": 8},
-            "default_variant_id": "base",
-            "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
-            "ingestion_spec": "ingestion.json",
-        },
+        family_payload,
     )
     _write_json(
         family_dir / "ingestion.json",
@@ -304,12 +321,173 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertIsNotNone(project.tile_library_unit_for_tileset("family.b@base"))
             self.assertIsNotNone(project.source_family_for_tileset("family.a@base"))
             self.assertIsNotNone(project.source_family_for_tileset("family.b@base"))
+            resolved_alias = project.resolve_tile("family.a.alias", default_tileset="family.b@base")
+            self.assertEqual(resolved_alias.tileset_id, "family.a@base")
+            self.assertEqual(resolved_alias.family_tile_id, "family.a:all:0,0")
+            resolved_physical = project.resolve_tile("family.a:0,0", default_tileset="family.b@base")
+            self.assertEqual(resolved_physical.tileset_id, "family.a@base")
+            self.assertEqual(resolved_physical.family_tile_id, "family.a:all:0,0")
+            project.validate_ref_without_loading("family.a.alias", default_tileset="family.b@base")
+            project.validate_ref_without_loading("family.a:0,0", default_tileset="family.b@base")
+            with self.assertRaisesRegex(ValueError, "Unsupported tile reference syntax"):
+                project.validate_ref_without_loading("missing.alias", default_tileset="family.b@base")
+
+    def test_project_rejects_unknown_default_tileset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_multi_family_project(
+                Path(temp_dir),
+                default_tileset="missing@base",
+            )
+
+            with self.assertRaisesRegex(ValueError, "Configured default_tileset 'missing@base' is unknown"):
+                harness.LayoutProject(project_path)
 
     def test_project_rejects_multiple_tile_families_without_explicit_default_tileset(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = _make_multi_family_project(Path(temp_dir), default_tileset=None)
 
             with self.assertRaisesRegex(ValueError, "must define default_tileset"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_both_tile_family_and_tile_families(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = _make_minimal_family_dir(root, directory_name="family", family_id="family.one")
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {"path": str(family_dir), "variant_id": "base"},
+                    "tile_families": [{"path": str(family_dir), "variant_id": "base"}],
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "either tile_family or tile_families, not both"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_mismatched_loaded_tile_widths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = _make_minimal_family_dir(root, directory_name="family_a", family_id="family.a", tile_width=8)
+            family_b = _make_minimal_family_dir(root, directory_name="family_b", family_id="family.b", tile_width=16)
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_families": [
+                        {"path": str(family_a), "variant_id": "base"},
+                        {"path": str(family_b), "variant_id": "base"},
+                    ],
+                    "default_tileset": "family.a@base",
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "same tile_width"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_mismatched_loaded_tile_heights(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = _make_minimal_family_dir(root, directory_name="family_a", family_id="family.a", tile_height=8)
+            family_b = _make_minimal_family_dir(root, directory_name="family_b", family_id="family.b", tile_height=16)
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_families": [
+                        {"path": str(family_a), "variant_id": "base"},
+                        {"path": str(family_b), "variant_id": "base"},
+                    ],
+                    "default_tileset": "family.a@base",
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "same tile_height"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_mismatched_loaded_render_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = _make_minimal_family_dir(
+                root,
+                directory_name="family_a",
+                family_id="family.a",
+                render_step_width=8,
+            )
+            family_b = _make_minimal_family_dir(
+                root,
+                directory_name="family_b",
+                family_id="family.b",
+                render_step_width=12,
+            )
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_families": [
+                        {"path": str(family_a), "variant_id": "base"},
+                        {"path": str(family_b), "variant_id": "base"},
+                    ],
+                    "default_tileset": "family.a@base",
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "same render_step_width"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_mismatched_loaded_render_step_heights(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_a = _make_minimal_family_dir(
+                root,
+                directory_name="family_a",
+                family_id="family.a",
+                render_step_height=8,
+            )
+            family_b = _make_minimal_family_dir(
+                root,
+                directory_name="family_b",
+                family_id="family.b",
+                render_step_height=12,
+            )
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_families": [
+                        {"path": str(family_a), "variant_id": "base"},
+                        {"path": str(family_b), "variant_id": "base"},
+                    ],
+                    "default_tileset": "family.a@base",
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "same render_step_height"):
                 harness.LayoutProject(project_path)
 
     def test_expand_scene_rejects_unknown_template(self) -> None:

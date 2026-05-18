@@ -48,8 +48,10 @@ from scene_templates import (
 )
 from tile_families import (
     EntityTemplateRecord,
+    LoadedTileLibraryUnit,
     MetatileConstruction,
     ParametricRunConstruction,
+    ResolvedFamilyTile,
     SheetCell,
     SourceLayoutCollection,
     SourceLayoutCollectionMember,
@@ -522,6 +524,13 @@ class TileFamilySelection:
     def selected_tileset_id(self) -> str:
         return self.runtime_unit.runtime_tileset_id(self.selected_variant_id)
 
+    @property
+    def loaded_tile_library(self) -> LoadedTileLibraryUnit:
+        return LoadedTileLibraryUnit(
+            unit=self.runtime_unit,
+            selected_variant_id=self.selected_variant_id,
+        )
+
 
 def load_tile_family_selection(
     base_dir: Path,
@@ -862,7 +871,6 @@ class LayoutProject:
             singular_spec=self.config.get("tile_family"),
             plural_specs=self.config.get("tile_families"),
         )
-        self.tile_family_selection = self.tile_family_selections[0] if len(self.tile_family_selections) == 1 else None
         self.tile_library_registry = self._build_tile_library_registry()
         self.scene_template_library: SceneTemplateLibrary = load_scene_template_library(
             self.base_dir,
@@ -895,46 +903,22 @@ class LayoutProject:
         )
 
     def _resolve_grid_dimensions(self, grid: ProjectGridConfig) -> tuple[int, int, int, int]:
-        tile_libraries = [selection.runtime_unit for selection in self.tile_family_selections]
-        tile_library = tile_libraries[0] if tile_libraries else None
-        family_grid_width = tile_library.tile_width if tile_library else 8
-        family_grid_height = tile_library.tile_height if tile_library else 8
+        tile_library_registry = self.tile_library_registry
+        family_grid_width = tile_library_registry.tile_width if tile_library_registry is not None else 8
+        family_grid_height = tile_library_registry.tile_height if tile_library_registry is not None else 8
         configured_grid_width = grid.get("tile_width")
         configured_grid_height = grid.get("tile_height")
-        if tile_library is not None:
-            for current_tile_library in tile_libraries:
-                if current_tile_library.tile_width != family_grid_width:
-                    raise ValueError("All loaded tile families must share the same tile_width")
-                if current_tile_library.tile_height != family_grid_height:
-                    raise ValueError("All loaded tile families must share the same tile_height")
+        if tile_library_registry is not None:
             if configured_grid_width not in (None, family_grid_width):
                 raise ValueError("Project grid tile_width must match the loaded tile family tile width")
             if configured_grid_height not in (None, family_grid_height):
                 raise ValueError("Project grid tile_height must match the loaded tile family tile height")
         grid_width = int(configured_grid_width or family_grid_width)
         grid_height = int(configured_grid_height or family_grid_height)
-        default_render_step_width = (
-            tile_library.render_step_width if tile_library and tile_library.render_step_width is not None else grid_width
-        )
+        default_render_step_width = tile_library_registry.render_step_width if tile_library_registry is not None else grid_width
         default_render_step_height = (
-            tile_library.render_step_height if tile_library and tile_library.render_step_height is not None else grid_height
+            tile_library_registry.render_step_height if tile_library_registry is not None else grid_height
         )
-        if tile_library is not None:
-            for current_tile_library in tile_libraries[1:]:
-                current_step_width = (
-                    current_tile_library.render_step_width
-                    if current_tile_library.render_step_width is not None
-                    else grid_width
-                )
-                current_step_height = (
-                    current_tile_library.render_step_height
-                    if current_tile_library.render_step_height is not None
-                    else grid_height
-                )
-                if current_step_width != default_render_step_width:
-                    raise ValueError("All loaded tile families must share the same render_step_width")
-                if current_step_height != default_render_step_height:
-                    raise ValueError("All loaded tile families must share the same render_step_height")
         return (
             grid_width,
             grid_height,
@@ -947,15 +931,15 @@ class LayoutProject:
             tile_library = selection.runtime_unit
             for variant_id in tile_library.variant_ids:
                 tileset_id = tile_library.runtime_tileset_id(variant_id)
-                if tileset_id in self._family_variant_ids_by_tileset:
-                    raise ValueError(f"Duplicate family-backed tileset id {tileset_id!r}")
                 self._family_variant_ids_by_tileset[tileset_id] = variant_id
                 self._family_selections_by_tileset[tileset_id] = selection
 
     def _build_tile_library_registry(self) -> TileLibraryRegistry | None:
         if not self.tile_family_selections:
             return None
-        return TileLibraryRegistry.from_units(selection.runtime_unit for selection in self.tile_family_selections)
+        return TileLibraryRegistry.from_loaded_units(
+            selection.loaded_tile_library for selection in self.tile_family_selections
+        )
 
     def _build_project_tilesets(self) -> dict[str, GridTileset]:
         return {
@@ -1110,15 +1094,30 @@ class LayoutProject:
     def variant_id_for_tileset(self, tileset_id: str) -> str | None:
         return self._family_variant_ids_by_tileset.get(tileset_id)
 
-    def family_tile_for_ref(self, ref: str, *, tileset_id: str) -> ResolvedTile | None:
+    def _resolve_family_ref(
+        self,
+        ref: str,
+        *,
+        tileset_id: str,
+    ) -> ResolvedFamilyTile | None:
+        tile_library_registry = self.tile_library_registry
+        if tile_library_registry is not None:
+            default_unit_id = None
+            selection = self._family_selection_for_tileset(tileset_id)
+            if selection is not None:
+                default_unit_id = selection.runtime_unit.family_id
+            return tile_library_registry.resolve_ref(ref, default_unit_id=default_unit_id)
         tile_library = self.tile_library_unit_for_tileset(tileset_id)
-        if tile_library is None:
+        variant_id = self.variant_id_for_tileset(tileset_id)
+        if tile_library is None or variant_id is None:
             return None
-        variant_id = self._family_variant_ids_by_tileset[tileset_id]
-        resolved = tile_library.resolve_ref(ref, variant_id=variant_id)
+        return tile_library.resolve_ref(ref, variant_id=variant_id)
+
+    def family_tile_for_ref(self, ref: str, *, tileset_id: str) -> ResolvedTile | None:
+        resolved = self._resolve_family_ref(ref, tileset_id=tileset_id)
         if resolved is None:
             return None
-        runtime_tileset_id = tile_library.runtime_tileset_id(resolved.variant_id)
+        runtime_tileset_id = f"{resolved.family_id}@{resolved.variant_id}"
         tileset = self.get_tileset(runtime_tileset_id)
         if resolved.sheet_col is None or resolved.sheet_row is None:
             return ResolvedTile(
@@ -1590,9 +1589,7 @@ class LayoutProject:
             return
 
         tileset_id = default_tileset or self.default_tileset_id()
-        tile_library = self.tile_library_unit_for_tileset(tileset_id)
-        variant_id = self.variant_id_for_tileset(tileset_id)
-        if tile_library is not None and tile_library.resolve_ref(token, variant_id=variant_id) is not None:
+        if self._resolve_family_ref(token, tileset_id=tileset_id) is not None:
             return
 
         target = self._direct_tile_ref_target(token, default_tileset=default_tileset)

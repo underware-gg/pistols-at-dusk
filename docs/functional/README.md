@@ -69,6 +69,12 @@ Projects may also load multiple family-backed runtime units:
 }
 ```
 
+When multiple family-backed units are loaded:
+
+- the project still needs an explicit `default_tileset` for bare coordinate refs and other fallback cases
+- explicit family refs like `family.id:3,4` or `family.id@variant:3,4` resolve against the owning loaded unit
+- unique family aliases and unique tile ids may also resolve against a non-default loaded unit
+
 At runtime, the harness now derives a compatibility view from that package before doing ordinary scene work:
 
 - the family package remains the source-shaped catalogue and provenance container

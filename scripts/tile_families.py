@@ -808,21 +808,92 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
 
 
 @dataclass(frozen=True, slots=True)
+class LoadedTileLibraryUnit:
+    unit: TileLibraryUnit
+    selected_variant_id: str
+
+    @property
+    def family_id(self) -> str:
+        return self.unit.family_id
+
+    @property
+    def selected_tileset_id(self) -> str:
+        return self.unit.runtime_tileset_id(self.selected_variant_id)
+
+    @property
+    def effective_render_step_width(self) -> int:
+        return self.unit.render_step_width if self.unit.render_step_width is not None else self.unit.tile_width
+
+    @property
+    def effective_render_step_height(self) -> int:
+        return self.unit.render_step_height if self.unit.render_step_height is not None else self.unit.tile_height
+
+    def resolve_ref(self, ref: str) -> ResolvedFamilyTile | None:
+        return self.unit.resolve_ref(ref, variant_id=self.selected_variant_id)
+
+
+@dataclass(frozen=True, slots=True)
 class TileLibraryRegistry(RuntimeConstructionCatalog):
-    units_by_id: Mapping[str, TileLibraryUnit] = field(repr=False)
+    loaded_units_by_id: Mapping[str, LoadedTileLibraryUnit] = field(repr=False)
     construction_entries_by_id: Mapping[str, tuple[str, Construction]] = field(repr=False)
     alias_unit_ids: Mapping[str, str] = field(repr=False)
+    tile_unit_ids: Mapping[str, str] = field(repr=False)
+    tile_width: int
+    tile_height: int
+    render_step_width: int
+    render_step_height: int
 
     @classmethod
     def from_units(cls, units: Iterable[TileLibraryUnit]) -> TileLibraryRegistry:
-        units_by_id: dict[str, TileLibraryUnit] = {}
+        return cls.from_loaded_units(
+            LoadedTileLibraryUnit(unit=unit, selected_variant_id=unit.default_variant_id)
+            for unit in units
+        )
+
+    @classmethod
+    def from_loaded_units(cls, loaded_units: Iterable[LoadedTileLibraryUnit]) -> TileLibraryRegistry:
+        loaded_units_by_id: dict[str, LoadedTileLibraryUnit] = {}
         construction_entries_by_id: dict[str, tuple[str, Construction]] = {}
         alias_unit_ids: dict[str, str] = {}
-        for unit in units:
-            existing_unit = units_by_id.get(unit.family_id)
+        tile_unit_ids: dict[str, str] = {}
+        common_tile_width: int | None = None
+        common_tile_height: int | None = None
+        common_render_step_width: int | None = None
+        common_render_step_height: int | None = None
+        for loaded_unit in loaded_units:
+            unit = loaded_unit.unit
+            existing_unit = loaded_units_by_id.get(unit.family_id)
             if existing_unit is not None:
                 raise ValueError(f"Duplicate tile library unit id {unit.family_id!r}")
-            units_by_id[unit.family_id] = unit
+            loaded_units_by_id[unit.family_id] = loaded_unit
+            if common_tile_width is None:
+                common_tile_width = unit.tile_width
+                common_tile_height = unit.tile_height
+                common_render_step_width = loaded_unit.effective_render_step_width
+                common_render_step_height = loaded_unit.effective_render_step_height
+            else:
+                if unit.tile_width != common_tile_width:
+                    raise ValueError("All loaded tile families must share the same tile_width")
+                if unit.tile_height != common_tile_height:
+                    raise ValueError("All loaded tile families must share the same tile_height")
+                if loaded_unit.effective_render_step_width != common_render_step_width:
+                    raise ValueError("All loaded tile families must share the same render_step_width")
+                if loaded_unit.effective_render_step_height != common_render_step_height:
+                    raise ValueError("All loaded tile families must share the same render_step_height")
+            for tile_id in unit.tiles:
+                existing_tile_owner = tile_unit_ids.get(tile_id)
+                if existing_tile_owner is not None:
+                    raise ValueError(
+                        f"Duplicate tile id across tile library units: {tile_id!r} "
+                        f"owned by {existing_tile_owner!r} and {unit.family_id!r}"
+                    )
+                existing_alias_owner = alias_unit_ids.get(tile_id)
+                if existing_alias_owner is not None and existing_alias_owner != unit.family_id:
+                    raise ValueError(
+                        f"Cross-unit ref collision between tile id and alias: {tile_id!r} "
+                        f"owned by tile family {unit.family_id!r} and alias family {existing_alias_owner!r}"
+                    )
+                tile_unit_ids[tile_id] = unit.family_id
             for construction_id, construction in unit.constructions.items():
                 existing_construction = construction_entries_by_id.get(construction_id)
                 if existing_construction is not None:
@@ -838,32 +909,99 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
                         f"Duplicate alias across tile library units: {alias!r} "
                         f"owned by {existing_alias_owner!r} and {unit.family_id!r}"
                     )
+                existing_tile_owner = tile_unit_ids.get(alias)
+                if existing_tile_owner is not None and existing_tile_owner != unit.family_id:
+                    raise ValueError(
+                        f"Cross-unit ref collision between tile id and alias: {alias!r} "
+                        f"owned by tile family {existing_tile_owner!r} and alias family {unit.family_id!r}"
+                    )
                 alias_unit_ids[alias] = unit.family_id
+        if (
+            common_tile_width is None
+            or common_tile_height is None
+            or common_render_step_width is None
+            or common_render_step_height is None
+        ):
+            raise ValueError("Tile library registry requires at least one loaded unit")
         return cls(
-            units_by_id=MappingProxyType(dict(units_by_id)),
+            loaded_units_by_id=MappingProxyType(dict(loaded_units_by_id)),
             construction_entries_by_id=MappingProxyType(dict(construction_entries_by_id)),
             alias_unit_ids=MappingProxyType(dict(alias_unit_ids)),
+            tile_unit_ids=MappingProxyType(dict(tile_unit_ids)),
+            tile_width=common_tile_width,
+            tile_height=common_tile_height,
+            render_step_width=common_render_step_width,
+            render_step_height=common_render_step_height,
         )
 
     @property
     def unit_ids(self) -> tuple[str, ...]:
-        return tuple(self.units_by_id.keys())
+        return tuple(self.loaded_units_by_id.keys())
+
+    def loaded_unit(self, unit_id: str) -> LoadedTileLibraryUnit | None:
+        return self.loaded_units_by_id.get(unit_id)
 
     def unit(self, unit_id: str) -> TileLibraryUnit | None:
-        return self.units_by_id.get(unit_id)
+        loaded_unit = self.loaded_unit(unit_id)
+        if loaded_unit is None:
+            return None
+        return loaded_unit.unit
 
     def unit_for_construction(self, construction_id: str) -> TileLibraryUnit | None:
         entry = self.construction_entries_by_id.get(construction_id)
         if entry is None:
             return None
         unit_id, _construction = entry
-        return self.units_by_id[unit_id]
+        return self.loaded_units_by_id[unit_id].unit
 
     def alias_owner(self, alias: str) -> TileLibraryUnit | None:
         unit_id = self.alias_unit_ids.get(alias)
         if unit_id is None:
             return None
-        return self.units_by_id[unit_id]
+        return self.loaded_units_by_id[unit_id].unit
+
+    def tile_owner(self, tile_id: str) -> TileLibraryUnit | None:
+        unit_id = self.tile_unit_ids.get(tile_id)
+        if unit_id is None:
+            return None
+        return self.loaded_units_by_id[unit_id].unit
+
+    def unit_for_ref(self, ref: str) -> TileLibraryUnit | None:
+        loaded_unit = self.loaded_unit_for_ref(ref)
+        if loaded_unit is None:
+            return None
+        return loaded_unit.unit
+
+    def loaded_unit_for_ref(self, ref: str) -> LoadedTileLibraryUnit | None:
+        variant_match = VARIANT_TILE_RE.match(ref)
+        if variant_match is not None:
+            return self.loaded_unit(variant_match.group("family"))
+        physical_match = PHYSICAL_TILE_RE.match(ref)
+        if physical_match is not None:
+            return self.loaded_unit(physical_match.group("family"))
+        tile_owner = self.tile_owner(ref)
+        if tile_owner is not None:
+            return self.loaded_unit(tile_owner.family_id)
+        alias_owner = self.alias_owner(ref)
+        if alias_owner is None:
+            return None
+        return self.loaded_unit(alias_owner.family_id)
+
+    def resolve_ref(
+        self,
+        ref: str,
+        *,
+        default_unit_id: str | None = None,
+    ) -> ResolvedFamilyTile | None:
+        loaded_unit = self.loaded_unit_for_ref(ref)
+        if loaded_unit is not None:
+            return loaded_unit.resolve_ref(ref)
+        if default_unit_id is None:
+            return None
+        default_loaded_unit = self.loaded_unit(default_unit_id)
+        if default_loaded_unit is None:
+            return None
+        return default_loaded_unit.resolve_ref(ref)
 
     def lookup_construction(self, construction_id: str) -> Construction | None:
         entry = self.construction_entries_by_id.get(construction_id)
