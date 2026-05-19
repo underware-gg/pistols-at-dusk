@@ -25,6 +25,8 @@ Current Minimal 8 package:
 
 - [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
+While Phase 4 is in progress, that family package remains the active committed ingest truth. The staged pack / tileset / logical-tilesheet manifest hierarchy now lives in [scripts/source_manifests.py](../../scripts/source_manifests.py) until Minimal 8 is migrated onto it.
+
 ## Addressing Formats
 
 Three address forms are supported:
@@ -133,6 +135,7 @@ The engine does not parse freeform human notes automatically in this pass.
 The functional content of the codebase is also documented co-located with the modules and tracks themselves:
 
 - [scripts/README.md](../../scripts/README.md) — shared engine modules: harness CLI, tile-family loader, scene-template DSL, scene-rules loader, and render output helpers.
+- [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the Phase 4 ingest refactor.
 - [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / metatile / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn a resolved render-grid transform into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens.
@@ -143,6 +146,7 @@ The functional content of the codebase is also documented co-located with the mo
 Behavioural tests are part of the functional layer — they document what the system does, executably. They live under [tests/](../../tests):
 
 - [test_tile_families.py](../../tests/test_tile_families.py) — family-package loading, address parsing, alias resolution, construction loading and validator behaviour (adjacency / exposure rules, parametric-run validation).
+- [test_source_manifests.py](../../tests/test_source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loading and validation, including explicit sparse-coverage checks for render variants.
 - [test_scene_expansion.py](../../tests/test_scene_expansion.py) — scene-template DSL: expression evaluator, data-mode expansion, `entity` / `place_scene` / `scatter` ops, binding isolation, cycle detection.
 - [test_minimal8_harness.py](../../tests/test_minimal8_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.

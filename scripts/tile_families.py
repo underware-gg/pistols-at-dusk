@@ -16,6 +16,8 @@ from typing_extensions import NotRequired, TypeAlias
 
 from PIL import Image
 
+from _manifest_utils import bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+
 PHYSICAL_TILE_RE = re.compile(r"^(?P<family>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$")
 VARIANT_TILE_RE = re.compile(
     r"^(?P<family>[a-z0-9_.-]+)@(?P<variant>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$"
@@ -351,43 +353,15 @@ class EntityTemplateRecord:
     footprint: EntityFootprintSpec
 
 
-def load_json(path: Path) -> object:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _require_mapping(value: object, *, context: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise ValueError(f"{context} must be a JSON object")
-    return cast(dict[str, object], value)
-
-
-def _require_list(value: object, *, context: str) -> list[object]:
-    if not isinstance(value, list):
-        raise ValueError(f"{context} must be a JSON array")
-    return cast(list[object], value)
-
-
-def _check_required_keys(
-    mapping: dict[str, object],
-    required: tuple[str, ...],
-    *,
-    context: str,
-) -> None:
-    missing = [key for key in required if key not in mapping]
-    if missing:
-        raise ValueError(f"{context} is missing required keys: {', '.join(missing)}")
-
-
 def load_family_manifest(path: Path) -> FamilyManifest:
-    raw = _require_mapping(load_json(path), context=str(path))
-    _check_required_keys(raw, ("family_id", "grid", "variants"), context=str(path))
-    grid_raw = _require_mapping(raw["grid"], context=f"{path}: grid")
-    _check_required_keys(grid_raw, ("tile_width", "tile_height"), context=f"{path}: grid")
-    variants_raw = _require_list(raw["variants"], context=f"{path}: variants")
+    raw = require_mapping(load_json(path), context=str(path))
+    check_required_keys(raw, ("family_id", "grid", "variants"), context=str(path))
+    grid_raw = require_mapping(raw["grid"], context=f"{path}: grid")
+    check_required_keys(grid_raw, ("tile_width", "tile_height"), context=f"{path}: grid")
+    variants_raw = require_list(raw["variants"], context=f"{path}: variants")
     for index, variant_value in enumerate(variants_raw):
-        variant_mapping = _require_mapping(variant_value, context=f"{path}: variants[{index}]")
-        _check_required_keys(
+        variant_mapping = require_mapping(variant_value, context=f"{path}: variants[{index}]")
+        check_required_keys(
             variant_mapping,
             ("variant_id", "sheet"),
             context=f"{path}: variants[{index}]",
@@ -396,59 +370,59 @@ def load_family_manifest(path: Path) -> FamilyManifest:
 
 
 def load_cluster_manifest(path: Path) -> list[ClusterConfig]:
-    raw = _require_list(load_json(path), context=str(path))
+    raw = require_list(load_json(path), context=str(path))
     for index, value in enumerate(raw):
-        mapping = _require_mapping(value, context=f"{path}[{index}]")
-        _check_required_keys(mapping, ("id",), context=f"{path}[{index}]")
+        mapping = require_mapping(value, context=f"{path}[{index}]")
+        check_required_keys(mapping, ("id",), context=f"{path}[{index}]")
     return cast(list[ClusterConfig], raw)
 
 
 def load_ingestion_manifest(path: Path) -> SourceLayoutManifest:
-    raw = _require_mapping(load_json(path), context=str(path))
-    _check_required_keys(raw, ("sheet_bounds", "regions", "clusters"), context=str(path))
-    sheet_bounds = _require_mapping(raw["sheet_bounds"], context=f"{path}: sheet_bounds")
-    _check_required_keys(sheet_bounds, ("x", "y", "width", "height"), context=f"{path}: sheet_bounds")
+    raw = require_mapping(load_json(path), context=str(path))
+    check_required_keys(raw, ("sheet_bounds", "regions", "clusters"), context=str(path))
+    sheet_bounds = require_mapping(raw["sheet_bounds"], context=f"{path}: sheet_bounds")
+    check_required_keys(sheet_bounds, ("x", "y", "width", "height"), context=f"{path}: sheet_bounds")
 
-    regions_raw = _require_list(raw["regions"], context=f"{path}: regions")
+    regions_raw = require_list(raw["regions"], context=f"{path}: regions")
     for index, value in enumerate(regions_raw):
-        mapping = _require_mapping(value, context=f"{path}: regions[{index}]")
-        _check_required_keys(mapping, ("id", "bounds"), context=f"{path}: regions[{index}]")
-        bounds = _require_mapping(mapping["bounds"], context=f"{path}: regions[{index}].bounds")
-        _check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: regions[{index}].bounds")
+        mapping = require_mapping(value, context=f"{path}: regions[{index}]")
+        check_required_keys(mapping, ("id", "bounds"), context=f"{path}: regions[{index}]")
+        bounds = require_mapping(mapping["bounds"], context=f"{path}: regions[{index}].bounds")
+        check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: regions[{index}].bounds")
         areas_raw = mapping.get("areas")
         if areas_raw is not None:
-            for area_index, area_value in enumerate(_require_list(areas_raw, context=f"{path}: regions[{index}].areas")):
-                area_mapping = _require_mapping(area_value, context=f"{path}: regions[{index}].areas[{area_index}]")
-                _check_required_keys(
+            for area_index, area_value in enumerate(require_list(areas_raw, context=f"{path}: regions[{index}].areas")):
+                area_mapping = require_mapping(area_value, context=f"{path}: regions[{index}].areas[{area_index}]")
+                check_required_keys(
                     area_mapping,
                     ("x", "y", "width", "height"),
                     context=f"{path}: regions[{index}].areas[{area_index}]",
                 )
 
-    clusters_raw = _require_list(raw["clusters"], context=f"{path}: clusters")
+    clusters_raw = require_list(raw["clusters"], context=f"{path}: clusters")
     for index, value in enumerate(clusters_raw):
-        mapping = _require_mapping(value, context=f"{path}: clusters[{index}]")
-        _check_required_keys(mapping, ("id", "source_region_id", "bounds"), context=f"{path}: clusters[{index}]")
-        bounds = _require_mapping(mapping["bounds"], context=f"{path}: clusters[{index}].bounds")
-        _check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: clusters[{index}].bounds")
+        mapping = require_mapping(value, context=f"{path}: clusters[{index}]")
+        check_required_keys(mapping, ("id", "source_region_id", "bounds"), context=f"{path}: clusters[{index}]")
+        bounds = require_mapping(mapping["bounds"], context=f"{path}: clusters[{index}].bounds")
+        check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: clusters[{index}].bounds")
 
     ignore_regions_raw = raw.get("ignore_regions")
     if ignore_regions_raw is not None:
-        for index, value in enumerate(_require_list(ignore_regions_raw, context=f"{path}: ignore_regions")):
-            mapping = _require_mapping(value, context=f"{path}: ignore_regions[{index}]")
-            _check_required_keys(mapping, ("id", "bounds"), context=f"{path}: ignore_regions[{index}]")
-            bounds = _require_mapping(mapping["bounds"], context=f"{path}: ignore_regions[{index}].bounds")
-            _check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: ignore_regions[{index}].bounds")
+        for index, value in enumerate(require_list(ignore_regions_raw, context=f"{path}: ignore_regions")):
+            mapping = require_mapping(value, context=f"{path}: ignore_regions[{index}]")
+            check_required_keys(mapping, ("id", "bounds"), context=f"{path}: ignore_regions[{index}]")
+            bounds = require_mapping(mapping["bounds"], context=f"{path}: ignore_regions[{index}].bounds")
+            check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: ignore_regions[{index}].bounds")
 
     collections_raw = raw.get("collections")
     if collections_raw is not None:
-        for index, value in enumerate(_require_list(collections_raw, context=f"{path}: collections")):
-            mapping = _require_mapping(value, context=f"{path}: collections[{index}]")
-            _check_required_keys(mapping, ("id", "kind"), context=f"{path}: collections[{index}]")
+        for index, value in enumerate(require_list(collections_raw, context=f"{path}: collections")):
+            mapping = require_mapping(value, context=f"{path}: collections[{index}]")
+            check_required_keys(mapping, ("id", "kind"), context=f"{path}: collections[{index}]")
             bounds_value = mapping.get("bounds")
             if bounds_value is not None:
-                bounds = _require_mapping(bounds_value, context=f"{path}: collections[{index}].bounds")
-                _check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: collections[{index}].bounds")
+                bounds = require_mapping(bounds_value, context=f"{path}: collections[{index}].bounds")
+                check_required_keys(bounds, ("x", "y", "width", "height"), context=f"{path}: collections[{index}].bounds")
             members_value = mapping.get("members")
             if members_value is not None:
                 _load_ingestion_collection_members(members_value, context=f"{path}: collections[{index}].members")
@@ -456,10 +430,10 @@ def load_ingestion_manifest(path: Path) -> SourceLayoutManifest:
 
 
 def load_tile_manifest(path: Path) -> list[TileConfig]:
-    raw = _require_list(load_json(path), context=str(path))
+    raw = require_list(load_json(path), context=str(path))
     for index, value in enumerate(raw):
-        mapping = _require_mapping(value, context=f"{path}[{index}]")
-        _check_required_keys(
+        mapping = require_mapping(value, context=f"{path}[{index}]")
+        check_required_keys(
             mapping,
             ("id", "layer", "category", "transparent"),
             context=f"{path}[{index}]",
@@ -468,12 +442,7 @@ def load_tile_manifest(path: Path) -> list[TileConfig]:
 
 
 def load_alias_manifest(path: Path) -> FamilyAliasesManifest:
-    return cast(FamilyAliasesManifest, _require_mapping(load_json(path), context=str(path)))
-
-
-def resolve_path(base_dir: Path, raw_path: str) -> Path:
-    path = Path(raw_path)
-    return path if path.is_absolute() else (base_dir / path).resolve()
+    return cast(FamilyAliasesManifest, require_mapping(load_json(path), context=str(path)))
 
 
 def _tuple(values: Iterable[str] | None) -> tuple[str, ...]:
@@ -1128,15 +1097,6 @@ def _bounds_contains(bounds: ClusterBounds, col: int, row: int) -> bool:
     return bounds.x <= col < bounds.x + bounds.width and bounds.y <= row < bounds.y + bounds.height
 
 
-def _bounds_inside(outer: ClusterBounds, inner: ClusterBounds) -> bool:
-    return (
-        outer.x <= inner.x
-        and outer.y <= inner.y
-        and inner.x + inner.width <= outer.x + outer.width
-        and inner.y + inner.height <= outer.y + outer.height
-    )
-
-
 def format_sheet_cell_ref(col: int, row: int) -> str:
     return f"sheet:{col},{row}"
 
@@ -1161,9 +1121,9 @@ def _load_ingestion_collection_members(
     context: str,
 ) -> tuple[SourceLayoutCollectionMember, ...]:
     members: list[SourceLayoutCollectionMember] = []
-    for index, raw_member in enumerate(_require_list(raw_members, context=context)):
+    for index, raw_member in enumerate(require_list(raw_members, context=context)):
         member_context = f"{context}[{index}]"
-        mapping = _require_mapping(raw_member, context=member_context)
+        mapping = require_mapping(raw_member, context=member_context)
         if set(mapping) == {"tile_id"}:
             members.append(SourceLayoutCollectionMember(kind="tile_id", value=str(mapping["tile_id"])))
             continue
@@ -1171,8 +1131,8 @@ def _load_ingestion_collection_members(
             members.append(SourceLayoutCollectionMember(kind="alias", value=str(mapping["alias"])))
             continue
         if set(mapping) == {"sheet_cell"}:
-            cell_mapping = _require_mapping(mapping["sheet_cell"], context=f"{member_context}.sheet_cell")
-            _check_required_keys(cell_mapping, ("col", "row"), context=f"{member_context}.sheet_cell")
+            cell_mapping = require_mapping(mapping["sheet_cell"], context=f"{member_context}.sheet_cell")
+            check_required_keys(cell_mapping, ("col", "row"), context=f"{member_context}.sheet_cell")
             col = int(cast(Union[int, str], cell_mapping["col"]))
             row = int(cast(Union[int, str], cell_mapping["row"]))
             members.append(
@@ -1860,22 +1820,22 @@ def _load_constructions(
     constructions: dict[str, Construction] = {}
     constructions_path = root / "constructions.json"
     if constructions_path.exists():
-        raw_constructions_file = _require_mapping(load_json(constructions_path), context=str(constructions_path))
-        _check_required_keys(raw_constructions_file, ("constructions",), context=str(constructions_path))
-        raw_list = _require_list(raw_constructions_file["constructions"], context=f"{constructions_path}: constructions")
+        raw_constructions_file = require_mapping(load_json(constructions_path), context=str(constructions_path))
+        check_required_keys(raw_constructions_file, ("constructions",), context=str(constructions_path))
+        raw_list = require_list(raw_constructions_file["constructions"], context=f"{constructions_path}: constructions")
         for index, raw_item in enumerate(raw_list):
             item_context = f"{constructions_path}: constructions[{index}]"
-            item_mapping = _require_mapping(raw_item, context=item_context)
-            _check_required_keys(item_mapping, ("id", "collection_id", "kind"), context=item_context)
+            item_mapping = require_mapping(raw_item, context=item_context)
+            check_required_keys(item_mapping, ("id", "collection_id", "kind"), context=item_context)
             construction_kind = str(item_mapping["kind"])
             if construction_kind == "parametric_run":
-                _check_required_keys(
+                check_required_keys(
                     item_mapping,
                     ("axis", "length_param", "start_role", "repeat_role", "end_role"),
                     context=item_context,
                 )
             else:
-                _check_required_keys(item_mapping, ("cells",), context=item_context)
+                check_required_keys(item_mapping, ("cells",), context=item_context)
             construction_id = str(item_mapping["id"])
             if construction_id in constructions:
                 raise ValueError(f"Duplicate construction id in {constructions_path}: {construction_id!r}")
