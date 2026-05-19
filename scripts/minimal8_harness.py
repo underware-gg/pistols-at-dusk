@@ -70,6 +70,7 @@ from tile_families import (
     compute_source_layout_coverage,
     detect_source_layout,
 )
+from source_manifest_bridge import load_bridged_tile_family
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,8 +129,11 @@ class ProjectGridConfig(TypedDict, total=False):
     render_step_height: int
 
 
-class ProjectTileFamilyConfig(TypedDict):
+class ProjectTileFamilyConfig(TypedDict, total=False):
     path: str
+    source_pack: str
+    tileset_id: str
+    tilesheet_id: str
     family_id: NotRequired[str]
     variant_id: NotRequired[str]
 
@@ -188,8 +192,8 @@ class BoxStyleConfig(TypedDict, total=False):
 
 
 class ProjectConfig(TypedDict, total=False):
-    tile_family: str | ProjectTileFamilyConfig
-    tile_families: list[str | ProjectTileFamilyConfig]
+    tile_family: str | ProjectTileFamilyConfig | None
+    tile_families: list[str | ProjectTileFamilyConfig | None]
     default_tileset: str
     scene_templates_dir: str
     scene_rules_dir: str
@@ -532,6 +536,39 @@ class TileFamilySelection:
         )
 
 
+def _load_family_from_legacy_path(
+    *,
+    base_dir: Path,
+    spec: ProjectTileFamilyConfig,
+) -> tuple[Path, TileFamily]:
+    raw_path = spec.get("path")
+    if raw_path is None:
+        raise ValueError("tile_family legacy path config must define path")
+    family_dir = resolve_path(base_dir, raw_path)
+    return family_dir, TileFamily.load(family_dir)
+
+
+def _load_family_from_source_pack(
+    *,
+    base_dir: Path,
+    spec: ProjectTileFamilyConfig,
+) -> tuple[Path, TileFamily]:
+    if "tileset_id" not in spec or "tilesheet_id" not in spec:
+        raise ValueError("tile_family source_pack config must define tileset_id and tilesheet_id")
+    raw_pack_path = spec.get("source_pack")
+    if raw_pack_path is None:
+        raise ValueError("tile_family source_pack config must define source_pack")
+    pack_path = resolve_path(base_dir, raw_pack_path)
+    return (
+        pack_path,
+        load_bridged_tile_family(
+            pack_path,
+            tileset_id=spec["tileset_id"],
+            tilesheet_id=spec["tilesheet_id"],
+        ),
+    )
+
+
 def load_tile_family_selection(
     base_dir: Path,
     spec: str | ProjectTileFamilyConfig | None,
@@ -539,17 +576,15 @@ def load_tile_family_selection(
     if spec is None or spec == "":
         return None
     if isinstance(spec, str):
-        family_path = resolve_path(base_dir, spec)
-        family = TileFamily.load(family_path)
-        return TileFamilySelection(
-            path=family_path,
-            source_family=family,
-            selected_variant_id=family.default_variant_id,
-        )
-    if "path" not in spec:
-        raise ValueError("tile_family config must define a path")
-    family_path = resolve_path(base_dir, spec["path"])
-    family = TileFamily.load(family_path)
+        spec = cast(ProjectTileFamilyConfig, {"path": spec})
+    if "path" in spec and "source_pack" in spec:
+        raise ValueError("tile_family config must define either path or source_pack, not both")
+    if "path" in spec:
+        selection_path, family = _load_family_from_legacy_path(base_dir=base_dir, spec=spec)
+    elif "source_pack" in spec:
+        selection_path, family = _load_family_from_source_pack(base_dir=base_dir, spec=spec)
+    else:
+        raise ValueError("tile_family config must define path or source_pack")
     family_id = spec.get("family_id")
     if family_id is not None and family_id != family.family_id:
         raise ValueError(
@@ -561,7 +596,7 @@ def load_tile_family_selection(
             f"Configured variant_id {selected_variant_id!r} is not defined in tile family {family.family_id!r}"
         )
     return TileFamilySelection(
-        path=family_path,
+        path=selection_path,
         source_family=family,
         selected_variant_id=selected_variant_id,
     )
@@ -571,19 +606,20 @@ def load_tile_family_selections(
     base_dir: Path,
     *,
     singular_spec: str | ProjectTileFamilyConfig | None,
-    plural_specs: list[str | ProjectTileFamilyConfig] | None,
+    plural_specs: list[str | ProjectTileFamilyConfig | None] | None,
 ) -> tuple[TileFamilySelection, ...]:
     if singular_spec not in (None, "") and plural_specs:
         raise ValueError("Project config may define either tile_family or tile_families, not both")
     if plural_specs:
-        return tuple(
-            selection
-            for selection in (
-                load_tile_family_selection(base_dir, spec)
-                for spec in plural_specs
-            )
-            if selection is not None
-        )
+        loaded: list[TileFamilySelection] = []
+        for index, spec in enumerate(plural_specs):
+            if spec is None or spec == "":
+                raise ValueError(f"tile_families[{index}] must not be empty")
+            selection = load_tile_family_selection(base_dir, spec)
+            if selection is None:
+                raise ValueError(f"tile_families[{index}] must not be empty")
+            loaded.append(selection)
+        return tuple(loaded)
     selection = load_tile_family_selection(base_dir, singular_spec)
     if selection is None:
         return ()

@@ -111,7 +111,12 @@ def _project_config_with_template_dir(
 ) -> dict[str, Any]:
     config = _read_json(PROJECT_PATH)
     tile_family = cast(dict[str, Any], config["tile_family"])
-    tile_family["path"] = str((PROJECT_PATH.parent / cast(str, tile_family["path"])).resolve())
+    if "path" in tile_family:
+        tile_family["path"] = str((PROJECT_PATH.parent / cast(str, tile_family["path"])).resolve())
+    if "source_pack" in tile_family:
+        tile_family["source_pack"] = str(
+            (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
+        )
     utility_tileset = cast(dict[str, Any], cast(dict[str, Any], config["tilesets"])["utility_land"])
     utility_tileset["sheet"] = str((PROJECT_PATH.parent / cast(str, utility_tileset["sheet"])).resolve())
     config["scene_templates_dir"] = str(template_dir)

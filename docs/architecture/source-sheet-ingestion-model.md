@@ -3,6 +3,14 @@
 This note defines the intended split between source-sheet structure and tile
 semantics.
 
+Current phase note:
+
+- `scripts/source_manifests.py` now models staged pack / tileset / logical-tilesheet source manifests directly
+- `scripts/source_manifest_bridge.py` is the temporary one-way adapter that feeds those staged source manifests into the current family-backed compatibility/runtime path
+- Minimal 8 project loading now enters through the staged source-pack manifests rather than a direct family path
+- the current Minimal 8 tilesheet manifest still points at `tile-families/minimal8/ingestion.json` for the source-layout payload during transition
+- runtime scene work still must not depend on source-manifest files after compatibility units are built
+
 ## Problem
 
 The earlier Minimal 8 ingest overloaded runtime semantic regions with

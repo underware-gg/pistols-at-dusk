@@ -26,8 +26,11 @@ class SourceFixturePaths:
     tileset_path: Path
     tilesheet_path: Path
     source_layout_path: Path
+    compatibility_root: Path
+    compatibility_tiles_path: Path
+    compatibility_aliases_path: Path
+    compatibility_clusters_path: Path
     art_dir: Path
-
 
 def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -51,19 +54,69 @@ def make_source_pack_fixture(root: Path) -> SourceFixturePaths:
     tilesheets_dir = root / "tilesheets"
     art_dir = root / "art"
     ingestion_dir = root / "ingestion"
+    compatibility_root = root / "legacy-family"
     tilesets_dir.mkdir()
     tilesheets_dir.mkdir()
     art_dir.mkdir()
     ingestion_dir.mkdir()
+    compatibility_root.mkdir()
 
     pack_path = root / "pack.json"
     tileset_path = tilesets_dir / "base.json"
     tilesheet_path = tilesheets_dir / "overworld.json"
     source_layout_path = ingestion_dir / "overworld.json"
+    compatibility_tiles_path = compatibility_root / "tiles.json"
+    compatibility_aliases_path = compatibility_root / "aliases.json"
+    compatibility_clusters_path = compatibility_root / "clusters.json"
 
     write_sheet(art_dir / "overworld.base.png", columns=4, rows=2)
     write_sheet(art_dir / "overworld.bg.top-row.png", columns=4, rows=1)
-    write_json(source_layout_path, {"regions": []})
+    write_json(
+        source_layout_path,
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 4, "height": 2},
+            "regions": [{"id": "overworld.region", "bounds": {"x": 0, "y": 0, "width": 4, "height": 2}}],
+            "clusters": [
+                {
+                    "id": "overworld.region.cluster_01",
+                    "source_region_id": "overworld.region",
+                    "bounds": {"x": 0, "y": 0, "width": 4, "height": 2},
+                }
+            ],
+            "collections": [],
+        },
+    )
+    write_json(
+        compatibility_clusters_path,
+        [
+            {
+                "id": "overworld.cluster",
+                "scope": "family",
+                "members": ["demo.overworld:all:0,0"],
+            }
+        ],
+    )
+    write_json(
+        compatibility_tiles_path,
+        [
+            {
+                "id": "demo.overworld:all:0,0",
+                "sheet_col": 0,
+                "sheet_row": 0,
+                "layer": "terrain",
+                "category": "ground",
+                "transparent": False,
+                "cluster_ids": ["overworld.cluster"],
+                "source_group": "overworld.ground",
+                "meaning": "Ground tile.",
+                "meaning_confidence": "confirmed",
+            }
+        ],
+    )
+    write_json(
+        compatibility_aliases_path,
+        {"overworld.ground": "demo.overworld:all:0,0"},
+    )
 
     write_json(
         pack_path,
@@ -124,6 +177,17 @@ def make_source_pack_fixture(root: Path) -> SourceFixturePaths:
             "source_layout": "../ingestion/overworld.json",
             "render_traits": {"alignment_origin": "bottom_left"},
             "notes": ["Logical tilesheet note."],
+            "compatibility_family": {
+                "root": "../legacy-family",
+                "family_id": "demo.overworld",
+                "tiles": "tiles.json",
+                "aliases": "aliases.json",
+                "clusters": "clusters.json",
+                "render_step_width": 8,
+                "render_step_height": 8,
+                "siblings_share_semantics": True,
+                "notes": ["Compatibility bridge note."],
+            },
             "render_variants": [
                 {
                     "variant_id": "base",
@@ -150,6 +214,10 @@ def make_source_pack_fixture(root: Path) -> SourceFixturePaths:
         tileset_path=tileset_path,
         tilesheet_path=tilesheet_path,
         source_layout_path=source_layout_path,
+        compatibility_root=compatibility_root,
+        compatibility_tiles_path=compatibility_tiles_path,
+        compatibility_aliases_path=compatibility_aliases_path,
+        compatibility_clusters_path=compatibility_clusters_path,
         art_dir=art_dir,
     )
 
@@ -182,6 +250,16 @@ class SourceManifestLoadTests(unittest.TestCase):
             self.assertIsNotNone(tilesheet.source_layout_path)
             assert tilesheet.source_layout_path is not None
             self.assertEqual(tilesheet.source_layout_path.name, "overworld.json")
+            self.assertIsNotNone(tilesheet.compatibility_family)
+            assert tilesheet.compatibility_family is not None
+            self.assertEqual(tilesheet.compatibility_family.family_id, "demo.overworld")
+            self.assertEqual(tilesheet.compatibility_family.paths.root, fixture.compatibility_root.resolve())
+            self.assertEqual(tilesheet.compatibility_family.paths.tiles_path, fixture.compatibility_tiles_path.resolve())
+            self.assertEqual(tilesheet.compatibility_family.paths.aliases_path, fixture.compatibility_aliases_path.resolve())
+            self.assertEqual(tilesheet.compatibility_family.paths.clusters_path, fixture.compatibility_clusters_path.resolve())
+            self.assertEqual(tilesheet.compatibility_family.render_step_width, 8)
+            self.assertEqual(tilesheet.compatibility_family.render_step_height, 8)
+            self.assertTrue(tilesheet.compatibility_family.siblings_share_semantics)
             self.assertEqual(tilesheet.declared_render_traits.alignment_origin, "bottom_left")
             self.assertEqual(tilesheet.render_traits.occupancy_style, "full_cell")
             self.assertEqual(tilesheet.render_traits.background_treatment, "transparent")
@@ -259,6 +337,13 @@ class SourceManifestLoadTests(unittest.TestCase):
                     ["default_variant_id"],
                     "Base Variant",
                     r"default_variant_id must match",
+                ),
+                (
+                    "compatibility_family_id",
+                    "tilesheet",
+                    ["compatibility_family", "family_id"],
+                    "Demo Overworld",
+                    r"family_id must match",
                 ),
             ]
 
@@ -542,6 +627,62 @@ class SourceManifestLoadTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, expected):
                         load_logical_tilesheet_manifest(fixture.tilesheet_path, grid=GridSize(tile_width=8, tile_height=8))
 
+    def test_load_logical_tilesheet_manifest_rejects_invalid_compatibility_family_references(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cases: list[tuple[str, Callable[[SourceFixturePaths], None], str]] = [
+                (
+                    "missing_root",
+                    lambda fixture: self._set_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "root"],
+                        "../missing-legacy-family",
+                    ),
+                    r"compatibility_family\.root path does not exist",
+                ),
+                (
+                    "root_not_directory",
+                    lambda fixture: self._set_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "root"],
+                        "../legacy-family/tiles.json",
+                    ),
+                    r"compatibility_family\.root is not a directory",
+                ),
+                (
+                    "missing_tiles",
+                    lambda fixture: self._set_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "tiles"],
+                        "missing-tiles.json",
+                    ),
+                    r"compatibility_family\.tiles path does not exist",
+                ),
+                (
+                    "missing_aliases_key",
+                    lambda fixture: self._delete_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "aliases"],
+                    ),
+                    r"compatibility_family is missing required keys: aliases",
+                ),
+                (
+                    "siblings_share_semantics_not_bool",
+                    lambda fixture: self._set_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "siblings_share_semantics"],
+                        "yes",
+                    ),
+                    r"siblings_share_semantics must be a boolean",
+                ),
+            ]
+
+            for label, mutate, expected in cases:
+                with self.subTest(label=label):
+                    fixture = make_source_pack_fixture(Path(temp_dir) / label)
+                    mutate(fixture)
+                    with self.assertRaisesRegex(ValueError, expected):
+                        load_logical_tilesheet_manifest(fixture.tilesheet_path, grid=GridSize(tile_width=8, tile_height=8))
+
     def test_load_logical_tilesheet_manifest_treats_source_layout_as_opaque_file_reference(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             fixture = make_source_pack_fixture(Path(temp_dir))
@@ -599,6 +740,22 @@ class SourceManifestLoadTests(unittest.TestCase):
                     lambda fixture: self._set_json_value(fixture.tilesheet_path, ["bounds", "x"], "0"),
                     lambda fixture: load_logical_tilesheet_manifest(fixture.tilesheet_path, grid=GridSize(tile_width=8, tile_height=8)),
                     r"bounds.x must be an integer",
+                ),
+                (
+                    "zero_compatibility_render_step_width",
+                    lambda fixture: self._set_json_value(fixture.tilesheet_path, ["compatibility_family", "render_step_width"], 0),
+                    lambda fixture: load_logical_tilesheet_manifest(fixture.tilesheet_path, grid=GridSize(tile_width=8, tile_height=8)),
+                    r"render_step_width must be > 0",
+                ),
+                (
+                    "non_integer_compatibility_render_step_width",
+                    lambda fixture: self._set_json_value(
+                        fixture.tilesheet_path,
+                        ["compatibility_family", "render_step_width"],
+                        "8",
+                    ),
+                    lambda fixture: load_logical_tilesheet_manifest(fixture.tilesheet_path, grid=GridSize(tile_width=8, tile_height=8)),
+                    r"render_step_width must be an integer",
                 ),
             ]
 
@@ -694,6 +851,21 @@ class SourceManifestLoadTests(unittest.TestCase):
             cast(list[object], current)[last_key] = value
         else:
             cast(dict[str, object], current)[str(last_key)] = value
+        write_json(path, payload)
+
+    def _delete_json_value(self, path: Path, keys: list[object]) -> None:
+        payload = read_json(path)
+        current: object = payload
+        for key in keys[:-1]:
+            if isinstance(key, int):
+                current = cast(list[object], current)[key]
+            else:
+                current = cast(dict[str, object], current)[str(key)]
+        last_key = keys[-1]
+        if isinstance(last_key, int):
+            del cast(list[object], current)[last_key]
+        else:
+            del cast(dict[str, object], current)[str(last_key)]
         write_json(path, payload)
 
     def _make_corrupt_image_fixture(self, fixture: SourceFixturePaths) -> None:

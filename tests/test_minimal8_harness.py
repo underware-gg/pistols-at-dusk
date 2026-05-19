@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 from PIL import Image
@@ -152,6 +153,88 @@ def _make_minimal_family_dir(
     )
     _write_json(family_dir / "aliases.json", {f"{family_id}.alias": tile_id})
     return family_dir
+
+
+def _make_minimal_source_pack(
+    root: Path,
+    *,
+    directory_name: str,
+    pack_id: str,
+    tileset_id: str,
+    tilesheet_id: str,
+    family_id: str,
+) -> Path:
+    compatibility_dir = _make_minimal_family_dir(
+        root,
+        directory_name=f"{directory_name}_compatibility",
+        family_id=family_id,
+        render_step_width=8,
+        render_step_height=8,
+    )
+    Image.new("RGBA", (8, 8), (255, 255, 255, 255)).save(compatibility_dir / "sheet.alt.png")
+    family_payload = json.loads((compatibility_dir / "family.json").read_text(encoding="utf-8"))
+    family_payload["siblings_share_semantics"] = True
+    cast(list[object], family_payload["variants"]).append(
+        {"variant_id": "alt", "sheet": "sheet.alt.png", "transparent": "none"}
+    )
+    _write_json(compatibility_dir / "family.json", family_payload)
+
+    pack_root = root / directory_name
+    tilesets_dir = pack_root / "tilesets"
+    tilesheets_dir = pack_root / "tilesheets"
+    tilesets_dir.mkdir(parents=True)
+    tilesheets_dir.mkdir()
+
+    compatibility_root = f"../../{compatibility_dir.name}"
+    _write_json(
+        pack_root / "pack.json",
+        {
+            "pack_id": pack_id,
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "tilesets": [{"tileset_id": tileset_id, "manifest": "tilesets/base.json"}],
+        },
+    )
+    _write_json(
+        tilesets_dir / "base.json",
+        {
+            "tileset_id": tileset_id,
+            "logical_tilesheets": [{"tilesheet_id": tilesheet_id, "manifest": "../tilesheets/main.json"}],
+        },
+    )
+    _write_json(
+        tilesheets_dir / "main.json",
+        {
+            "tilesheet_id": tilesheet_id,
+            "bounds": {"x": 0, "y": 0, "width": 1, "height": 1},
+            "default_variant_id": "base",
+            "source_layout": f"{compatibility_root}/ingestion.json",
+            "compatibility_family": {
+                "root": compatibility_root,
+                "family_id": family_id,
+                "tiles": "tiles.json",
+                "aliases": "aliases.json",
+                "clusters": "clusters.json",
+                "render_step_width": 8,
+                "render_step_height": 8,
+                "siblings_share_semantics": True,
+            },
+            "render_variants": [
+                {
+                    "variant_id": "base",
+                    "sheet": f"{compatibility_root}/sheet.png",
+                    "coverage": {"mode": "full"},
+                    "transparent": "none",
+                },
+                {
+                    "variant_id": "alt",
+                    "sheet": f"{compatibility_root}/sheet.alt.png",
+                    "coverage": {"mode": "full"},
+                    "transparent": "none",
+                },
+            ],
+        },
+    )
+    return pack_root / "pack.json"
 
 
 def _make_multi_family_project(
@@ -332,6 +415,48 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsupported tile reference syntax"):
                 project.validate_ref_without_loading("missing.alias", default_tileset="family.b@base")
 
+    def test_project_supports_source_pack_tile_family_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = _make_minimal_source_pack(
+                root,
+                directory_name="source_pack",
+                pack_id="pack.one",
+                tileset_id="family.one",
+                tilesheet_id="main",
+                family_id="family.one",
+            )
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {
+                        "source_pack": str(pack_path),
+                        "tileset_id": "family.one",
+                        "tilesheet_id": "main",
+                        "family_id": "family.one",
+                        "variant_id": "alt",
+                    },
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            project = harness.LayoutProject(project_path)
+
+            self.assertEqual(project.default_tileset_id(), "family.one@alt")
+            self.assertEqual(
+                set(project.family_variant_tileset_ids()),
+                {"family.one@base", "family.one@alt"},
+            )
+            self.assertIsNotNone(project.tile_library_unit_for_tileset("family.one@alt"))
+            resolved = project.resolve_tile("family.one.alias")
+            self.assertEqual(resolved.tileset_id, "family.one@alt")
+            self.assertEqual(resolved.family_tile_id, "family.one:all:0,0")
+
     def test_project_rejects_unknown_default_tileset(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = _make_multi_family_project(
@@ -369,6 +494,118 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "either tile_family or tile_families, not both"):
                 harness.LayoutProject(project_path)
+
+    def test_project_rejects_tile_family_config_with_path_and_source_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = _make_minimal_family_dir(root, directory_name="family", family_id="family.one")
+            pack_path = _make_minimal_source_pack(
+                root,
+                directory_name="source_pack",
+                pack_id="pack.one",
+                tileset_id="family.one",
+                tilesheet_id="main",
+                family_id="family.one",
+            )
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {
+                        "path": str(family_dir),
+                        "source_pack": str(pack_path),
+                        "tileset_id": "family.one",
+                        "tilesheet_id": "main",
+                        "variant_id": "alt",
+                    },
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "either path or source_pack, not both"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_source_pack_config_without_tileset_and_tilesheet_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = _make_minimal_source_pack(
+                root,
+                directory_name="source_pack",
+                pack_id="pack.one",
+                tileset_id="family.one",
+                tilesheet_id="main",
+                family_id="family.one",
+            )
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {
+                        "source_pack": str(pack_path),
+                        "variant_id": "alt",
+                    },
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "must define tileset_id and tilesheet_id"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_tile_family_config_without_path_or_source_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {
+                        "family_id": "family.one",
+                        "variant_id": "base",
+                    },
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "metatiles": {},
+                    "box_styles": {},
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "must define path or source_pack"):
+                harness.LayoutProject(project_path)
+
+    def test_project_rejects_empty_tile_family_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = _make_minimal_family_dir(root, directory_name="family", family_id="family.one")
+            for empty_spec in ("", None):
+                project_path = root / "project.json"
+                _write_json(
+                    project_path,
+                    {
+                        "tile_families": [
+                            empty_spec,
+                            {"path": str(family_dir), "variant_id": "base"},
+                        ],
+                        "default_tileset": "family.one@base",
+                        "grid": {"tile_width": 8, "tile_height": 8},
+                        "tilesets": {},
+                        "aliases": {},
+                        "metatiles": {},
+                        "box_styles": {},
+                    },
+                )
+
+                with self.subTest(empty_spec=empty_spec):
+                    with self.assertRaisesRegex(ValueError, r"tile_families\[0\] must not be empty"):
+                        harness.LayoutProject(project_path)
 
     def test_project_rejects_mismatched_loaded_tile_widths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

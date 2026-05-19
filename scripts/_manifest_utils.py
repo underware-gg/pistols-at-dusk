@@ -1,22 +1,17 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import cast
 
 
-class BoundsLike(Protocol):
-    @property
-    def x(self) -> int: ...
-
-    @property
-    def y(self) -> int: ...
-
-    @property
-    def width(self) -> int: ...
-
-    @property
-    def height(self) -> int: ...
+@dataclass(frozen=True)
+class GridBounds:
+    x: int
+    y: int
+    width: int
+    height: int
 
 
 def load_json(path: Path) -> object:
@@ -57,7 +52,7 @@ def resolve_path(base_dir: Path, raw_path: str) -> Path:
     return path if path.is_absolute() else (base_dir / path).resolve()
 
 
-def bounds_inside(outer: BoundsLike, inner: BoundsLike) -> bool:
+def bounds_inside(outer: GridBounds, inner: GridBounds) -> bool:
     return (
         outer.x <= inner.x
         and outer.y <= inner.y

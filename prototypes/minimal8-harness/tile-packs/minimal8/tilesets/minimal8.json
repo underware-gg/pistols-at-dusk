@@ -1,0 +1,10 @@
+{
+  "tileset_id": "minimal8",
+  "title": "Minimal 8",
+  "logical_tilesheets": [
+    {
+      "tilesheet_id": "main",
+      "manifest": "../tilesheets/main.json"
+    }
+  ]
+}

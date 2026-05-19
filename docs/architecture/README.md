@@ -4,13 +4,21 @@
 
 The current prototype now has a clearer boundary between source-shaped ingestion data and the runtime surface that scene composition consumes.
 
-Source-shaped family packages still contain the detailed ingestion catalogue:
+Phase 4 is actively reshaping the ingest side:
 
-1. **Family manifest**
+- staged pack / tileset / logical-tilesheet manifests now exist on the source side
+- a one-way bridge adapts those staged source manifests into the current family-backed compatibility path
+- the Minimal 8 project now enters through that staged source-pack path
+- the runtime still consumes `TileLibraryUnit` / `TileLibraryRegistry` rather than source manifests directly
+
+During the transition, detailed ingest/runtime metadata is split across the
+staged source-manifest hierarchy and the legacy family compatibility bundle:
+
+1. **Pack / tileset / logical tilesheet manifests**
    - grid facts
-   - source-sheet layout entrypoints
-   - sibling variants
-   - render defaults
+   - logical sheet bounds and source-layout entrypoints
+   - sibling variants and source-side render traits
+   - pack / tileset grouping and module-context facts
 2. **Cluster catalog**
    - meaningful grouped areas or member sets on a sheet
 3. **Tile catalog**
@@ -39,11 +47,15 @@ That split keeps the source of truth aligned with the asset itself while also gi
 
 - Loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
 - Harness entrypoint: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py)
+- Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
 - Minimal 8 family package: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
 In the current phase:
 
 - `tile_families.py` still owns loading, validation, provenance, and rich source-family queries
+- `source_manifests.py` owns the staged pack / tileset / logical-tilesheet source hierarchy
+- `source_manifest_bridge.py` is the transitional one-way adapter from staged source manifests into the current `TileFamily` / `TileLibraryUnit` compatibility path
+- `project.minimal8.json` and `project.minimal8.2bit.json` now select Minimal 8 through `tile_family.source_pack` rather than a direct family path
 - the harness derives `TileLibraryUnit` from the selected family, wraps loaded units in `TileLibraryRegistry`, and uses that runtime surface for work such as:
   - grid defaults
   - family-backed tileset registration

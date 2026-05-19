@@ -17,7 +17,8 @@ from typing import Callable, Literal, Mapping, TypeVar
 
 from PIL import Image
 
-from _manifest_utils import bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+from _manifest_utils import GridBounds, bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+from compatibility_family import CompatibilityFamilyPaths
 
 MANIFEST_ID_RE = re.compile(r"^[a-z0-9_.-]+$")
 
@@ -49,14 +50,6 @@ class RenderTraits:
 
 
 @dataclass(frozen=True)
-class GridBounds:
-    x: int
-    y: int
-    width: int
-    height: int
-
-
-@dataclass(frozen=True)
 class PackProvenance:
     author: str | None = None
     licence: str | None = None
@@ -69,6 +62,16 @@ class PackProvenance:
 class PackIngestRules:
     tileset_discovery: tuple[str, ...] = ()
     tilesheet_classification: tuple[str, ...] = ()
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CompatibilityFamilySource:
+    paths: CompatibilityFamilyPaths
+    family_id: str
+    render_step_width: int | None = None
+    render_step_height: int | None = None
+    siblings_share_semantics: bool | None = None
     notes: tuple[str, ...] = ()
 
 
@@ -113,9 +116,10 @@ class LogicalTilesheetManifest:
     bounds: GridBounds
     default_variant_id: str
     source_layout_path: Path | None
+    compatibility_family: CompatibilityFamilySource | None
     declared_render_traits: RenderTraits
     render_traits: RenderTraits
-    notes: tuple[str, ...]
+    notes: tuple[str, ...] | None
     render_variants: Mapping[str, RenderVariantTilesheetManifest] = field(repr=False)
 
     def variant(self, variant_id: str | None = None) -> RenderVariantTilesheetManifest:
@@ -126,6 +130,11 @@ class LogicalTilesheetManifest:
             raise KeyError(
                 f"Logical tilesheet {self.id!r} does not define render variant {resolved_variant_id!r}"
             ) from exc
+
+    def require_compatibility_family(self) -> CompatibilityFamilySource:
+        if self.compatibility_family is None:
+            raise ValueError(f"Logical tilesheet {self.id!r} does not declare a compatibility_family bridge")
+        return self.compatibility_family
 
 
 @dataclass(frozen=True)
@@ -191,16 +200,28 @@ def _require_string_tuple(value: object, *, context: str) -> tuple[str, ...]:
 
 
 def _optional_notes(mapping: dict[str, object], *, context: str) -> tuple[str, ...]:
-    notes_raw = mapping.get("notes")
-    if notes_raw is None:
+    notes = _optional_declared_notes(mapping, context=context)
+    if notes is None:
         return ()
-    return _require_string_tuple(notes_raw, context=f"{context}: notes")
+    return notes
+
+
+def _optional_declared_notes(mapping: dict[str, object], *, context: str) -> tuple[str, ...] | None:
+    if "notes" not in mapping:
+        return None
+    return _require_string_tuple(mapping["notes"], context=f"{context}: notes")
 
 
 def _optional_string_tuple(value: object | None, *, context: str) -> tuple[str, ...]:
     if value is None:
         return ()
     return _require_string_tuple(value, context=context)
+
+
+def _require_bool(value: object, *, context: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{context} must be a boolean")
+    return value
 
 
 def _require_non_negative_int(value: object, *, context: str) -> int:
@@ -410,13 +431,65 @@ def _validate_render_variant_sheet_dimensions(
     )
 
 
-def _load_source_layout_reference(value: object, *, base_dir: Path, context: str) -> Path:
-    source_layout_path = resolve_path(base_dir, _require_string(value, context=context))
-    if not source_layout_path.exists():
-        raise ValueError(f"{context} path does not exist: {source_layout_path}")
-    if not source_layout_path.is_file():
-        raise ValueError(f"{context} is not a regular file: {source_layout_path}")
-    return source_layout_path
+def _load_file_reference(value: object, *, base_dir: Path, context: str) -> Path:
+    path = resolve_path(base_dir, _require_string(value, context=context))
+    if not path.exists():
+        raise ValueError(f"{context} path does not exist: {path}")
+    if not path.is_file():
+        raise ValueError(f"{context} is not a regular file: {path}")
+    return path
+
+
+def _load_directory_reference(value: object, *, base_dir: Path, context: str) -> Path:
+    path = resolve_path(base_dir, _require_string(value, context=context))
+    if not path.exists():
+        raise ValueError(f"{context} path does not exist: {path}")
+    if not path.is_dir():
+        raise ValueError(f"{context} is not a directory: {path}")
+    return path
+
+
+def _load_compatibility_family_source(
+    value: object | None,
+    *,
+    base_dir: Path,
+    context: str,
+) -> CompatibilityFamilySource | None:
+    if value is None:
+        return None
+    mapping = require_mapping(value, context=context)
+    check_required_keys(mapping, ("root", "family_id", "tiles", "aliases", "clusters"), context=context)
+    compatibility_root = _load_directory_reference(mapping["root"], base_dir=base_dir, context=f"{context}.root")
+    return CompatibilityFamilySource(
+        paths=CompatibilityFamilyPaths(
+            root=compatibility_root,
+            tiles_path=_load_file_reference(mapping["tiles"], base_dir=compatibility_root, context=f"{context}.tiles"),
+            aliases_path=_load_file_reference(mapping["aliases"], base_dir=compatibility_root, context=f"{context}.aliases"),
+            clusters_path=_load_file_reference(mapping["clusters"], base_dir=compatibility_root, context=f"{context}.clusters"),
+            constructions_path=(
+                _load_file_reference(mapping["constructions"], base_dir=compatibility_root, context=f"{context}.constructions")
+                if mapping.get("constructions") is not None
+                else None
+            ),
+        ),
+        family_id=_require_manifest_id(mapping["family_id"], context=f"{context}.family_id"),
+        render_step_width=(
+            _require_positive_int(mapping["render_step_width"], context=f"{context}.render_step_width")
+            if mapping.get("render_step_width") is not None
+            else None
+        ),
+        render_step_height=(
+            _require_positive_int(mapping["render_step_height"], context=f"{context}.render_step_height")
+            if mapping.get("render_step_height") is not None
+            else None
+        ),
+        siblings_share_semantics=(
+            _require_bool(mapping["siblings_share_semantics"], context=f"{context}.siblings_share_semantics")
+            if mapping.get("siblings_share_semantics") is not None
+            else None
+        ),
+        notes=_optional_notes(mapping, context=context),
+    )
 
 
 def _load_render_variant_tilesheet_manifest(
@@ -498,11 +571,16 @@ def load_logical_tilesheet_manifest(
     source_layout_path: Path | None = None
     source_layout_raw = raw.get("source_layout")
     if source_layout_raw is not None:
-        source_layout_path = _load_source_layout_reference(
+        source_layout_path = _load_file_reference(
             source_layout_raw,
             base_dir=manifest_path.parent,
             context=f"{manifest_path}: source_layout",
         )
+    compatibility_family = _load_compatibility_family_source(
+        raw.get("compatibility_family"),
+        base_dir=manifest_path.parent,
+        context=f"{manifest_path}: compatibility_family",
+    )
 
     return LogicalTilesheetManifest(
         manifest_path=manifest_path,
@@ -511,9 +589,10 @@ def load_logical_tilesheet_manifest(
         bounds=bounds,
         default_variant_id=default_variant_id,
         source_layout_path=source_layout_path,
+        compatibility_family=compatibility_family,
         declared_render_traits=declared_render_traits,
         render_traits=render_traits,
-        notes=_optional_notes(raw, context=str(manifest_path)),
+        notes=_optional_declared_notes(raw, context=str(manifest_path)),
         render_variants=render_variants,
     )
 

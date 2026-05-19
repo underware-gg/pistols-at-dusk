@@ -1,6 +1,8 @@
 {
   "tile_family": {
-    "path": "./tile-families/minimal8",
+    "source_pack": "./tile-packs/minimal8/pack.json",
+    "tileset_id": "minimal8",
+    "tilesheet_id": "main",
     "family_id": "minimal8",
     "variant_id": "1bit_colored_bg"
   },

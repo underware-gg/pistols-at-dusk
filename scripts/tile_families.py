@@ -16,13 +16,15 @@ from typing_extensions import NotRequired, TypeAlias
 
 from PIL import Image
 
-from _manifest_utils import bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+from _manifest_utils import GridBounds, bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+from compatibility_family import CompatibilityFamilyPaths
 
 PHYSICAL_TILE_RE = re.compile(r"^(?P<family>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$")
 VARIANT_TILE_RE = re.compile(
     r"^(?P<family>[a-z0-9_.-]+)@(?P<variant>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$"
 )
 SHEET_CELL_RE = re.compile(r"^sheet:(?P<col>\d+),(?P<row>\d+)$")
+DEFAULT_TRANSPARENT_MODE = "top_left"
 
 
 class FamilyGridConfig(TypedDict):
@@ -369,6 +371,78 @@ def load_family_manifest(path: Path) -> FamilyManifest:
     return cast(FamilyManifest, raw)
 
 
+def load_family_variants_from_manifest(
+    *,
+    root: Path,
+    variants_data: list[FamilyVariantConfig],
+) -> dict[str, TileFamilyVariant]:
+    variants: dict[str, TileFamilyVariant] = {}
+    for spec in variants_data:
+        variant_id = str(spec["variant_id"])
+        if variant_id in variants:
+            raise ValueError(f"Duplicate variant_id in {root}: {variant_id}")
+        variants[variant_id] = TileFamilyVariant(
+            id=variant_id,
+            sheet_path=resolve_path(root, str(spec["sheet"])),
+            transparent_mode=str(spec.get("transparent", DEFAULT_TRANSPARENT_MODE)),
+            palette_family=spec.get("palette_family"),
+            colorway=spec.get("colorway"),
+            background_mode=spec.get("background_mode"),
+            notes=spec.get("notes"),
+        )
+    return variants
+
+
+def load_family_header_from_manifest(
+    *,
+    root: Path,
+    family_data: FamilyManifest,
+    variants: Mapping[str, TileFamilyVariant],
+) -> TileFamilyHeader:
+    grid = family_data.get("grid", {})
+    render_defaults = family_data.get("render_defaults", {})
+    declared_default_variant_id = family_data.get("default_variant_id")
+    if declared_default_variant_id is None and not variants:
+        raise ValueError(f"Tile family {root} must define at least one variant")
+    default_variant_id = (
+        str(declared_default_variant_id)
+        if declared_default_variant_id is not None
+        else next(iter(variants.keys()))
+    )
+    return TileFamilyHeader(
+        root=root,
+        family_id=str(family_data["family_id"]),
+        title=family_data.get("title"),
+        tile_width=int(grid["tile_width"]),
+        tile_height=int(grid["tile_height"]),
+        render_step_width=render_defaults.get("render_step_width"),
+        render_step_height=render_defaults.get("render_step_height"),
+        siblings_share_semantics=family_data.get("siblings_share_semantics"),
+        notes=(
+            _tuple(cast(Iterable[str], family_data["notes"]))
+            if "notes" in family_data
+            else None
+        ),
+        default_variant_id=default_variant_id,
+    )
+
+
+def load_family_header_and_variants(
+    root: Path,
+) -> tuple[TileFamilyHeader, dict[str, TileFamilyVariant], FamilyManifest]:
+    family_data = load_family_manifest(root / "family.json")
+    variants = load_family_variants_from_manifest(
+        root=root,
+        variants_data=family_data.get("variants", []),
+    )
+    header = load_family_header_from_manifest(
+        root=root,
+        family_data=family_data,
+        variants=variants,
+    )
+    return header, variants, family_data
+
+
 def load_cluster_manifest(path: Path) -> list[ClusterConfig]:
     raw = require_list(load_json(path), context=str(path))
     for index, value in enumerate(raw):
@@ -445,6 +519,48 @@ def load_alias_manifest(path: Path) -> FamilyAliasesManifest:
     return cast(FamilyAliasesManifest, require_mapping(load_json(path), context=str(path)))
 
 
+def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
+    raw_file = require_mapping(load_json(path), context=str(path))
+    check_required_keys(raw_file, ("constructions",), context=str(path))
+    raw_list = require_list(raw_file["constructions"], context=f"{path}: constructions")
+    loaded: list[ConstructionConfig] = []
+    seen_ids: set[str] = set()
+    for index, raw_item in enumerate(raw_list):
+        item_context = f"{path}: constructions[{index}]"
+        item_mapping = require_mapping(raw_item, context=item_context)
+        check_required_keys(item_mapping, ("id", "collection_id", "kind"), context=item_context)
+        construction_kind = str(item_mapping["kind"])
+        if construction_kind == "parametric_run":
+            check_required_keys(
+                item_mapping,
+                ("axis", "length_param", "start_role", "repeat_role", "end_role"),
+                context=item_context,
+            )
+        else:
+            check_required_keys(item_mapping, ("cells",), context=item_context)
+        construction_id = str(item_mapping["id"])
+        if construction_id in seen_ids:
+            raise ValueError(f"Duplicate construction id in {path}: {construction_id!r}")
+        seen_ids.add(construction_id)
+        loaded.append(cast(ConstructionConfig, item_mapping))
+    return tuple(loaded)
+
+
+def load_family_catalog_sources(
+    paths: CompatibilityFamilyPaths,
+) -> FamilyCatalogSources:
+    constructions_data: tuple[ConstructionConfig, ...] = ()
+    if paths.constructions_path is not None:
+        constructions_data = load_construction_manifest(paths.constructions_path)
+    return FamilyCatalogSources(
+        paths=paths,
+        clusters_data=tuple(load_cluster_manifest(paths.clusters_path)),
+        tiles_data=tuple(load_tile_manifest(paths.tiles_path)),
+        aliases_data=MappingProxyType(dict(load_alias_manifest(paths.aliases_path))),
+        constructions_data=constructions_data,
+    )
+
+
 def _tuple(values: Iterable[str] | None) -> tuple[str, ...]:
     return tuple(values or ())
 
@@ -468,18 +584,33 @@ class TileFamilyVariant:
 
 
 @dataclass(frozen=True)
-class ClusterBounds:
-    x: int
-    y: int
-    width: int
-    height: int
+class TileFamilyHeader:
+    root: Path
+    family_id: str
+    title: str | None
+    tile_width: int
+    tile_height: int
+    render_step_width: int | None
+    render_step_height: int | None
+    siblings_share_semantics: bool | None
+    notes: tuple[str, ...] | None
+    default_variant_id: str
+
+
+@dataclass(frozen=True)
+class FamilyCatalogSources:
+    paths: CompatibilityFamilyPaths
+    clusters_data: tuple[ClusterConfig, ...]
+    tiles_data: tuple[TileConfig, ...]
+    aliases_data: Mapping[str, str]
+    constructions_data: tuple[ConstructionConfig, ...]
 
 
 @dataclass(frozen=True)
 class SourceLayoutRegion:
     id: str
-    bounds: ClusterBounds
-    areas: tuple[ClusterBounds, ...] = ()
+    bounds: GridBounds
+    areas: tuple[GridBounds, ...] = ()
     label: str | None = None
     notes: str | None = None
     ingest_tiles: bool = True
@@ -489,7 +620,7 @@ class SourceLayoutRegion:
 class SourceLayoutCluster:
     id: str
     source_region_id: str
-    bounds: ClusterBounds
+    bounds: GridBounds
     label: str | None = None
     notes: str | None = None
     split_axis: str | None = None
@@ -499,7 +630,7 @@ class SourceLayoutCluster:
 @dataclass(frozen=True)
 class SourceLayoutIgnoreRegion:
     id: str
-    bounds: ClusterBounds
+    bounds: GridBounds
     label: str | None = None
     reason: str | None = None
 
@@ -527,7 +658,7 @@ class SourceLayoutCollection:
     label: str | None = None
     source_region_id: str | None = None
     source_cluster_id: str | None = None
-    bounds: ClusterBounds | None = None
+    bounds: GridBounds | None = None
     members: tuple[SourceLayoutCollectionMember, ...] = ()
     constructions: tuple[str, ...] = ()
     notes: str | None = None
@@ -535,7 +666,7 @@ class SourceLayoutCollection:
 
 @dataclass(frozen=True)
 class SourceLayoutIngestion:
-    sheet_bounds: ClusterBounds
+    sheet_bounds: GridBounds
     source_regions: dict[str, SourceLayoutRegion]
     source_clusters: dict[str, SourceLayoutCluster]
     ignored_regions: dict[str, SourceLayoutIgnoreRegion]
@@ -1075,10 +1206,10 @@ def _resolve_family_ref(
     )
 
 
-def _cluster_bounds_from_raw(raw_bounds: ClusterBoundsConfig | None) -> ClusterBounds | None:
+def _cluster_bounds_from_raw(raw_bounds: ClusterBoundsConfig | None) -> GridBounds | None:
     if raw_bounds is None:
         return None
-    return ClusterBounds(
+    return GridBounds(
         x=int(raw_bounds["x"]),
         y=int(raw_bounds["y"]),
         width=int(raw_bounds["width"]),
@@ -1086,14 +1217,14 @@ def _cluster_bounds_from_raw(raw_bounds: ClusterBoundsConfig | None) -> ClusterB
     )
 
 
-def _require_cluster_bounds(raw_bounds: ClusterBoundsConfig | None, *, context: str) -> ClusterBounds:
+def _require_cluster_bounds(raw_bounds: ClusterBoundsConfig | None, *, context: str) -> GridBounds:
     bounds = _cluster_bounds_from_raw(raw_bounds)
     if bounds is None:
         raise ValueError(f"{context} must define bounds")
     return bounds
 
 
-def _bounds_contains(bounds: ClusterBounds, col: int, row: int) -> bool:
+def _bounds_contains(bounds: GridBounds, col: int, row: int) -> bool:
     return bounds.x <= col < bounds.x + bounds.width and bounds.y <= row < bounds.y + bounds.height
 
 
@@ -1108,7 +1239,7 @@ def _sheet_cell_from_ref(ref: str) -> SheetCell | None:
     return SheetCell(col=int(match.group("col")), row=int(match.group("row")))
 
 
-def _sheet_cell_ref_within_bounds(ref: str, bounds: ClusterBounds) -> bool:
+def _sheet_cell_ref_within_bounds(ref: str, bounds: GridBounds) -> bool:
     cell = _sheet_cell_from_ref(ref)
     if cell is None:
         return False
@@ -1164,7 +1295,7 @@ def collection_member_to_config(member: SourceLayoutCollectionMember) -> SourceL
     return {"sheet_cell": {"col": cell.col, "row": cell.row}}
 
 
-def _source_layout_region_areas(region: SourceLayoutRegion) -> tuple[ClusterBounds, ...]:
+def _source_layout_region_areas(region: SourceLayoutRegion) -> tuple[GridBounds, ...]:
     return region.areas or (region.bounds,)
 
 
@@ -1172,7 +1303,7 @@ def _source_layout_region_contains_cell(region: SourceLayoutRegion, col: int, ro
     return any(_bounds_contains(area, col, row) for area in _source_layout_region_areas(region))
 
 
-def _source_layout_region_contains_bounds(region: SourceLayoutRegion, bounds: ClusterBounds) -> bool:
+def _source_layout_region_contains_bounds(region: SourceLayoutRegion, bounds: GridBounds) -> bool:
     return any(
         area.x <= bounds.x
         and area.y <= bounds.y
@@ -1276,7 +1407,7 @@ def _sheet_bounds_for_variant(
     tile_width: int,
     tile_height: int,
     image_cache: dict[Path, Image.Image],
-) -> ClusterBounds:
+) -> GridBounds:
     image = image_cache.get(variant.sheet_path)
     if image is None:
         image = Image.open(variant.sheet_path).convert("RGBA")
@@ -1286,7 +1417,7 @@ def _sheet_bounds_for_variant(
             f"Variant sheet {variant.sheet_path} size {image.width}x{image.height} is not aligned to"
             f" tile size {tile_width}x{tile_height}"
         )
-    return ClusterBounds(
+    return GridBounds(
         x=0,
         y=0,
         width=image.width // tile_width,
@@ -1565,7 +1696,7 @@ def entity_template_from_construction(construction: Construction) -> EntityTempl
 def _load_clusters(
     *,
     root: Path,
-    clusters_data: list[ClusterConfig],
+    clusters_data: Iterable[ClusterConfig],
 ) -> dict[str, TileClusterRecord]:
     clusters: dict[str, TileClusterRecord] = {}
     for spec in clusters_data:
@@ -1584,18 +1715,7 @@ def _load_clusters(
     return clusters
 
 
-def _load_source_layout(
-    *,
-    root: Path,
-    family_data: FamilyManifest,
-) -> SourceLayoutIngestion | None:
-    ingestion_spec_raw = family_data.get("ingestion_spec")
-    ingestion_path = root / str(ingestion_spec_raw) if ingestion_spec_raw is not None else root / "ingestion.json"
-    if ingestion_spec_raw is not None and not ingestion_path.exists():
-        raise ValueError(f"Declared ingestion spec {ingestion_path} does not exist")
-    if not ingestion_path.exists():
-        return None
-
+def load_source_layout_from_path(ingestion_path: Path) -> SourceLayoutIngestion:
     ingestion_data = load_ingestion_manifest(ingestion_path)
     sheet_bounds = _require_cluster_bounds(ingestion_data.get("sheet_bounds"), context=f"{ingestion_path}: sheet_bounds")
     source_regions: dict[str, SourceLayoutRegion] = {}
@@ -1709,6 +1829,20 @@ def _load_source_layout(
     )
 
 
+def _load_source_layout(
+    *,
+    root: Path,
+    family_data: FamilyManifest,
+) -> SourceLayoutIngestion | None:
+    ingestion_spec_raw = family_data.get("ingestion_spec")
+    ingestion_path = root / str(ingestion_spec_raw) if ingestion_spec_raw is not None else root / "ingestion.json"
+    if ingestion_spec_raw is not None and not ingestion_path.exists():
+        raise ValueError(f"Declared ingestion spec {ingestion_path} does not exist")
+    if not ingestion_path.exists():
+        return None
+    return load_source_layout_from_path(ingestion_path)
+
+
 def _validate_tile_override_images(
     *,
     root: Path,
@@ -1811,41 +1945,256 @@ def _validate_exact_duplicate_pixels(
                 )
 
 
-def _load_constructions(
+def _validate_variant_sheet_bounds(
     *,
-    root: Path,
+    variant_sheet_bounds: Mapping[str, GridBounds],
+    family_sheet_bounds: GridBounds,
+) -> None:
+    for variant_id, bounds in variant_sheet_bounds.items():
+        if not _bounds_inside(bounds, family_sheet_bounds):
+            raise ValueError(
+                f"Variant {variant_id!r} sheet bounds {bounds} do not cover family sheet bounds {family_sheet_bounds}"
+            )
+
+
+def _resolve_tiles_from_catalog(
+    *,
+    header: TileFamilyHeader,
+    family_sheet_bounds: GridBounds,
+    catalog: FamilyCatalogSources,
+    aliases_by_tile: Mapping[str, tuple[str, ...]],
+) -> dict[str, TileRecord]:
+    raw_tile_specs: dict[str, TileConfig] = {}
+    for spec in catalog.tiles_data:
+        tile_id = str(spec["id"])
+        if tile_id in raw_tile_specs:
+            raise ValueError(f"Duplicate tile id in {header.root}: {tile_id}")
+        raw_tile_specs[tile_id] = spec
+
+    tiles: dict[str, TileRecord] = {}
+    resolving_tile_ids: set[str] = set()
+
+    def resolve_tile(tile_id: str) -> TileRecord:
+        if tile_id in tiles:
+            return tiles[tile_id]
+        if tile_id in resolving_tile_ids:
+            raise ValueError(f"Exact-duplicate cycle detected while resolving tile {tile_id!r}")
+        if tile_id not in raw_tile_specs:
+            raise ValueError(f"Unknown tile id {tile_id!r}")
+
+        resolving_tile_ids.add(tile_id)
+        try:
+            spec = raw_tile_specs[tile_id]
+            duplicate_of_raw = spec.get("exact_duplicate_of")
+            inherited_tile: TileRecord | None = None
+            resolved_duplicate_of: str | None = None
+            if duplicate_of_raw is not None:
+                resolved_duplicate_of = str(duplicate_of_raw)
+                if resolved_duplicate_of == tile_id:
+                    raise ValueError(f"Tile {tile_id} cannot exact_duplicate_of itself")
+                if resolved_duplicate_of not in raw_tile_specs:
+                    raise ValueError(
+                        f"Tile {tile_id} references unknown exact_duplicate_of tile {resolved_duplicate_of!r}"
+                    )
+                inherited_tile = resolve_tile(resolved_duplicate_of)
+
+            def inherited_scalar(field_name: str, default: object) -> object:
+                if field_name in spec:
+                    return spec.get(field_name)
+                if inherited_tile is not None and field_name in EXACT_DUPLICATE_INHERITED_SCALAR_FIELDS:
+                    return getattr(inherited_tile, field_name)
+                return default
+
+            def inherited_sequence(field_name: str) -> tuple[str, ...]:
+                if field_name in spec:
+                    raw_value = spec.get(field_name)
+                    return _tuple(cast(Iterable[str], raw_value) if raw_value is not None else None)
+                if inherited_tile is not None and field_name in EXACT_DUPLICATE_INHERITED_SEQUENCE_FIELDS:
+                    return cast(tuple[str, ...], getattr(inherited_tile, field_name))
+                return ()
+
+            meaning_confidence_raw = (
+                inherited_scalar("meaning_confidence", None)
+                if inherited_tile is not None or "meaning_confidence" in spec
+                else None
+            )
+            meaning_confidence = _normalise_meaning_confidence(meaning_confidence_raw, context=tile_id)
+            walkable_raw = inherited_scalar("walkable", None)
+            blocking_raw = inherited_scalar("blocking", None)
+            cluster_ids_raw = spec.get("cluster_ids")
+            noise_raw = inherited_scalar("noise", None)
+            contrast_raw = inherited_scalar("contrast", None)
+            temperature_raw = inherited_scalar("temperature", None)
+            usage_raw = inherited_scalar("usage", None)
+            style_raw = inherited_scalar("style", None)
+            overlay_raw = inherited_scalar("overlay", None)
+            footprint_raw = inherited_scalar("footprint", None)
+            orientation_raw = inherited_scalar("orientation", None)
+            facing_raw = inherited_scalar("facing", None)
+            pose_raw = inherited_scalar("pose", None)
+            compose_group_raw = inherited_scalar("compose_group", None)
+            compose_role_raw = inherited_scalar("compose_role", None)
+            state_group_raw = inherited_scalar("state_group", None)
+            state_role_raw = inherited_scalar("state_role", None)
+            animation_group_raw = inherited_scalar("animation_group", None)
+            animation_frame_raw = inherited_scalar("animation_frame", None)
+            animation_frame_count_raw = inherited_scalar("animation_frame_count", None)
+            image_override_raw = inherited_scalar("image_override", None)
+            meaning_raw = inherited_scalar("meaning", None)
+            source_notes_raw = inherited_scalar("source_notes", None)
+            raw_sheet_col = spec.get("sheet_col")
+            raw_sheet_row = spec.get("sheet_row")
+            image_override = cast(str, image_override_raw) if image_override_raw is not None else None
+            if image_override is None:
+                if raw_sheet_col is None or raw_sheet_row is None:
+                    raise ValueError(f"Tile {tile_id} must define sheet_col and sheet_row")
+                sheet_col = int(cast(Union[int, str], raw_sheet_col))
+                sheet_row = int(cast(Union[int, str], raw_sheet_row))
+                if not _bounds_contains(family_sheet_bounds, sheet_col, sheet_row):
+                    raise ValueError(
+                        f"Tile {tile_id} has sheet coordinate ({sheet_col}, {sheet_row}) outside family sheet bounds"
+                    )
+            else:
+                if raw_sheet_col is not None or raw_sheet_row is not None:
+                    raise ValueError(f"Synthetic tile {tile_id} must not define sheet_col or sheet_row")
+                sheet_col = None
+                sheet_row = None
+
+            tile = TileRecord(
+                id=tile_id,
+                family_id=header.family_id,
+                sheet_col=sheet_col,
+                sheet_row=sheet_row,
+                exact_duplicate_of=resolved_duplicate_of,
+                image_override=image_override,
+                layer=str(spec["layer"]),
+                category=str(spec["category"]),
+                transparent=bool(spec["transparent"]),
+                tags=inherited_sequence("tags"),
+                aliases=aliases_by_tile.get(tile_id, ()),
+                walkable=cast(bool, walkable_raw) if walkable_raw is not None else None,
+                blocking=cast(bool, blocking_raw) if blocking_raw is not None else None,
+                scenes=inherited_sequence("scenes"),
+                semantics=inherited_sequence("semantics"),
+                motifs=inherited_sequence("motifs"),
+                cluster_ids=_tuple(cast(Iterable[str], cluster_ids_raw) if cluster_ids_raw is not None else None),
+                source_group=spec.get("source_group"),
+                noise=cast(str, noise_raw) if noise_raw is not None else None,
+                contrast=cast(str, contrast_raw) if contrast_raw is not None else None,
+                temperature=cast(str, temperature_raw) if temperature_raw is not None else None,
+                usage=cast(str, usage_raw) if usage_raw is not None else None,
+                style=cast(str, style_raw) if style_raw is not None else None,
+                overlay=cast(str, overlay_raw) if overlay_raw is not None else None,
+                footprint=cast(str, footprint_raw) if footprint_raw is not None else None,
+                orientation=cast(str, orientation_raw) if orientation_raw is not None else None,
+                facing=cast(str, facing_raw) if facing_raw is not None else None,
+                pose=cast(str, pose_raw) if pose_raw is not None else None,
+                compose_group=cast(str, compose_group_raw) if compose_group_raw is not None else None,
+                compose_role=cast(str, compose_role_raw) if compose_role_raw is not None else None,
+                state_group=cast(str, state_group_raw) if state_group_raw is not None else None,
+                state_role=cast(str, state_role_raw) if state_role_raw is not None else None,
+                animation_group=cast(str, animation_group_raw) if animation_group_raw is not None else None,
+                animation_frame=int(cast(Union[int, str], animation_frame_raw)) if animation_frame_raw is not None else None,
+                animation_frame_count=int(cast(Union[int, str], animation_frame_count_raw))
+                if animation_frame_count_raw is not None
+                else None,
+                connects_on=inherited_sequence("connects_on"),
+                requires_exposed_on=inherited_sequence("requires_exposed_on"),
+                affordances=inherited_sequence("affordances"),
+                alt_uses=inherited_sequence("alt_uses"),
+                meaning=cast(str, meaning_raw) if meaning_raw is not None else None,
+                meaning_confidence=meaning_confidence,
+                source_notes=cast(str, source_notes_raw) if source_notes_raw is not None else None,
+            )
+            tiles[tile_id] = tile
+            return tile
+        finally:
+            resolving_tile_ids.remove(tile_id)
+
+    for tile_id in raw_tile_specs:
+        resolve_tile(tile_id)
+    return tiles
+
+
+def _validate_alias_targets(
+    *,
+    alias_map: Mapping[str, str],
+    tiles: Mapping[str, TileRecord],
+) -> None:
+    for alias, tile_id in alias_map.items():
+        if tile_id not in tiles:
+            raise ValueError(f"Alias {alias!r} points at unknown tile id {tile_id!r}")
+
+
+def _validate_clusters_against_tiles(
+    *,
+    clusters: Mapping[str, TileClusterRecord],
+    tiles: Mapping[str, TileRecord],
+) -> None:
+    for cluster in clusters.values():
+        for tile_id in cluster.members:
+            if tile_id not in tiles:
+                raise ValueError(f"Cluster {cluster.id} references unknown tile {tile_id!r}")
+    for tile in tiles.values():
+        for cluster_id in tile.cluster_ids:
+            if cluster_id not in clusters:
+                raise ValueError(f"Tile {tile.id} references unknown cluster {cluster_id!r}")
+
+
+def _validate_source_layout_catalog_references(
+    *,
+    source_layout: SourceLayoutIngestion,
+    tiles: Mapping[str, TileRecord],
+    alias_map: Mapping[str, str],
+) -> None:
+    for source_cluster in source_layout.source_clusters.values():
+        parent_region = source_layout.source_regions[source_cluster.source_region_id]
+        if not _source_layout_region_contains_bounds(parent_region, source_cluster.bounds):
+            raise ValueError(
+                f"Ingestion cluster {source_cluster.id} falls outside ingestion region {source_cluster.source_region_id}"
+            )
+    for collection in source_layout.source_collections.values():
+        for member in collection.members:
+            member_ref = collection_member_ref(member)
+            if member.kind == "tile_id":
+                if member_ref not in tiles:
+                    raise ValueError(
+                        f"Ingestion collection {collection.id} references unknown member tile {member_ref!r}"
+                    )
+                continue
+            if member.kind == "alias":
+                if member_ref not in alias_map:
+                    raise ValueError(
+                        f"Ingestion collection {collection.id} references unknown member alias {member_ref!r}"
+                    )
+                continue
+            if not _sheet_cell_ref_within_bounds(member_ref, source_layout.sheet_bounds):
+                raise ValueError(
+                    f"Ingestion collection {collection.id} references unknown member sheet cell {member_ref!r}"
+                )
+
+
+def load_constructions_from_data(
+    constructions_data: tuple[ConstructionConfig, ...],
+    *,
+    constructions_path: Path | None,
     tiles: dict[str, TileRecord],
     source_layout: SourceLayoutIngestion | None,
 ) -> dict[str, Construction]:
     constructions: dict[str, Construction] = {}
-    constructions_path = root / "constructions.json"
-    if constructions_path.exists():
-        raw_constructions_file = require_mapping(load_json(constructions_path), context=str(constructions_path))
-        check_required_keys(raw_constructions_file, ("constructions",), context=str(constructions_path))
-        raw_list = require_list(raw_constructions_file["constructions"], context=f"{constructions_path}: constructions")
-        for index, raw_item in enumerate(raw_list):
-            item_context = f"{constructions_path}: constructions[{index}]"
-            item_mapping = require_mapping(raw_item, context=item_context)
-            check_required_keys(item_mapping, ("id", "collection_id", "kind"), context=item_context)
-            construction_kind = str(item_mapping["kind"])
-            if construction_kind == "parametric_run":
-                check_required_keys(
-                    item_mapping,
-                    ("axis", "length_param", "start_role", "repeat_role", "end_role"),
-                    context=item_context,
-                )
-            else:
-                check_required_keys(item_mapping, ("cells",), context=item_context)
-            construction_id = str(item_mapping["id"])
-            if construction_id in constructions:
-                raise ValueError(f"Duplicate construction id in {constructions_path}: {construction_id!r}")
-            raw_config = cast(ConstructionConfig, item_mapping)
-            constructions[construction_id] = build_construction(raw_config, tiles=tiles)
+    for raw_config in constructions_data:
+        construction_id = str(raw_config["id"])
+        constructions[construction_id] = build_construction(raw_config, tiles=tiles)
 
     if source_layout is not None:
         for collection in source_layout.source_collections.values():
             for construction_id in collection.constructions:
                 if construction_id not in constructions:
+                    if constructions_path is None:
+                        raise ValueError(
+                            f"Ingestion collection {collection.id!r} references unknown construction "
+                            f"{construction_id!r}, but no constructions manifest was loaded"
+                        )
                     raise ValueError(
                         f"Ingestion collection {collection.id!r} references unknown construction "
                         f"{construction_id!r} in {constructions_path}"
@@ -1857,16 +2206,7 @@ class TileFamily:
     def __init__(
         self,
         *,
-        root: Path,
-        family_id: str,
-        title: str | None,
-        tile_width: int,
-        tile_height: int,
-        render_step_width: int | None,
-        render_step_height: int | None,
-        siblings_share_semantics: bool,
-        notes: tuple[str, ...],
-        default_variant_id: str,
+        header: TileFamilyHeader,
         source_layout: SourceLayoutIngestion | None,
         variants: dict[str, TileFamilyVariant],
         clusters: dict[str, TileClusterRecord],
@@ -1875,16 +2215,7 @@ class TileFamily:
         tiles_by_sheet_cell: Mapping[tuple[int, int], TileRecord] | None = None,
         constructions: Mapping[str, Construction] | None = None,
     ) -> None:
-        self.root = root
-        self.family_id = family_id
-        self.title = title
-        self.tile_width = tile_width
-        self.tile_height = tile_height
-        self.render_step_width = render_step_width
-        self.render_step_height = render_step_height
-        self.siblings_share_semantics = siblings_share_semantics
-        self.notes = notes
-        self.default_variant_id = default_variant_id
+        self.header = header
         self.source_layout = source_layout
         self.variants = MappingProxyType(dict(variants))
         self.clusters = MappingProxyType(dict(clusters))
@@ -1899,6 +2230,46 @@ class TileFamily:
         self.constructions: Mapping[str, Construction] = (
             MappingProxyType(dict(constructions)) if constructions is not None else MappingProxyType({})
         )
+
+    @property
+    def root(self) -> Path:
+        return self.header.root
+
+    @property
+    def family_id(self) -> str:
+        return self.header.family_id
+
+    @property
+    def title(self) -> str | None:
+        return self.header.title
+
+    @property
+    def tile_width(self) -> int:
+        return self.header.tile_width
+
+    @property
+    def tile_height(self) -> int:
+        return self.header.tile_height
+
+    @property
+    def render_step_width(self) -> int | None:
+        return self.header.render_step_width
+
+    @property
+    def render_step_height(self) -> int | None:
+        return self.header.render_step_height
+
+    @property
+    def siblings_share_semantics(self) -> bool:
+        return bool(self.header.siblings_share_semantics)
+
+    @property
+    def notes(self) -> tuple[str, ...]:
+        return self.header.notes or ()
+
+    @property
+    def default_variant_id(self) -> str:
+        return self.header.default_variant_id
 
     @cached_property
     def runtime_unit(self) -> TileLibraryUnit:
@@ -1917,32 +2288,15 @@ class TileFamily:
         return [entity_template_from_construction(construction) for construction in self.constructions.values()]
 
     @classmethod
-    def load(cls, family_dir: Path) -> TileFamily:
-        root = family_dir.resolve()
-        family_data = load_family_manifest(root / "family.json")
-        family_id = str(family_data["family_id"])
-        grid = family_data.get("grid", {})
-        render_defaults = family_data.get("render_defaults", {})
-        variants_data = family_data.get("variants", [])
-        clusters_data = load_cluster_manifest(root / "clusters.json")
-        tiles_data = load_tile_manifest(root / "tiles.json")
-        aliases_data = load_alias_manifest(root / "aliases.json")
-        source_layout: SourceLayoutIngestion | None = None
-
-        variants: dict[str, TileFamilyVariant] = {}
-        for spec in variants_data:
-            variant_id = str(spec["variant_id"])
-            if variant_id in variants:
-                raise ValueError(f"Duplicate variant_id in {root}: {variant_id}")
-            variants[variant_id] = TileFamilyVariant(
-                id=variant_id,
-                sheet_path=resolve_path(root, str(spec["sheet"])),
-                transparent_mode=str(spec.get("transparent", "top_left")),
-                palette_family=spec.get("palette_family"),
-                colorway=spec.get("colorway"),
-                background_mode=spec.get("background_mode"),
-                notes=spec.get("notes"),
-            )
+    def from_catalog_sources(
+        cls,
+        *,
+        header: TileFamilyHeader,
+        variants: Mapping[str, TileFamilyVariant],
+        catalog: FamilyCatalogSources,
+        source_layout: SourceLayoutIngestion | None,
+    ) -> TileFamily:
+        root = header.root
         if not variants:
             raise ValueError(f"Tile family {root} must define at least one variant")
 
@@ -1950,263 +2304,87 @@ class TileFamily:
         variant_sheet_bounds = {
             variant_id: _sheet_bounds_for_variant(
                 variant=variant,
-                tile_width=int(grid["tile_width"]),
-                tile_height=int(grid["tile_height"]),
+                tile_width=header.tile_width,
+                tile_height=header.tile_height,
                 image_cache=variant_sheet_image_cache,
             )
             for variant_id, variant in variants.items()
         }
-        family_sheet_bounds = next(iter(variant_sheet_bounds.values()))
+        family_sheet_bounds = source_layout.sheet_bounds if source_layout is not None else next(iter(variant_sheet_bounds.values()))
 
-        clusters = _load_clusters(root=root, clusters_data=clusters_data)
-        source_layout = _load_source_layout(root=root, family_data=family_data)
-        if source_layout is not None:
-            family_sheet_bounds = source_layout.sheet_bounds
+        clusters = _load_clusters(root=root, clusters_data=catalog.clusters_data)
+        _validate_variant_sheet_bounds(
+            variant_sheet_bounds=variant_sheet_bounds,
+            family_sheet_bounds=family_sheet_bounds,
+        )
 
-        for variant_id, bounds in variant_sheet_bounds.items():
-            if not _bounds_inside(bounds, family_sheet_bounds):
-                raise ValueError(
-                    f"Variant {variant_id!r} sheet bounds {bounds} do not cover family sheet bounds {family_sheet_bounds}"
-                )
-
-        alias_map: dict[str, str] = {str(alias): str(target) for alias, target in aliases_data.items()}
+        alias_map: dict[str, str] = {str(alias): str(target) for alias, target in catalog.aliases_data.items()}
         aliases_by_tile = _group_aliases_by_tile(alias_map)
-
-        raw_tile_specs: dict[str, TileConfig] = {}
-        for spec in tiles_data:
-            tile_id = str(spec["id"])
-            if tile_id in raw_tile_specs:
-                raise ValueError(f"Duplicate tile id in {root}: {tile_id}")
-            raw_tile_specs[tile_id] = spec
-
-        tiles: dict[str, TileRecord] = {}
-        resolving_tile_ids: set[str] = set()
-
-        def resolve_tile(tile_id: str) -> TileRecord:
-            if tile_id in tiles:
-                return tiles[tile_id]
-            if tile_id in resolving_tile_ids:
-                raise ValueError(f"Exact-duplicate cycle detected while resolving tile {tile_id!r}")
-            if tile_id not in raw_tile_specs:
-                raise ValueError(f"Unknown tile id {tile_id!r}")
-
-            resolving_tile_ids.add(tile_id)
-            try:
-                spec = raw_tile_specs[tile_id]
-                duplicate_of_raw = spec.get("exact_duplicate_of")
-                inherited_tile: TileRecord | None = None
-                resolved_duplicate_of: str | None = None
-                if duplicate_of_raw is not None:
-                    resolved_duplicate_of = str(duplicate_of_raw)
-                    if resolved_duplicate_of == tile_id:
-                        raise ValueError(f"Tile {tile_id} cannot exact_duplicate_of itself")
-                    if resolved_duplicate_of not in raw_tile_specs:
-                        raise ValueError(
-                            f"Tile {tile_id} references unknown exact_duplicate_of tile {resolved_duplicate_of!r}"
-                        )
-                    inherited_tile = resolve_tile(resolved_duplicate_of)
-
-                def inherited_scalar(field_name: str, default: object) -> object:
-                    if field_name in spec:
-                        return spec.get(field_name)
-                    if inherited_tile is not None and field_name in EXACT_DUPLICATE_INHERITED_SCALAR_FIELDS:
-                        return getattr(inherited_tile, field_name)
-                    return default
-
-                def inherited_sequence(field_name: str) -> tuple[str, ...]:
-                    if field_name in spec:
-                        raw_value = spec.get(field_name)
-                        return _tuple(cast(Iterable[str], raw_value) if raw_value is not None else None)
-                    if inherited_tile is not None and field_name in EXACT_DUPLICATE_INHERITED_SEQUENCE_FIELDS:
-                        return cast(tuple[str, ...], getattr(inherited_tile, field_name))
-                    return ()
-
-                meaning_confidence_raw = (
-                    inherited_scalar("meaning_confidence", None)
-                    if inherited_tile is not None or "meaning_confidence" in spec
-                    else None
-                )
-                meaning_confidence = _normalise_meaning_confidence(meaning_confidence_raw, context=tile_id)
-                walkable_raw = inherited_scalar("walkable", None)
-                blocking_raw = inherited_scalar("blocking", None)
-                cluster_ids_raw = spec.get("cluster_ids")
-                noise_raw = inherited_scalar("noise", None)
-                contrast_raw = inherited_scalar("contrast", None)
-                temperature_raw = inherited_scalar("temperature", None)
-                usage_raw = inherited_scalar("usage", None)
-                style_raw = inherited_scalar("style", None)
-                overlay_raw = inherited_scalar("overlay", None)
-                footprint_raw = inherited_scalar("footprint", None)
-                orientation_raw = inherited_scalar("orientation", None)
-                facing_raw = inherited_scalar("facing", None)
-                pose_raw = inherited_scalar("pose", None)
-                compose_group_raw = inherited_scalar("compose_group", None)
-                compose_role_raw = inherited_scalar("compose_role", None)
-                state_group_raw = inherited_scalar("state_group", None)
-                state_role_raw = inherited_scalar("state_role", None)
-                animation_group_raw = inherited_scalar("animation_group", None)
-                animation_frame_raw = inherited_scalar("animation_frame", None)
-                animation_frame_count_raw = inherited_scalar("animation_frame_count", None)
-                image_override_raw = inherited_scalar("image_override", None)
-                meaning_raw = inherited_scalar("meaning", None)
-                source_notes_raw = inherited_scalar("source_notes", None)
-                raw_sheet_col = spec.get("sheet_col")
-                raw_sheet_row = spec.get("sheet_row")
-                image_override = cast(str, image_override_raw) if image_override_raw is not None else None
-                if image_override is None:
-                    if raw_sheet_col is None or raw_sheet_row is None:
-                        raise ValueError(f"Tile {tile_id} must define sheet_col and sheet_row")
-                    sheet_col = int(cast(Union[int, str], raw_sheet_col))
-                    sheet_row = int(cast(Union[int, str], raw_sheet_row))
-                    if not _bounds_contains(family_sheet_bounds, sheet_col, sheet_row):
-                        raise ValueError(
-                            f"Tile {tile_id} has sheet coordinate ({sheet_col}, {sheet_row}) outside family sheet bounds"
-                        )
-                else:
-                    if raw_sheet_col is not None or raw_sheet_row is not None:
-                        raise ValueError(f"Synthetic tile {tile_id} must not define sheet_col or sheet_row")
-                    sheet_col = None
-                    sheet_row = None
-
-                tile = TileRecord(
-                    id=tile_id,
-                    family_id=family_id,
-                    sheet_col=sheet_col,
-                    sheet_row=sheet_row,
-                    exact_duplicate_of=resolved_duplicate_of,
-                    image_override=image_override,
-                    layer=str(spec["layer"]),
-                    category=str(spec["category"]),
-                    transparent=bool(spec["transparent"]),
-                    tags=inherited_sequence("tags"),
-                    aliases=aliases_by_tile.get(tile_id, ()),
-                    walkable=cast(bool, walkable_raw) if walkable_raw is not None else None,
-                    blocking=cast(bool, blocking_raw) if blocking_raw is not None else None,
-                    scenes=inherited_sequence("scenes"),
-                    semantics=inherited_sequence("semantics"),
-                    motifs=inherited_sequence("motifs"),
-                    cluster_ids=_tuple(cast(Iterable[str], cluster_ids_raw) if cluster_ids_raw is not None else None),
-                    source_group=spec.get("source_group"),
-                    noise=cast(str, noise_raw) if noise_raw is not None else None,
-                    contrast=cast(str, contrast_raw) if contrast_raw is not None else None,
-                    temperature=cast(str, temperature_raw) if temperature_raw is not None else None,
-                    usage=cast(str, usage_raw) if usage_raw is not None else None,
-                    style=cast(str, style_raw) if style_raw is not None else None,
-                    overlay=cast(str, overlay_raw) if overlay_raw is not None else None,
-                    footprint=cast(str, footprint_raw) if footprint_raw is not None else None,
-                    orientation=cast(str, orientation_raw) if orientation_raw is not None else None,
-                    facing=cast(str, facing_raw) if facing_raw is not None else None,
-                    pose=cast(str, pose_raw) if pose_raw is not None else None,
-                    compose_group=cast(str, compose_group_raw) if compose_group_raw is not None else None,
-                    compose_role=cast(str, compose_role_raw) if compose_role_raw is not None else None,
-                    state_group=cast(str, state_group_raw) if state_group_raw is not None else None,
-                    state_role=cast(str, state_role_raw) if state_role_raw is not None else None,
-                    animation_group=cast(str, animation_group_raw) if animation_group_raw is not None else None,
-                    animation_frame=int(cast(Union[int, str], animation_frame_raw)) if animation_frame_raw is not None else None,
-                    animation_frame_count=int(cast(Union[int, str], animation_frame_count_raw))
-                    if animation_frame_count_raw is not None
-                    else None,
-                    connects_on=inherited_sequence("connects_on"),
-                    requires_exposed_on=inherited_sequence("requires_exposed_on"),
-                    affordances=inherited_sequence("affordances"),
-                    alt_uses=inherited_sequence("alt_uses"),
-                    meaning=cast(str, meaning_raw) if meaning_raw is not None else None,
-                    meaning_confidence=meaning_confidence,
-                    source_notes=cast(str, source_notes_raw) if source_notes_raw is not None else None,
-                )
-                tiles[tile_id] = tile
-                return tile
-            finally:
-                resolving_tile_ids.remove(tile_id)
-
-        for tile_id in raw_tile_specs:
-            resolve_tile(tile_id)
-
-        for alias, tile_id in alias_map.items():
-            if tile_id not in tiles:
-                raise ValueError(f"Alias {alias!r} points at unknown tile id {tile_id!r}")
+        tiles = _resolve_tiles_from_catalog(
+            header=header,
+            family_sheet_bounds=family_sheet_bounds,
+            catalog=catalog,
+            aliases_by_tile=aliases_by_tile,
+        )
+        _validate_alias_targets(alias_map=alias_map, tiles=tiles)
 
         _validate_tile_override_images(
             root=root,
             tiles=tiles,
             variants=variants,
-            tile_width=int(grid["tile_width"]),
-            tile_height=int(grid["tile_height"]),
+            tile_width=header.tile_width,
+            tile_height=header.tile_height,
         )
-
-        for cluster in clusters.values():
-            for tile_id in cluster.members:
-                if tile_id not in tiles:
-                    raise ValueError(f"Cluster {cluster.id} references unknown tile {tile_id!r}")
-        for tile in tiles.values():
-            for cluster_id in tile.cluster_ids:
-                if cluster_id not in clusters:
-                    raise ValueError(f"Tile {tile.id} references unknown cluster {cluster_id!r}")
+        _validate_clusters_against_tiles(clusters=clusters, tiles=tiles)
 
         tiles_by_sheet_cell = _index_tiles_by_sheet_cell(tiles)
         _validate_exact_duplicate_pixels(
             root=root,
             tiles=tiles,
             variants=variants,
-            tile_width=int(grid["tile_width"]),
-            tile_height=int(grid["tile_height"]),
+            tile_width=header.tile_width,
+            tile_height=header.tile_height,
         )
 
         if source_layout is not None:
-            for source_cluster in source_layout.source_clusters.values():
-                parent_region = source_layout.source_regions[source_cluster.source_region_id]
-                if not _source_layout_region_contains_bounds(parent_region, source_cluster.bounds):
-                    raise ValueError(
-                        f"Ingestion cluster {source_cluster.id} falls outside ingestion region {source_cluster.source_region_id}"
-                    )
-            for collection in source_layout.source_collections.values():
-                for member in collection.members:
-                    member_ref = collection_member_ref(member)
-                    if member.kind == "tile_id":
-                        if member_ref not in tiles:
-                            raise ValueError(
-                                f"Ingestion collection {collection.id} references unknown member tile {member_ref!r}"
-                            )
-                        continue
-                    if member.kind == "alias":
-                        if member_ref not in alias_map:
-                            raise ValueError(
-                                f"Ingestion collection {collection.id} references unknown member alias {member_ref!r}"
-                            )
-                        continue
-                    if not _sheet_cell_ref_within_bounds(member_ref, source_layout.sheet_bounds):
-                        raise ValueError(
-                            f"Ingestion collection {collection.id} references unknown member sheet cell {member_ref!r}"
-                        )
+            _validate_source_layout_catalog_references(
+                source_layout=source_layout,
+                tiles=tiles,
+                alias_map=alias_map,
+            )
 
-        default_variant_id = str(family_data.get("default_variant_id") or next(iter(variants.keys())))
-        if default_variant_id not in variants:
-            raise ValueError(f"Unknown default_variant_id {default_variant_id!r} in {root / 'family.json'}")
+        if header.default_variant_id not in variants:
+            raise ValueError(
+                f"Unknown default_variant_id {header.default_variant_id!r} in family {header.family_id!r}"
+            )
 
-        constructions = _load_constructions(
-            root=root,
+        constructions = load_constructions_from_data(
+            catalog.constructions_data,
+            constructions_path=catalog.paths.constructions_path,
             tiles=tiles,
             source_layout=source_layout,
         )
 
         return cls(
-            root=root,
-            family_id=family_id,
-            title=family_data.get("title"),
-            tile_width=int(grid["tile_width"]),
-            tile_height=int(grid["tile_height"]),
-            render_step_width=render_defaults.get("render_step_width"),
-            render_step_height=render_defaults.get("render_step_height"),
-            siblings_share_semantics=bool(family_data.get("siblings_share_semantics", False)),
-            notes=_tuple(family_data.get("notes")),
-            default_variant_id=default_variant_id,
+            header=header,
             source_layout=source_layout,
-            variants=variants,
+            variants=dict(variants),
             clusters=clusters,
             tiles=tiles,
             aliases=alias_map,
             tiles_by_sheet_cell=tiles_by_sheet_cell,
             constructions=constructions,
+        )
+
+    @classmethod
+    def load(cls, family_dir: Path) -> TileFamily:
+        root = family_dir.resolve()
+        header, variants, family_data = load_family_header_and_variants(root)
+        return cls.from_catalog_sources(
+            header=header,
+            variants=variants,
+            catalog=load_family_catalog_sources(CompatibilityFamilyPaths.for_legacy_root(root)),
+            source_layout=_load_source_layout(root=root, family_data=family_data),
         )
 
     def variant(self, variant_id: str | None = None) -> TileFamilyVariant:
@@ -2558,7 +2736,7 @@ def _contiguous_true_runs(values: list[bool]) -> list[tuple[int, int]]:
     return runs
 
 
-def _occupied_bounds(mask: list[list[bool]], *, left: int, top: int, width: int, height: int) -> ClusterBounds | None:
+def _occupied_bounds(mask: list[list[bool]], *, left: int, top: int, width: int, height: int) -> GridBounds | None:
     occupied_cols: list[int] = []
     occupied_rows: list[int] = []
     for row in range(top, top + height):
@@ -2572,10 +2750,10 @@ def _occupied_bounds(mask: list[list[bool]], *, left: int, top: int, width: int,
     max_col = max(occupied_cols)
     min_row = min(occupied_rows)
     max_row = max(occupied_rows)
-    return ClusterBounds(x=min_col, y=min_row, width=max_col - min_col + 1, height=max_row - min_row + 1)
+    return GridBounds(x=min_col, y=min_row, width=max_col - min_col + 1, height=max_row - min_row + 1)
 
 
-def _connected_components(mask: list[list[bool]], bounds: ClusterBounds) -> list[list[tuple[int, int]]]:
+def _connected_components(mask: list[list[bool]], bounds: GridBounds) -> list[list[tuple[int, int]]]:
     visited: set[tuple[int, int]] = set()
     components: list[list[tuple[int, int]]] = []
     for row in range(bounds.y, bounds.y + bounds.height):
@@ -2627,7 +2805,7 @@ def detect_source_layout(
         if not occupied_rows:
             continue
         region_id = f"region_{region_index:02d}"
-        region_bounds = ClusterBounds(
+        region_bounds = GridBounds(
             x=start_col,
             y=min(occupied_rows),
             width=width,
@@ -2688,7 +2866,7 @@ def detect_source_layout(
                 for component_index, component in enumerate(components, start=1):
                     if len(component) <= 1:
                         continue
-                    component_bounds = ClusterBounds(
+                    component_bounds = GridBounds(
                         x=min(col for col, _ in component),
                         y=min(row for _, row in component),
                         width=max(col for col, _ in component) - min(col for col, _ in component) + 1,
@@ -2741,7 +2919,7 @@ def detect_source_layout(
                 for component_index, component in enumerate(components, start=1):
                     if len(component) <= 1:
                         continue
-                    component_bounds = ClusterBounds(
+                    component_bounds = GridBounds(
                         x=min(col for col, _ in component),
                         y=min(row for _, row in component),
                         width=max(col for col, _ in component) - min(col for col, _ in component) + 1,

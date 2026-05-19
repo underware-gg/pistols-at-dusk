@@ -75,12 +75,17 @@ Current Minimal 8 example:
 ```json
 {
   "tile_family": {
-    "path": "./tile-families/minimal8",
+    "source_pack": "./tile-packs/minimal8/pack.json",
+    "tileset_id": "minimal8",
+    "tilesheet_id": "main",
     "family_id": "minimal8",
     "variant_id": "1bit_colored_bg"
   }
 }
 ```
+
+Legacy projects may still point `tile_family.path` at a direct family package while
+Phase 4 migration remains in progress.
 
 You can still explicitly reference another loaded variant using direct sheet address syntax:
 

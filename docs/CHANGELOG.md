@@ -8,6 +8,7 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.1.7](changelog/v0.1.7.md) | 2026-05-19 | Bridge staged source packs into family-backed loading |
 | [v0.1.6](changelog/v0.1.6.md) | 2026-05-19 | Introduce staged pack, tileset, and tilesheet source manifests |
 | [v0.1.5](changelog/v0.1.5.md) | 2026-05-18 | Route family references across loaded tile libraries |
 | [v0.1.4](changelog/v0.1.4.md) | 2026-05-18 | Load multiple family-backed tile libraries through the registry |

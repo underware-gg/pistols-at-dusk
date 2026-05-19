@@ -2,7 +2,8 @@
 
 ## Sprite-Family Package Format
 
-Each family package is a directory with source-of-truth manifests for variant metadata, source-sheet layout, semantics, and aliases:
+During Phase 4, the runtime compatibility package is still a directory bundle
+with manifests for variant metadata, source-sheet layout, semantics, and aliases:
 
 - `family.json`
   - family ID
@@ -21,11 +22,17 @@ Each family package is a directory with source-of-truth manifests for variant me
 - `aliases.json`
   - canonical semantic aliases mapped to stable tile IDs
 
-Current Minimal 8 package:
+Current Minimal 8 source-side entrypoint:
+
+- [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
+
+Current Minimal 8 compatibility bundle:
 
 - [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
-While Phase 4 is in progress, that family package remains the active committed ingest truth. The staged pack / tileset / logical-tilesheet manifest hierarchy now lives in [scripts/source_manifests.py](../../scripts/source_manifests.py) until Minimal 8 is migrated onto it.
+Minimal 8 now enters through the staged pack / tileset / logical-tilesheet manifest hierarchy. The legacy family package remains the transitional compatibility bundle that feeds the current runtime/library path.
+
+Phase 4 Step 2 also adds [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py), a one-way transitional adapter that lets those staged source manifests feed the current family-backed compatibility/runtime path without making the source manifests themselves a runtime dependency.
 
 ## Addressing Formats
 
@@ -47,24 +54,31 @@ Rules:
 
 ## Project Consumption Model
 
-Projects do not own sheet semantics anymore. They consume a family package and pick a default variant:
+Projects do not own sheet semantics anymore. They consume a family-backed runtime unit and pick a default variant. Minimal 8 now does that through the staged source-pack entrypoint:
 
 ```json
 {
   "tile_family": {
-    "path": "./tile-families/minimal8",
+    "source_pack": "./tile-packs/minimal8/pack.json",
+    "tileset_id": "minimal8",
+    "tilesheet_id": "main",
     "family_id": "minimal8",
     "variant_id": "1bit_colored_bg"
   }
 }
 ```
 
-Projects may also load multiple family-backed runtime units:
+Legacy direct-family loading still works during migration, and projects may also mix multiple family-backed runtime units:
 
 ```json
 {
   "tile_families": [
-    {"path": "./tile-families/minimal8", "variant_id": "1bit_colored_bg"},
+    {
+      "source_pack": "./tile-packs/minimal8/pack.json",
+      "tileset_id": "minimal8",
+      "tilesheet_id": "main",
+      "variant_id": "1bit_colored_bg"
+    },
     {"path": "./tile-families/mini-medieval", "variant_id": "default"}
   ],
   "default_tileset": "minimal8@1bit_colored_bg"
@@ -77,10 +91,11 @@ When multiple family-backed units are loaded:
 - explicit family refs like `family.id:3,4` or `family.id@variant:3,4` resolve against the owning loaded unit
 - unique family aliases and unique tile ids may also resolve against a non-default loaded unit
 
-At runtime, the harness now derives a compatibility view from that package before doing ordinary scene work:
+At runtime, the harness now derives a compatibility view before doing ordinary scene work:
 
-- the family package remains the source-shaped catalogue and provenance container
-- the runtime consumes a `TileLibraryUnit` compatibility surface derived from the selected family, carrying only the runtime data and lookups needed for normal scene work
+- staged source packs bridge into the current family-backed compatibility path
+- legacy family packages may still be loaded directly during migration
+- the runtime consumes a `TileLibraryUnit` compatibility surface carrying only the runtime data and lookups needed for normal scene work
 - loaded units are wrapped in `TileLibraryRegistry`, which owns cross-unit construction and alias lookup
 - hot-path runtime tasks such as variant-backed tileset registration, ref resolution, construction lookup, and bounds-aware validation now go through that compatibility surface instead of reaching straight through the raw family object
 
@@ -136,6 +151,7 @@ The functional content of the codebase is also documented co-located with the mo
 
 - [scripts/README.md](../../scripts/README.md) — shared engine modules: harness CLI, tile-family loader, scene-template DSL, scene-rules loader, and render output helpers.
 - [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the Phase 4 ingest refactor.
+- [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) — transitional one-way adapter from staged source manifests into `TileFamily` / `TileLibraryUnit` compatibility inputs.
 - [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / metatile / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn a resolved render-grid transform into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens.
@@ -147,6 +163,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 
 - [test_tile_families.py](../../tests/test_tile_families.py) — family-package loading, address parsing, alias resolution, construction loading and validator behaviour (adjacency / exposure rules, parametric-run validation).
 - [test_source_manifests.py](../../tests/test_source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loading and validation, including explicit sparse-coverage checks for render variants.
+- [test_source_manifest_bridge.py](../../tests/test_source_manifest_bridge.py) — one-way source-manifest bridge coverage: synthetic adapter fixtures plus equivalence checks against the current Minimal 8 family-backed runtime shape.
 - [test_scene_expansion.py](../../tests/test_scene_expansion.py) — scene-template DSL: expression evaluator, data-mode expansion, `entity` / `place_scene` / `scatter` ops, binding isolation, cycle detection.
 - [test_minimal8_harness.py](../../tests/test_minimal8_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.

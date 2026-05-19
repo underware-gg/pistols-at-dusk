@@ -21,6 +21,9 @@ deliberately matching a canonical exception.
 ## Files
 
 - [project.minimal8.json](project.minimal8.json)
+- [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
+- [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
+- [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
 - [tile-families/minimal8](tile-families/minimal8)
 - [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
 - [assets/utility_land_undercoat.png](assets/utility_land_undercoat.png)
@@ -271,8 +274,13 @@ That means `cluster_count` is an ontology count, not a clean source-sheet
 partition count, and individual tiles can intentionally carry more than one
 `cluster_id`.
 
-Minimal 8 now also carries a separate source-sheet ingestion model in
-[tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json):
+Minimal 8 now enters through staged source manifests in
+[tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json),
+[tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json),
+and [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json).
+The current tilesheet manifest still points at
+[tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
+for the source-layout payload during the Phase 4 transition:
 
 - `regions` describe the top-level ingest areas on the raw sheet
 - `clusters` describe bounded subgroups inside those regions

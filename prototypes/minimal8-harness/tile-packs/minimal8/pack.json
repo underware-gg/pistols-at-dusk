@@ -1,0 +1,17 @@
+{
+  "pack_id": "minimal8",
+  "title": "Minimal 8",
+  "grid": {
+    "tile_width": 8,
+    "tile_height": 8
+  },
+  "notes": [
+    "Phase 4 source-side pack entrypoint for Minimal 8. Runtime work must still go through the compatibility/library boundary rather than reading this manifest directly."
+  ],
+  "tilesets": [
+    {
+      "tileset_id": "minimal8",
+      "manifest": "tilesets/minimal8.json"
+    }
+  ]
+}
