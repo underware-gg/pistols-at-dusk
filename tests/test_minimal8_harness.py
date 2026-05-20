@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import builtins
 import io
 import json
+import os
+import shutil
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest.mock import patch
 
 from PIL import Image
@@ -22,6 +26,180 @@ import minimal8_harness as harness
 
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class Minimal8RuntimeFixture:
+    root: Path
+    project_path: Path
+    family_tileset_id: str
+    utility_tileset_id: str
+    selected_variant_sheet_path: Path
+    deleted_manifest_paths: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class Minimal8GoldenState:
+    promoted_metadata: object
+    construction: object
+    resolved_tile: harness.ResolvedTile
+    tileset: harness.GridTileset
+    preview_size: tuple[int, int]
+    preview_bytes: bytes
+    runtime: harness.SceneExpansionResult
+
+
+def _copy_file(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+
+def _variant_with_id(variants: list[object], variant_id: str) -> dict[str, object]:
+    return next(
+        cast(dict[str, object], variant)
+        for variant in variants
+        if cast(str, cast(dict[str, object], variant)["variant_id"]) == variant_id
+    )
+
+
+def _narrow_manifest_to_selected_variant(
+    manifest_path: Path,
+    *,
+    list_key: str,
+    selected_variant_id: str,
+    copied_sheet_path: Path,
+) -> None:
+    payload = cast(dict[str, object], json.loads(manifest_path.read_text(encoding="utf-8")))
+    variants = cast(list[object], payload[list_key])
+    selected_variant = _variant_with_id(variants, selected_variant_id)
+    selected_variant["sheet"] = os.path.relpath(copied_sheet_path, manifest_path.parent)
+    payload[list_key] = [selected_variant]
+    _write_json(manifest_path, payload)
+
+
+def _reject_if_protected_path(candidate: Path, *, protected_paths: frozenset[Path]) -> None:
+    resolved = candidate.resolve()
+    if resolved in protected_paths:
+        raise AssertionError(f"runtime should not reopen deleted manifest {resolved}")
+
+
+def _capture_minimal8_golden_state(
+    project: harness.LayoutProject,
+    *,
+    family_tileset_id: str,
+    utility_tileset_id: str,
+    ref_token: str,
+    construction_id: str,
+    tavern_scene: harness.SceneTemplate,
+) -> Minimal8GoldenState:
+    tile_library = project.tile_library_unit_for_tileset(family_tileset_id)
+    assert tile_library is not None
+    assert project.tile_library_registry is not None
+    construction = project.tile_library_registry.lookup_construction(construction_id)
+    assert construction is not None
+    resolved_tile = project.family_tile_for_ref(ref_token, tileset_id=utility_tileset_id)
+    assert resolved_tile is not None
+    tileset = project.get_tileset(family_tileset_id)
+    preview = harness.render_tile_preview_image(project, resolved_tile)
+    runtime = harness.expand_scene_runtime(
+        project,
+        tavern_scene,
+        default_tileset=family_tileset_id,
+    )
+    return Minimal8GoldenState(
+        promoted_metadata=tile_library.promoted_metadata,
+        construction=construction,
+        resolved_tile=resolved_tile,
+        tileset=tileset,
+        preview_size=preview.size,
+        preview_bytes=preview.tobytes(),
+        runtime=runtime,
+    )
+
+
+def _copy_minimal8_runtime_fixture(root: Path) -> Minimal8RuntimeFixture:
+    source_root = ROOT / "prototypes" / "minimal8-harness"
+    fixture_root = root / "minimal8-harness"
+    selected_variant_id = "1bit_colored_bg"
+    family_tileset_id = f"minimal8@{selected_variant_id}"
+    utility_tileset_id = "utility_land"
+
+    _copy_file(source_root / "project.minimal8.json", fixture_root / "project.minimal8.json")
+    _copy_file(
+        source_root / "assets" / "utility_land_undercoat.png",
+        fixture_root / "assets" / "utility_land_undercoat.png",
+    )
+    shutil.copytree(source_root / "scene-templates", fixture_root / "scene-templates")
+    shutil.copytree(source_root / "scene-rules", fixture_root / "scene-rules")
+    shutil.copytree(source_root / "tile-families" / "minimal8" / "derived", fixture_root / "tile-families" / "minimal8" / "derived")
+
+    pack_path = fixture_root / "tile-packs" / "minimal8" / "pack.json"
+    tileset_manifest_path = fixture_root / "tile-packs" / "minimal8" / "tilesets" / "minimal8.json"
+    tilesheet_manifest_path = fixture_root / "tile-packs" / "minimal8" / "tilesheets" / "main.json"
+    family_manifest_path = fixture_root / "tile-families" / "minimal8" / "family.json"
+    tiles_manifest_path = fixture_root / "tile-families" / "minimal8" / "tiles.json"
+    aliases_manifest_path = fixture_root / "tile-families" / "minimal8" / "aliases.json"
+    clusters_manifest_path = fixture_root / "tile-families" / "minimal8" / "clusters.json"
+    constructions_manifest_path = fixture_root / "tile-families" / "minimal8" / "constructions.json"
+    ingestion_manifest_path = fixture_root / "tile-families" / "minimal8" / "ingestion.json"
+
+    for src_path, dest_path in (
+        (source_root / "tile-packs" / "minimal8" / "pack.json", pack_path),
+        (source_root / "tile-packs" / "minimal8" / "tilesets" / "minimal8.json", tileset_manifest_path),
+        (source_root / "tile-packs" / "minimal8" / "tilesheets" / "main.json", tilesheet_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "family.json", family_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "tiles.json", tiles_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "aliases.json", aliases_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "clusters.json", clusters_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "constructions.json", constructions_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "ingestion.json", ingestion_manifest_path),
+    ):
+        _copy_file(src_path, dest_path)
+
+    tilesheet_payload = cast(dict[str, object], json.loads(tilesheet_manifest_path.read_text(encoding="utf-8")))
+    selected_tilesheet_variant = _variant_with_id(
+        cast(list[object], tilesheet_payload["render_variants"]),
+        selected_variant_id,
+    )
+
+    source_variant_sheet_path = (
+        (source_root / "tile-packs" / "minimal8" / "tilesheets").resolve()
+        / cast(str, selected_tilesheet_variant["sheet"])
+    ).resolve()
+    copied_variant_sheet_path = fixture_root / "tile-packs" / "minimal8" / "art" / source_variant_sheet_path.name
+    _copy_file(source_variant_sheet_path, copied_variant_sheet_path)
+
+    _narrow_manifest_to_selected_variant(
+        tilesheet_manifest_path,
+        list_key="render_variants",
+        selected_variant_id=selected_variant_id,
+        copied_sheet_path=copied_variant_sheet_path,
+    )
+    _narrow_manifest_to_selected_variant(
+        family_manifest_path,
+        list_key="variants",
+        selected_variant_id=selected_variant_id,
+        copied_sheet_path=copied_variant_sheet_path,
+    )
+
+    return Minimal8RuntimeFixture(
+        root=fixture_root,
+        project_path=fixture_root / "project.minimal8.json",
+        family_tileset_id=family_tileset_id,
+        utility_tileset_id=utility_tileset_id,
+        selected_variant_sheet_path=copied_variant_sheet_path.resolve(),
+        deleted_manifest_paths=(
+            pack_path,
+            tileset_manifest_path,
+            tilesheet_manifest_path,
+            family_manifest_path,
+            tiles_manifest_path,
+            aliases_manifest_path,
+            clusters_manifest_path,
+            constructions_manifest_path,
+            ingestion_manifest_path,
+        ),
+    )
 
 
 def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
@@ -452,10 +630,106 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 set(project.family_variant_tileset_ids()),
                 {"family.one@base", "family.one@alt"},
             )
-            self.assertIsNotNone(project.tile_library_unit_for_tileset("family.one@alt"))
+            tile_library = project.tile_library_unit_for_tileset("family.one@alt")
+            self.assertIsNotNone(tile_library)
+            assert tile_library is not None
+            self.assertEqual(tile_library.promoted_metadata.source_pack_id, "pack.one")
+            self.assertEqual(tile_library.promoted_metadata.source_tileset_id, "family.one")
+            self.assertEqual(tile_library.promoted_metadata.source_tilesheet_id, "main")
             resolved = project.resolve_tile("family.one.alias")
             self.assertEqual(resolved.tileset_id, "family.one@alt")
             self.assertEqual(resolved.family_tile_id, "family.one:all:0,0")
+
+    def test_runtime_scene_work_stays_self_sufficient_after_manifest_files_are_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = _copy_minimal8_runtime_fixture(Path(temp_dir))
+            tavern_scene = cast(
+                harness.SceneTemplate,
+                {"template": "tavern", "x": 0, "y": 0, "width": 40, "height": 25},
+            )
+            construction_id = "indoors.bookcase.tall.run"
+            ref_token = "minimal8:terrain:0,15"
+
+            golden_project = harness.LayoutProject(fixture.project_path)
+            golden = _capture_minimal8_golden_state(
+                golden_project,
+                family_tileset_id=fixture.family_tileset_id,
+                utility_tileset_id=fixture.utility_tileset_id,
+                ref_token=ref_token,
+                construction_id=construction_id,
+                tavern_scene=tavern_scene,
+            )
+
+            project = harness.LayoutProject(fixture.project_path)
+            self.assertNotIn(fixture.family_tileset_id, project.tilesets)
+            for manifest_path in fixture.deleted_manifest_paths:
+                manifest_path.unlink()
+
+            protected_paths = frozenset(path.resolve() for path in fixture.deleted_manifest_paths)
+            original_path_open: Any = Path.open
+            original_open: Any = builtins.open
+
+            def guarded_path_open(self: Path, *args: Any, **kwargs: Any) -> Any:
+                _reject_if_protected_path(self, protected_paths=protected_paths)
+                return original_path_open(self, *args, **kwargs)
+
+            def guarded_open(
+                file: Any,
+                *args: Any,
+                **kwargs: Any,
+            ) -> Any:
+                if isinstance(file, str):
+                    _reject_if_protected_path(Path(file), protected_paths=protected_paths)
+                elif isinstance(file, Path):
+                    _reject_if_protected_path(file, protected_paths=protected_paths)
+                return original_open(file, *args, **kwargs)
+
+            with patch.object(Path, "open", new=guarded_path_open), patch("builtins.open", new=guarded_open):
+                tile_library = project.tile_library_unit_for_tileset(fixture.family_tileset_id)
+                self.assertIsNotNone(tile_library)
+                assert tile_library is not None
+                self.assertEqual(tile_library.promoted_metadata, golden.promoted_metadata)
+                self.assertEqual(tile_library.promoted_metadata.source_pack_id, "minimal8")
+                self.assertEqual(tile_library.promoted_metadata.source_tileset_id, "minimal8")
+                self.assertEqual(tile_library.promoted_metadata.source_tilesheet_id, "main")
+                self.assertEqual(dict(tile_library.promoted_metadata.module_context), {})
+                self.assertEqual(tile_library.promoted_metadata.render_traits.alignment_origin, "bottom_left")
+
+                self.assertIsNotNone(project.tile_library_registry)
+                assert project.tile_library_registry is not None
+                post_construction = project.tile_library_registry.lookup_construction(construction_id)
+                self.assertEqual(post_construction, golden.construction)
+
+                project.validate_ref_without_loading(
+                    ref_token,
+                    default_tileset=fixture.utility_tileset_id,
+                )
+                resolved = project.family_tile_for_ref(
+                    ref_token,
+                    tileset_id=fixture.utility_tileset_id,
+                )
+                self.assertEqual(resolved, golden.resolved_tile)
+                assert resolved is not None
+
+                post_tileset = project.get_tileset(fixture.family_tileset_id)
+                self.assertEqual(post_tileset.id, golden.tileset.id)
+                self.assertEqual(post_tileset.sheet_path, fixture.selected_variant_sheet_path)
+                self.assertEqual(post_tileset.sheet_path, golden.tileset.sheet_path)
+                self.assertEqual(post_tileset.columns, golden.tileset.columns)
+                self.assertEqual(post_tileset.rows, golden.tileset.rows)
+                self.assertEqual(post_tileset.tile_count, golden.tileset.tile_count)
+                self.assertIn(fixture.family_tileset_id, project.tilesets)
+
+                preview = harness.render_tile_preview_image(project, resolved)
+                self.assertEqual(preview.size, golden.preview_size)
+                self.assertEqual(preview.tobytes(), golden.preview_bytes)
+
+                runtime = harness.expand_scene_runtime(
+                    project,
+                    tavern_scene,
+                    default_tileset=fixture.family_tileset_id,
+                )
+                self.assertEqual(runtime, golden.runtime)
 
     def test_project_rejects_unknown_default_tileset(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,8 +1,10 @@
 # Functional Documentation
 
-## Sprite-Family Package Format
+## Compatibility Family Package Format
 
-During Phase 4, the runtime compatibility package is still a directory bundle
+During Phase 4, the active source-side ingest truth is the staged pack /
+tileset / logical-tilesheet hierarchy. The current runtime compatibility bundle
+is still a directory package
 with manifests for variant metadata, source-sheet layout, semantics, and aliases:
 
 - `family.json`
@@ -30,7 +32,9 @@ Current Minimal 8 compatibility bundle:
 
 - [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
-Minimal 8 now enters through the staged pack / tileset / logical-tilesheet manifest hierarchy. The legacy family package remains the transitional compatibility bundle that feeds the current runtime/library path.
+Minimal 8 now enters through the staged pack / tileset / logical-tilesheet
+manifest hierarchy. The legacy family package remains the transitional
+compatibility bundle that feeds the current runtime/library path.
 
 Phase 4 Step 2 also adds [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py), a one-way transitional adapter that lets those staged source manifests feed the current family-backed compatibility/runtime path without making the source manifests themselves a runtime dependency.
 
@@ -68,7 +72,8 @@ Projects do not own sheet semantics anymore. They consume a family-backed runtim
 }
 ```
 
-Legacy direct-family loading still works during migration, and projects may also mix multiple family-backed runtime units:
+Legacy direct-family loading still exists as a transitional fallback, and
+projects may also mix multiple family-backed runtime units:
 
 ```json
 {
@@ -94,10 +99,12 @@ When multiple family-backed units are loaded:
 At runtime, the harness now derives a compatibility view before doing ordinary scene work:
 
 - staged source packs bridge into the current family-backed compatibility path
-- legacy family packages may still be loaded directly during migration
+- legacy family packages may still be loaded directly as transitional compatibility inputs for migration and test coverage
 - the runtime consumes a `TileLibraryUnit` compatibility surface carrying only the runtime data and lookups needed for normal scene work
+- that compatibility surface now also carries the runtime-relevant metadata explicitly promoted from staged source manifests: source-pack identity, selected source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and any documented hints that were explicitly promoted for runtime/tooling use
 - loaded units are wrapped in `TileLibraryRegistry`, which owns cross-unit construction and alias lookup
 - hot-path runtime tasks such as variant-backed tileset registration, ref resolution, construction lookup, and bounds-aware validation now go through that compatibility surface instead of reaching straight through the raw family object
+- behavioural tests now also prove that once those compatibility units are built, ordinary runtime scene work still succeeds even if the staged source manifests and ingest/layout manifests are removed from disk
 
 Projects still own:
 

@@ -18,6 +18,7 @@ from PIL import Image
 
 from _manifest_utils import GridBounds, bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
 from compatibility_family import CompatibilityFamilyPaths
+from tile_metadata import ModuleContextValue, RenderTraits
 
 PHYSICAL_TILE_RE = re.compile(r"^(?P<family>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$")
 VARIANT_TILE_RE = re.compile(
@@ -597,6 +598,30 @@ class TileFamilyHeader:
     default_variant_id: str
 
 
+def _empty_tile_library_module_context() -> dict[str, ModuleContextValue]:
+    return {}
+
+
+@dataclass(frozen=True)
+class TileLibraryPromotedMetadata:
+    source_pack_id: str | None = None
+    source_tileset_id: str | None = None
+    source_tilesheet_id: str | None = None
+    module_context: Mapping[str, ModuleContextValue] = field(
+        default_factory=_empty_tile_library_module_context,
+        repr=False,
+    )
+    render_traits: RenderTraits = field(default_factory=RenderTraits)
+    documented_hints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "module_context", MappingProxyType(dict(self.module_context)))
+        object.__setattr__(self, "documented_hints", tuple(self.documented_hints))
+
+
+EMPTY_TILE_LIBRARY_PROMOTED_METADATA = TileLibraryPromotedMetadata()
+
+
 @dataclass(frozen=True)
 class FamilyCatalogSources:
     paths: CompatibilityFamilyPaths
@@ -842,6 +867,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     render_step_width: int | None
     render_step_height: int | None
     default_variant_id: str
+    promoted_metadata: TileLibraryPromotedMetadata = field(repr=False)
     root: Path = field(repr=False)
     variants: Mapping[str, TileFamilyVariant] = field(repr=False)
     tiles: Mapping[str, TileRecord] = field(repr=False)
@@ -858,6 +884,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             render_step_width=family.render_step_width,
             render_step_height=family.render_step_height,
             default_variant_id=family.default_variant_id,
+            promoted_metadata=family.promoted_metadata,
             root=family.root,
             variants=family.variants,
             tiles=family.tiles,
@@ -2122,6 +2149,10 @@ def _validate_alias_targets(
     tiles: Mapping[str, TileRecord],
 ) -> None:
     for alias, tile_id in alias_map.items():
+        if alias in tiles:
+            raise ValueError(
+                f"Alias {alias!r} collides with tile id of the same name in the loaded family"
+            )
         if tile_id not in tiles:
             raise ValueError(f"Alias {alias!r} points at unknown tile id {tile_id!r}")
 
@@ -2207,6 +2238,7 @@ class TileFamily:
         self,
         *,
         header: TileFamilyHeader,
+        promoted_metadata: TileLibraryPromotedMetadata = EMPTY_TILE_LIBRARY_PROMOTED_METADATA,
         source_layout: SourceLayoutIngestion | None,
         variants: dict[str, TileFamilyVariant],
         clusters: dict[str, TileClusterRecord],
@@ -2216,6 +2248,7 @@ class TileFamily:
         constructions: Mapping[str, Construction] | None = None,
     ) -> None:
         self.header = header
+        self.promoted_metadata = promoted_metadata
         self.source_layout = source_layout
         self.variants = MappingProxyType(dict(variants))
         self.clusters = MappingProxyType(dict(clusters))
@@ -2295,6 +2328,7 @@ class TileFamily:
         variants: Mapping[str, TileFamilyVariant],
         catalog: FamilyCatalogSources,
         source_layout: SourceLayoutIngestion | None,
+        promoted_metadata: TileLibraryPromotedMetadata = EMPTY_TILE_LIBRARY_PROMOTED_METADATA,
     ) -> TileFamily:
         root = header.root
         if not variants:
@@ -2367,6 +2401,7 @@ class TileFamily:
 
         return cls(
             header=header,
+            promoted_metadata=promoted_metadata,
             source_layout=source_layout,
             variants=dict(variants),
             clusters=clusters,

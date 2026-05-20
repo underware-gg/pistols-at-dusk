@@ -333,6 +333,16 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(family.render_step_height, 8)
             self.assertTrue(family.siblings_share_semantics)
             self.assertEqual(family.notes, ("Legacy overworld compatibility note.",))
+            promoted_metadata = family.runtime_unit.promoted_metadata
+            self.assertEqual(promoted_metadata.source_pack_id, "demo-pack")
+            self.assertEqual(promoted_metadata.source_tileset_id, "demo.base")
+            self.assertEqual(promoted_metadata.source_tilesheet_id, "overworld")
+            self.assertEqual(tuple(promoted_metadata.module_context.keys()), ("theme", "domain"))
+            self.assertEqual(promoted_metadata.module_context["theme"].value_id, "default")
+            self.assertEqual(promoted_metadata.module_context["domain"].value_id, "world")
+            self.assertEqual(promoted_metadata.render_traits.background_treatment, "transparent")
+            self.assertEqual(promoted_metadata.render_traits.alignment_origin, "bottom_left")
+            self.assertEqual(promoted_metadata.documented_hints, ("Legacy overworld compatibility note.",))
             self.assertEqual(tuple(family.variants.keys()), ("base", "bg"))
             self.assertEqual(len(family.tiles), 1)
             self.assertEqual(len(family.aliases), 1)
@@ -353,6 +363,10 @@ class SourceManifestBridgeTests(unittest.TestCase):
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
             self.assertEqual(family.notes, ("Legacy overworld compatibility note.",))
+            self.assertEqual(
+                family.runtime_unit.promoted_metadata.documented_hints,
+                ("Legacy overworld compatibility note.",),
+            )
 
     def test_bridge_uses_staged_notes_when_legacy_family_notes_are_omitted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -367,6 +381,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
             self.assertEqual(family.notes, ("Staged overworld note.",))
+            self.assertEqual(family.runtime_unit.promoted_metadata.documented_hints, ("Staged overworld note.",))
 
     def test_bridge_uses_legacy_title_when_logical_tilesheet_title_is_omitted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -418,6 +433,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
             self.assertEqual(family.notes, ())
+            self.assertEqual(family.runtime_unit.promoted_metadata.documented_hints, ())
 
     def test_bridge_rejects_logical_tilesheet_without_compatibility_family(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

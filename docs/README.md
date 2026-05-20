@@ -26,4 +26,11 @@ Agents arrive via [AGENTS.md](../AGENTS.md). Humans typically arrive via the rep
 
 ## Current focus
 
-The Minimal 8 ingestion subsystem is the project's first substantive surface. Canonical metadata lives at [prototypes/minimal8-harness/tile-families/minimal8](../prototypes/minimal8-harness/tile-families/minimal8); related decisions are in the [decisions router](architecture/decisions/README.md).
+The Minimal 8 ingestion subsystem is the project's first substantive surface.
+The active source-side entrypoint now lives at
+[prototypes/minimal8-harness/tile-packs/minimal8](../prototypes/minimal8-harness/tile-packs/minimal8),
+while
+[prototypes/minimal8-harness/tile-families/minimal8](../prototypes/minimal8-harness/tile-families/minimal8)
+remains the transitional compatibility bundle consumed through the current
+family-backed runtime path. Related decisions are in the
+[decisions router](architecture/decisions/README.md).

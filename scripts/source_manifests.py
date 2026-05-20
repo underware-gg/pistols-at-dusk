@@ -19,6 +19,7 @@ from PIL import Image
 
 from _manifest_utils import GridBounds, bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
 from compatibility_family import CompatibilityFamilyPaths
+from tile_metadata import ModuleContextValue, RenderTraits
 
 MANIFEST_ID_RE = re.compile(r"^[a-z0-9_.-]+$")
 
@@ -29,24 +30,6 @@ ChildT = TypeVar("ChildT")
 class GridSize:
     tile_width: int
     tile_height: int
-
-
-@dataclass(frozen=True)
-class RenderTraits:
-    occupancy_style: str | None = None
-    gutter_policy: str | None = None
-    background_treatment: str | None = None
-    alignment_origin: str | None = None
-    occlusion_mode: str | None = None
-
-    def merged(self, overrides: RenderTraits) -> RenderTraits:
-        return RenderTraits(
-            occupancy_style=overrides.occupancy_style or self.occupancy_style,
-            gutter_policy=overrides.gutter_policy or self.gutter_policy,
-            background_treatment=overrides.background_treatment or self.background_treatment,
-            alignment_origin=overrides.alignment_origin or self.alignment_origin,
-            occlusion_mode=overrides.occlusion_mode or self.occlusion_mode,
-        )
 
 
 @dataclass(frozen=True)
@@ -73,14 +56,6 @@ class CompatibilityFamilySource:
     render_step_height: int | None = None
     siblings_share_semantics: bool | None = None
     notes: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class ModuleContextValue:
-    axis_id: str
-    value_id: str
-    label: str | None = None
-    notes: str | None = None
 
 
 @dataclass(frozen=True)

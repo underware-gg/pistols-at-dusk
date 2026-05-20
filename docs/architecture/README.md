@@ -10,9 +10,10 @@ Phase 4 is actively reshaping the ingest side:
 - a one-way bridge adapts those staged source manifests into the current family-backed compatibility path
 - the Minimal 8 project now enters through that staged source-pack path
 - the runtime still consumes `TileLibraryUnit` / `TileLibraryRegistry` rather than source manifests directly
+- `TileLibraryUnit` now carries the runtime-relevant metadata explicitly promoted from the staged source manifests: source-pack identity, source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and documented hints that were intentionally promoted for runtime/tooling use
 
 During the transition, detailed ingest/runtime metadata is split across the
-staged source-manifest hierarchy and the legacy family compatibility bundle:
+staged source-manifest hierarchy and the transitional family compatibility bundle:
 
 1. **Pack / tileset / logical tilesheet manifests**
    - grid facts
@@ -38,7 +39,8 @@ The harness runtime now derives a compatibility surface over that package:
 
 That split keeps the source of truth aligned with the asset itself while also giving the runtime a narrower seam:
 
-- sheet facts and provenance live with the family package
+- sheet facts and source-side provenance live with the staged pack / tileset / logical-tilesheet manifests
+- the compatibility family bundle remains an adapter payload for the current runtime/library path
 - semantic meaning still lives with tiles, aliases, and constructions
 - constructions define legal multi-tile arrangements without becoming scene instances
 - scene composition consumes a runtime-facing library surface instead of inventing semantics on demand
@@ -48,7 +50,7 @@ That split keeps the source of truth aligned with the asset itself while also gi
 - Loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
 - Harness entrypoint: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py)
 - Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
-- Minimal 8 family package: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
+- Minimal 8 compatibility bundle: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
 In the current phase:
 
@@ -62,6 +64,7 @@ In the current phase:
   - family-backed ref resolution
   - construction and entity-template lookup
   - bounds-aware family ref validation
+- once the compatibility units are built, ordinary runtime scene work no longer requires the staged source manifests or ingest/layout manifests to remain on disk
 - when more than one family-backed unit is loaded, the project must nominate an explicit `default_tileset` for bare ref resolution
 - the runtime registry owns cross-unit routing for explicit family refs and unique family-owned aliases/tile ids
 - inspect/export/audit flows may still use `TileFamily` directly while this boundary extraction is in progress

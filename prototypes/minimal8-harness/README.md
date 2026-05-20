@@ -21,11 +21,13 @@ deliberately matching a canonical exception.
 ## Files
 
 - [project.minimal8.json](project.minimal8.json)
-- [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
-- [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
-- [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
-- [tile-families/minimal8](tile-families/minimal8)
-- [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
+- active source-pack entrypoint:
+  - [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
+  - [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
+  - [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
+- transitional compatibility bundle:
+  - [tile-families/minimal8](tile-families/minimal8)
+  - [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
 - [assets/utility_land_undercoat.png](assets/utility_land_undercoat.png)
 - [tile_families.py](../../scripts/tile_families.py)
 - [minimal8_engine_smoke.json](layouts/minimal8_engine_smoke.json)
@@ -219,7 +221,7 @@ treat padded ornamental walls like seamless bricks.
 
 ## Useful Commands
 
-Bootstrap a brand new family package from any grid-aligned sheet:
+Bootstrap a brand new compatibility family bundle from any grid-aligned sheet:
 
 ```bash
 python3 scripts/minimal8_harness.py bootstrap-family \
@@ -228,6 +230,10 @@ python3 scripts/minimal8_harness.py bootstrap-family \
   --tile-width 8 \
   --tile-height 8
 ```
+
+That command still scaffolds the family-shaped compatibility bundle. The staged
+source-pack manifests remain the primary committed entrypoint and currently need
+to be added around that bundle explicitly.
 
 Scaffold a metatile snippet from a selected grid rectangle:
 
@@ -425,11 +431,11 @@ review packs are meant to be versioned in git so collection feedback does not
 get lost when a new export is generated later. New rounds are additive rather
 than overwrite-in-place.
 
-The project now points at a shared family package plus a generic tile-family
-loader. That canonical metadata layer gives the harness and any scene-layout
-experiments one shared understanding of things like quiet floors, tavern
-fixtures, underworld walls, door variants, usage, contrast, clusters, and
-semantic aliases.
+The project now points at a staged source-pack entrypoint that bridges into a
+shared compatibility family bundle plus the generic tile-family loader. That
+combined metadata layer gives the harness and any scene-layout experiments one
+shared understanding of things like quiet floors, tavern fixtures, underworld
+walls, door variants, usage, contrast, clusters, and semantic aliases.
 
 That means the inspect/export path is no longer just geometry:
 

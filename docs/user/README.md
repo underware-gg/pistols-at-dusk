@@ -6,13 +6,19 @@
 
 1. Prepare a grid-aligned source sheet.
 2. Run `python3 scripts/minimal8_harness.py bootstrap-family <sheet> <output_dir> --tile-width <w> --tile-height <h>`.
-3. Fill in the generated family package:
+3. Treat the generated family bundle as the current compatibility/bootstrap layer, not the final source-side entrypoint.
+4. Fill in the generated compatibility bundle:
    - `family.json` for grid and variant metadata
    - `ingestion.json` for source-sheet regions, clusters, and collections
    - `clusters.json` for semantic groupings on the sheet
    - `tiles.json` for per-tile semantics
      and direct `sheet_col` / `sheet_row` provenance on sheet-backed tiles
    - `aliases.json` for canonical semantic names
+5. Hand-author the staged source-pack manifests after bootstrap so they point at that populated bundle:
+   - `pack.json`
+   - `tilesets/<name>.json`
+   - `tilesheets/<name>.json`
+6. Point projects at the staged source-pack entrypoint with `tile_family.source_pack`, `tileset_id`, and `tilesheet_id`.
 
 ### Inspect a family or selected variant
 
@@ -84,8 +90,8 @@ Current Minimal 8 example:
 }
 ```
 
-Legacy projects may still point `tile_family.path` at a direct family package while
-Phase 4 migration remains in progress.
+Direct `tile_family.path` loading still exists as a transitional fallback, but
+the primary committed project path is now `tile_family.source_pack`.
 
 You can still explicitly reference another loaded variant using direct sheet address syntax:
 

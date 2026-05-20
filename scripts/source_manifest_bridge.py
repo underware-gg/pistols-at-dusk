@@ -8,12 +8,17 @@ from pathlib import Path
 from typing import Callable, Mapping, TypeVar
 
 from compatibility_family import CompatibilityFamilyPaths
-from source_manifests import RenderVariantTilesheetManifest, TilePackManifest, load_tile_pack_manifest
+from source_manifests import (
+    RenderVariantTilesheetManifest,
+    TilePackManifest,
+    load_tile_pack_manifest,
+)
 from tile_families import (
     DEFAULT_TRANSPARENT_MODE,
     SourceLayoutIngestion,
     TileFamily,
     TileFamilyHeader,
+    TileLibraryPromotedMetadata,
     TileFamilyVariant,
     load_family_catalog_sources,
     load_family_header_and_variants,
@@ -99,6 +104,7 @@ def _resolve_optional_override(
 @dataclass(frozen=True)
 class BridgedFamilyInputs:
     header: TileFamilyHeader
+    promoted_metadata: TileLibraryPromotedMetadata
     variants: dict[str, TileFamilyVariant]
     compatibility_paths: CompatibilityFamilyPaths
     source_layout: SourceLayoutIngestion | None
@@ -193,6 +199,17 @@ def _build_bridged_family_inputs(
             notes=bridged_notes,
             default_variant_id=logical_tilesheet.default_variant_id,
         ),
+        promoted_metadata=TileLibraryPromotedMetadata(
+            source_pack_id=pack.id,
+            source_tileset_id=tileset.id,
+            source_tilesheet_id=logical_tilesheet.id,
+            module_context=dict(tileset.module_context),
+            render_traits=logical_tilesheet.render_traits,
+            # Until source-side manifests grow a narrower promotion selector,
+            # runtime hints intentionally mirror the notes that survive onto
+            # the bridged family itself.
+            documented_hints=bridged_notes,
+        ),
         variants=bridged_variants,
         compatibility_paths=compatibility.paths,
         source_layout=source_layout,
@@ -215,6 +232,7 @@ def bridge_logical_tilesheet_to_family(
         variants=inputs.variants,
         catalog=load_family_catalog_sources(inputs.compatibility_paths),
         source_layout=inputs.source_layout,
+        promoted_metadata=inputs.promoted_metadata,
     )
 
 

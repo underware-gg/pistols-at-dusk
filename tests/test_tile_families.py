@@ -960,6 +960,30 @@ class ConstructionLoaderTests(unittest.TestCase):
 
 
 class TileLibraryRegistryTests(unittest.TestCase):
+    def test_legacy_family_runtime_unit_defaults_promoted_metadata_to_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+
+            family = TileFamily.load(family_dir)
+
+            promoted_metadata = family.runtime_unit.promoted_metadata
+            self.assertIsNone(promoted_metadata.source_pack_id)
+            self.assertIsNone(promoted_metadata.source_tileset_id)
+            self.assertIsNone(promoted_metadata.source_tilesheet_id)
+            self.assertEqual(dict(promoted_metadata.module_context), {})
+            self.assertEqual(promoted_metadata.documented_hints, ())
+
+    def test_family_load_rejects_intra_family_alias_tile_id_collision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(
+                Path(temp_dir),
+                cluster_ids=["cluster.valid"],
+                alias_name="testfam:all:0,0",
+            )
+
+            with self.assertRaisesRegex(ValueError, "Alias 'testfam:all:0,0' collides with tile id"):
+                TileFamily.load(family_dir)
+
     def test_registry_over_disjoint_units_preserves_alias_and_construction_lookup(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
