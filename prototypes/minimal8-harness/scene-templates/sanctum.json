@@ -16,7 +16,7 @@
     "inner_y": {"type": "int", "required": false, "description": "Explicit top tile coordinate for the inner chamber."},
     "inner_width": {"type": "int", "required": false, "description": "Explicit width of the inner chamber in tiles."},
     "inner_height": {"type": "int", "required": false, "description": "Explicit height of the inner chamber in tiles."},
-    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the focal doorway."},
+    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or pattern reference for the focal doorway."},
     "door_x": {"type": "int", "required": false, "description": "Explicit doorway X coordinate instead of centering."},
     "door_y": {"type": "int", "required": false, "description": "Explicit doorway Y coordinate instead of the default focal row."}
   },

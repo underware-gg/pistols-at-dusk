@@ -33,7 +33,7 @@
     "render_step_height": 8,
     "siblings_share_semantics": true,
     "notes": [
-      "Transitional compatibility bundle for the current family-backed runtime path during the Phase 4 Minimal 8 migration."
+      "Transitional compatibility bundle for the current family-backed runtime path."
     ]
   },
   "render_variants": [

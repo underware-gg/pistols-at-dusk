@@ -6,7 +6,7 @@
     "tile_height": 8
   },
   "notes": [
-    "Phase 4 source-side pack entrypoint for Minimal 8. Runtime work must still go through the compatibility/library boundary rather than reading this manifest directly."
+    "Source-side pack entrypoint for Minimal 8. Runtime work must still go through the compatibility/library boundary rather than reading this manifest directly."
   ],
   "tilesets": [
     {

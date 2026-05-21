@@ -119,7 +119,8 @@ class SpreadStampsFields(TypedDict):
 
 
 # entity has no runtime SceneOp variant. It expands to StampOps during scene
-# expansion. params is accepted but ignored for kind=metatile in this step.
+# expansion. params is accepted but currently ignored during entity -> stamp
+# expansion.
 class _EntityFieldsRequired(TypedDict):
     construction: object
     x: object

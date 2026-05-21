@@ -4,7 +4,7 @@
 
 The current prototype now has a clearer boundary between source-shaped ingestion data and the runtime surface that scene composition consumes.
 
-Phase 4 is actively reshaping the ingest side:
+The current ingest/runtime boundary is:
 
 - staged pack / tileset / logical-tilesheet manifests now exist on the source side
 - a one-way bridge adapts those staged source manifests into the current family-backed compatibility path
@@ -12,8 +12,8 @@ Phase 4 is actively reshaping the ingest side:
 - the runtime still consumes `TileLibraryUnit` / `TileLibraryRegistry` rather than source manifests directly
 - `TileLibraryUnit` now carries the runtime-relevant metadata explicitly promoted from the staged source manifests: source-pack identity, source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and documented hints that were intentionally promoted for runtime/tooling use
 
-During the transition, detailed ingest/runtime metadata is split across the
-staged source-manifest hierarchy and the transitional family compatibility bundle:
+Detailed ingest/runtime metadata is split across the staged source-manifest
+hierarchy and the transitional family compatibility bundle:
 
 1. **Pack / tileset / logical tilesheet manifests**
    - grid facts
@@ -52,7 +52,7 @@ That split keeps the source of truth aligned with the asset itself while also gi
 - Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
 - Minimal 8 compatibility bundle: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
-In the current phase:
+In the current implementation:
 
 - `tile_families.py` still owns loading, validation, provenance, and rich source-family queries
 - `source_manifests.py` owns the staged pack / tileset / logical-tilesheet source hierarchy
@@ -67,7 +67,7 @@ In the current phase:
 - once the compatibility units are built, ordinary runtime scene work no longer requires the staged source manifests or ingest/layout manifests to remain on disk
 - when more than one family-backed unit is loaded, the project must nominate an explicit `default_tileset` for bare ref resolution
 - the runtime registry owns cross-unit routing for explicit family refs and unique family-owned aliases/tile ids
-- inspect/export/audit flows may still use `TileFamily` directly while this boundary extraction is in progress
+- inspect/export/audit flows may still use `TileFamily` directly as a richer source-facing tool surface outside the runtime boundary
 
 Scene templates now expand in two phases:
 

@@ -260,11 +260,37 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
             "grid": {"tile_width": 8, "tile_height": 8},
             "tilesets": {},
             "aliases": {},
-            "metatiles": {},
+            "patterns": {},
             "box_styles": {},
         },
     )
     return family_dir, project_path
+
+
+def _make_project_with_patterns(
+    root: Path,
+    *,
+    patterns: dict[str, object] | None = None,
+) -> Path:
+    sheet_path = root / "sheet.png"
+    Image.new("RGBA", (16, 8), (1, 2, 3, 255)).save(sheet_path)
+
+    project_path = root / "project.json"
+    payload: dict[str, object] = {
+        "scene_templates_dir": str(ROOT / "prototypes/minimal8-harness/scene-templates"),
+        "grid": {"tile_width": 8, "tile_height": 8},
+        "tilesets": {
+            "sheet": {
+                "sheet": str(sheet_path),
+                "transparent": "none",
+                "regions": {"all": {"x": 0, "y": 0, "width": 2, "height": 1}},
+            }
+        },
+    }
+    if patterns is not None:
+        payload["patterns"] = patterns
+    _write_json(project_path, payload)
+    return project_path
 
 
 def _make_minimal_family_dir(
@@ -431,7 +457,7 @@ def _make_multi_family_project(
         "grid": {"tile_width": 8, "tile_height": 8},
         "tilesets": {},
         "aliases": {},
-        "metatiles": {},
+        "patterns": {},
         "box_styles": {},
     }
     if default_tileset is not None:
@@ -491,7 +517,7 @@ def _make_composite_tileset_project(root: Path) -> Path:
                 "sample.overlay.fill_cell": {"ref": "1,0", "occlusion": "fill_cell"},
                 "sample.overlay.fill_holes": {"ref": "3,0", "occlusion": "fill_holes"},
             },
-            "metatiles": {},
+            "patterns": {},
             "box_styles": {},
         },
     )
@@ -618,7 +644,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -761,7 +787,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -795,7 +821,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -825,7 +851,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -847,7 +873,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -872,7 +898,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                         "grid": {"tile_width": 8, "tile_height": 8},
                         "tilesets": {},
                         "aliases": {},
-                        "metatiles": {},
+                        "patterns": {},
                         "box_styles": {},
                     },
                 )
@@ -898,7 +924,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -923,7 +949,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -958,7 +984,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -993,7 +1019,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "grid": {"tile_width": 8, "tile_height": 8},
                     "tilesets": {},
                     "aliases": {},
-                    "metatiles": {},
+                    "patterns": {},
                     "box_styles": {},
                 },
             )
@@ -1600,17 +1626,92 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertIsNone(bottom_right.cells[0][0])
         self.assertIsNone(bottom_right.cells[1][1])
 
-    def test_minimal8_grand_open_door_is_available_as_pattern_and_construction(self) -> None:
+    def test_project_patterns_are_the_active_named_pattern_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_path = _make_project_with_patterns(
+                Path(temp_dir),
+                patterns={
+                    "sample_corner": {
+                        "tileset": "sheet",
+                        "rows": [["0,0", "1,0"]],
+                    }
+                },
+            )
+
+            project = harness.LayoutProject(project_path)
+            pattern = project.pattern_from_ref("@sample_corner")
+
+            self.assertEqual(project.pattern_names(), ["sample_corner"])
+            self.assertEqual(pattern.width, 2)
+            self.assertEqual(pattern.height, 1)
+
+    def test_project_rejects_legacy_metatiles_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            Image.new("RGBA", (16, 8), (1, 2, 3, 255)).save(temp_root / "sheet.png")
+            project_path = temp_root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "scene_templates_dir": str(ROOT / "prototypes/minimal8-harness/scene-templates"),
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {
+                        "sheet": {
+                            "sheet": str(temp_root / "sheet.png"),
+                            "transparent": "none",
+                            "regions": {"all": {"x": 0, "y": 0, "width": 2, "height": 1}},
+                        }
+                    },
+                    "metatiles": {
+                        "legacy_corner": {
+                            "tileset": "sheet",
+                            "rows": [["0,0", "1,0"]],
+                        }
+                    }
+                },
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "metatiles",
+            ):
+                harness.LayoutProject(project_path)
+
+    def test_minimal8_grand_open_door_resolves_as_construction(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = harness.LayoutProject(project_path)
-        pattern = project.pattern_from_ref("@indoors_door_grand_open")
-        self.assertEqual(pattern.width, 2)
-        self.assertEqual(pattern.height, 2)
+
+        with self.assertRaisesRegex(ValueError, "Unknown pattern: indoors_door_grand_open"):
+            project.pattern_from_ref("@indoors_door_grand_open")
 
         family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
         assert family is not None
         construction = family.lookup_construction("indoors.door.grand.open")
         self.assertIsNotNone(construction)
+
+    def test_minimal8_overworld_land_undercoat_resolves_as_alias(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        resolved = project.resolve_tile("overworld_land_undercoat")
+        tileset = project.get_tileset(resolved.tileset_id)
+        self.assertEqual(resolved.tileset_id, "utility_land")
+        self.assertEqual(tileset.col_row_from_index(resolved.require_index()), (0, 0))
+
+        with self.assertRaisesRegex(ValueError, "Unknown pattern: overworld_land_undercoat"):
+            project.pattern_from_ref("@overworld_land_undercoat")
+
+    def test_minimal8_overworld_route_node_resolves_as_alias(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project = harness.LayoutProject(project_path)
+
+        resolved = project.resolve_tile("overworld_route_node")
+        tileset = project.get_tileset(resolved.tileset_id)
+        self.assertEqual(resolved.tileset_id, "minimal8@1bit_colored_bg")
+        self.assertEqual(tileset.col_row_from_index(resolved.require_index()), (20, 12))
+
+        with self.assertRaisesRegex(ValueError, "Unknown pattern: overworld_route_node"):
+            project.pattern_from_ref("@overworld_route_node")
 
     def test_export_layout_scene_runtime_preserves_resolved_entities(self) -> None:
         layout_path = ROOT / "prototypes/minimal8-harness/layouts/fool_and_flintlock.json"
@@ -1661,13 +1762,13 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertEqual(occupied, {(0, 0), (1, 0), (2, 0), (0, 1), (0, 2)})
         self.assertEqual(len(entity.affordance_cells), 5)
 
-    def test_metatile_catalog_previews_use_grid_aligned_dimensions(self) -> None:
+    def test_pattern_catalog_previews_use_grid_aligned_dimensions(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = harness.LayoutProject(project_path)
 
         catalog = {
             entry["name"]: entry
-            for entry in harness.build_metatile_catalog(project, tileset_id="minimal8@1bit_colored_bg")
+            for entry in harness.build_pattern_catalog(project, tileset_id="minimal8@1bit_colored_bg")
         }
 
         self.assertEqual(catalog["temple_maze_corner"]["width_pixels"], 24)
@@ -1992,7 +2093,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "non_empty_tiles.png",
                     "tile_edges.json",
                     "seam_candidate_tiles.png",
-                    "metatiles.json",
+                    "patterns.json",
                     "box_styles.json",
                     "source_layout.json",
                     "source_layout.detected.json",
@@ -2016,20 +2117,20 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
             starter_map = json.loads((output_dir / "starter_c64_room.tmj").read_text(encoding="utf-8"))
             cells_catalog = json.loads((output_dir / "cells_catalog.json").read_text(encoding="utf-8"))
-            metatiles_catalog = json.loads((output_dir / "metatiles_catalog.json").read_text(encoding="utf-8"))
+            patterns_catalog = json.loads((output_dir / "patterns_catalog.json").read_text(encoding="utf-8"))
             semantic_catalog = json.loads((output_dir / "semantic_catalog.json").read_text(encoding="utf-8"))
 
             self.assertTrue((output_dir / "cells.tsx").exists())
-            self.assertTrue((output_dir / "metatiles.tsx").exists())
+            self.assertTrue((output_dir / "patterns.tsx").exists())
             self.assertTrue((output_dir / "README.md").exists())
             self.assertTrue((output_dir / "cells").is_dir())
-            self.assertTrue((output_dir / "metatiles").is_dir())
+            self.assertTrue((output_dir / "patterns").is_dir())
             self.assertEqual(starter_map["tilewidth"], 8)
             self.assertEqual(starter_map["tileheight"], 8)
             self.assertEqual(len(starter_map["tilesets"]), 2)
             self.assertEqual(starter_map["tilesets"][1]["firstgid"], 1089)
             self.assertEqual(len(cells_catalog), 1088)
-            self.assertGreater(len(metatiles_catalog), 0)
+            self.assertGreater(len(patterns_catalog), 0)
             self.assertGreater(len(semantic_catalog), 0)
 
     def test_export_tiled_kit_clears_stale_outputs(self) -> None:
@@ -2070,6 +2171,8 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(payload["grid"], {"tile_width": 8, "tile_height": 8})
             self.assertIn("sheet", payload["tilesets"])
             self.assertEqual(payload["tilesets"]["sheet"]["regions"]["all"], {"x": 0, "y": 0, "width": 2, "height": 1})
+            self.assertEqual(payload["patterns"], {})
+            self.assertNotIn("metatiles", payload)
 
     def test_bootstrap_project_rejects_non_divisible_sheet_sizes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

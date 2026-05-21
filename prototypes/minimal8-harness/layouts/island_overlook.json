@@ -68,7 +68,7 @@
       "ops": [
         {
           "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
+          "ref": "overworld_land_undercoat",
           "x": 0,
           "y": 22,
           "rows": [
@@ -94,7 +94,7 @@
         },
         {
           "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
+          "ref": "overworld_land_undercoat",
           "x": 0,
           "y": 14,
           "rows": [
@@ -117,7 +117,7 @@
         },
         {
           "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
+          "ref": "overworld_land_undercoat",
           "x": 24,
           "y": 18,
           "rows": [
@@ -132,7 +132,7 @@
         },
         {
           "kind": "mask_fill",
-          "ref": "@overworld_land_undercoat",
+          "ref": "overworld_land_undercoat",
           "x": 38,
           "y": 11,
           "rows": [

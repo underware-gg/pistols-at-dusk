@@ -708,7 +708,6 @@ class TavernSceneTests(unittest.TestCase):
 
         architecture_stamps = _stamp_refs(layers, "architecture")
         self.assertIn("indoors.door.small.open", architecture_stamps)
-        self.assertIn("@indoors_door_grand_closed", architecture_stamps)
         self.assertIn("indoors.stairs.down", architecture_stamps)
         self.assertNotIn("indoors.stairs.up", architecture_stamps)
 
@@ -724,6 +723,12 @@ class TavernSceneTests(unittest.TestCase):
         )
 
         self.assertGreater(len(runtime.entities), 0)
+        grand_doors = [
+            entity
+            for entity in runtime.entities
+            if entity.template.construction_id == "indoors.door.grand.closed"
+        ]
+        self.assertEqual(len(grand_doors), 1)
         rect_tables = [
             entity
             for entity in runtime.entities

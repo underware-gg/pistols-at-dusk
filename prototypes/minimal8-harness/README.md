@@ -4,7 +4,7 @@ This prototype is now built around the normal retro workflow:
 
 - slice a sheet on an exact logical grid
 - refer to cells by tile ID or `col,row`
-- define larger reusable `metatiles`
+- define larger reusable `patterns`
 - build maps as layered tile layouts
 - crop a viewport for export
 
@@ -21,6 +21,7 @@ deliberately matching a canonical exception.
 ## Files
 
 - [project.minimal8.json](project.minimal8.json)
+- [pattern-migration-inventory.md](pattern-migration-inventory.md)
 - active source-pack entrypoint:
   - [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
   - [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
@@ -50,7 +51,7 @@ Single tile:
 - `minimal8:terrain:0,7`
 - `19,9` if the layout sets `default_tileset`
 
-Metatile:
+Pattern:
 
 - `@meander_band`
 - `@door_arch`
@@ -74,16 +75,19 @@ resting on tables or counters.
 This visual overflow is a rendering feature for single-tile props and fixtures
 only. Logical placement, blocking, and scene occupancy still belong to the
 anchor cell. True multi-cell entities such as doors, counters, shelves, and
-other larger arrangements should continue to use constructions or metatiles.
-Actor occupancy and seated-pose composition remain a separate future layer.
+other entity-like arrangements should continue to use constructions, while
+project-level reusable non-entity snippets live under `patterns`. The committed
+routing inventory for the historical registry now lives in
+[pattern-migration-inventory.md](pattern-migration-inventory.md). Actor
+occupancy and seated-pose composition remain a separate future layer.
 
 ## Supported Layer Ops
 
-- `stamp`: place one tile or one metatile at `x,y`
-- `fill`: tile a rectangle using a tile or metatile pattern
+- `stamp`: place one tile or one pattern at `x,y`
+- `fill`: tile a rectangle using a tile or pattern
 - `mask_fill`: tile only the non-blank cells of a hand-authored mask shape
 - `scatter`: sparsely stamp one or more refs across a hand-authored mask using a seed
-- `repeat`: place the same tile or metatile `count` times using `dx,dy`
+- `repeat`: place the same tile or pattern `count` times using `dx,dy`
 - `box`: build a room/corridor frame from a reusable 9-slice-style box definition
 - `ascii`: compact grid authoring for tile placement
 
@@ -185,7 +189,7 @@ The project spec can define reusable box styles under `box_styles`.
 Those box styles can mix:
 
 - single-tile refs
-- metatiles
+- patterns
 - transformed refs with `flip_x` and `flip_y`
 - metadata like `edge_mode`, recommended scale, and minimum practical size
 
@@ -235,10 +239,10 @@ That command still scaffolds the family-shaped compatibility bundle. The staged
 source-pack manifests remain the primary committed entrypoint and currently need
 to be added around that bundle explicitly.
 
-Scaffold a metatile snippet from a selected grid rectangle:
+Scaffold a pattern snippet from a selected grid rectangle:
 
 ```bash
-python3 scripts/minimal8_harness.py scaffold-metatile \
+python3 scripts/minimal8_harness.py scaffold-pattern \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset minimal8_bg_1bit_colored \
   --name door_arch \
@@ -286,7 +290,8 @@ Minimal 8 now enters through staged source manifests in
 and [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json).
 The current tilesheet manifest still points at
 [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
-for the source-layout payload during the Phase 4 transition:
+for the source-layout payload through the current transitional
+compatibility/source-layout adapter:
 
 - `regions` describe the top-level ingest areas on the raw sheet
 - `clusters` describe bounded subgroups inside those regions
@@ -316,7 +321,7 @@ values:
 python3 scripts/minimal8_harness.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
-That report surfaces family aliases, project aliases, metatile cells, box-style
+That report surfaces family aliases, project aliases, pattern cells, box-style
 refs, and explicit layout refs that still land on non-confirmed family
 meanings, so ingest can expose semantic contradictions instead of silently
 papering them over.
@@ -331,7 +336,7 @@ That writes `source_layout.detected.json` with suggested regions, clusters, and
 connected multi-tile component candidates derived from non-empty grid cells on
 the canonical review sheet.
 
-That inspection now also exports a metatile preview/contact sheet based on the
+That inspection now also exports a pattern preview/contact sheet based on the
 project spec, plus `box_styles.json`, `box_styles.png`, `tile_edges.json`, and
 `seam_candidate_tiles.png` for wall-family and edge-contact inspection.
 
@@ -379,7 +384,7 @@ python3 scripts/minimal8_harness.py export-tiled-kit prototypes/minimal8-harness
 The Tiled kit now contains:
 
 - `cells.tsx` for raw `8x8` cells from the full spritesheet import
-- `metatiles.tsx` for larger reusable structures derived from the project spec
+- `patterns.tsx` for larger reusable structures and snippets derived from the project spec
 - `starter_c64_room.tmj` with tile layers plus object layers for prefab use
 
 By default that kit is written under `prototypes/minimal8-harness/scratch.local/tiled-kit/`.
@@ -452,8 +457,8 @@ Instead it works from:
 
 1. sheet metadata
 2. grid coordinates
-3. reusable metatiles
+3. reusable patterns
 4. logical map layers
-5. editor-facing exports for both cells and metatiles
+5. editor-facing exports for both cells and patterns
 
 That makes it reusable for this sheet and for other grid-based sheets later.

@@ -2,9 +2,9 @@
 
 ## Compatibility Family Package Format
 
-During Phase 4, the active source-side ingest truth is the staged pack /
-tileset / logical-tilesheet hierarchy. The current runtime compatibility bundle
-is still a directory package
+The active source-side ingest truth is the staged pack / tileset /
+logical-tilesheet hierarchy. The current runtime compatibility bundle is still a
+directory package
 with manifests for variant metadata, source-sheet layout, semantics, and aliases:
 
 - `family.json`
@@ -36,7 +36,7 @@ Minimal 8 now enters through the staged pack / tileset / logical-tilesheet
 manifest hierarchy. The legacy family package remains the transitional
 compatibility bundle that feeds the current runtime/library path.
 
-Phase 4 Step 2 also adds [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py), a one-way transitional adapter that lets those staged source manifests feed the current family-backed compatibility/runtime path without making the source manifests themselves a runtime dependency.
+[scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) is the one-way transitional adapter that lets those staged source manifests feed the current family-backed compatibility/runtime path without making the source manifests themselves a runtime dependency.
 
 ## Addressing Formats
 
@@ -108,7 +108,7 @@ At runtime, the harness now derives a compatibility view before doing ordinary s
 
 Projects still own:
 
-- metatiles
+- patterns
 - box styles
 - scene templates
 - local extra tilesets such as utility undercoats
@@ -157,9 +157,9 @@ The engine does not parse freeform human notes automatically in this pass.
 The functional content of the codebase is also documented co-located with the modules and tracks themselves:
 
 - [scripts/README.md](../../scripts/README.md) — shared engine modules: harness CLI, tile-family loader, scene-template DSL, scene-rules loader, and render output helpers.
-- [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the Phase 4 ingest refactor.
+- [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the current ingest model.
 - [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) — transitional one-way adapter from staged source manifests into `TileFamily` / `TileLibraryUnit` compatibility inputs.
-- [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / metatile / box-style authoring conventions and harness commands.
+- [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / pattern / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn a resolved render-grid transform into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens.
 - [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered `8x8` reference cells to a chosen family variant source sheet and report exact matches, candidate matches, and unresolved cells.

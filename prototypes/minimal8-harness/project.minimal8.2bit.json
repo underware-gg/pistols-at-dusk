@@ -29,7 +29,9 @@
   "aliases": {
     "floor_sparse": "10,20",
     "floor_sparse_alt": "11,20",
-    "floor_cluster": "6,20"
+    "floor_cluster": "6,20",
+    "overworld_land_undercoat": "utility_land:0,0",
+    "overworld_route_node": "20,12"
   },
   "box_styles": {
     "gold_ui_frame": {
@@ -255,7 +257,7 @@
       "fill": "@corridor_floor"
     }
   },
-  "metatiles": {
+  "patterns": {
     "gold_ui_corner": {
       "tileset": "minimal8@2bit_colored",
       "rows": [
@@ -582,32 +584,6 @@
           "3,13",
           "4,13",
           "5,13"
-        ]
-      ]
-    },
-    "indoors_door_grand_open": {
-      "tileset": "minimal8@2bit_colored",
-      "rows": [
-        [
-          "indoors.door.grand.open.tl",
-          "indoors.door.grand.open.tr"
-        ],
-        [
-          "indoors.door.grand.open.bl",
-          "indoors.door.grand.open.br"
-        ]
-      ]
-    },
-    "indoors_door_grand_closed": {
-      "tileset": "minimal8@2bit_colored",
-      "rows": [
-        [
-          "indoors.door.grand.closed.tl",
-          "indoors.door.grand.closed.tr"
-        ],
-        [
-          "indoors.door.grand.closed.bl",
-          "indoors.door.grand.closed.br"
         ]
       ]
     },
@@ -1552,14 +1528,6 @@
         ]
       ]
     },
-    "overworld_land_undercoat": {
-      "tileset": "utility_land",
-      "rows": [
-        [
-          "0,0"
-        ]
-      ]
-    },
     "overworld_nature_boundary_outer_4x4": {
       "tileset": "minimal8@2bit_colored",
       "rows": [
@@ -2014,14 +1982,6 @@
         "width": 12,
         "height": 6
       }
-    },
-    "overworld_route_node": {
-      "tileset": "minimal8@2bit_colored",
-      "rows": [
-        [
-          "20,12"
-        ]
-      ]
     },
     "water_lines": {
       "tileset": "minimal8@2bit_colored",

@@ -15,7 +15,7 @@
     "right_width": {"type": "int", "required": false, "description": "Right chamber width in tiles."},
     "bridge_height": {"type": "int", "required": false, "description": "Bridge height in tiles when the bridge span is enabled."},
     "bridge_y": {"type": "int", "required": false, "description": "Explicit top Y coordinate for the bridge span."},
-    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or metatile reference for the focal doorway."},
+    "door_ref": {"type": "tile_ref", "required": false, "description": "Tile or pattern reference for the focal doorway."},
     "door_target": {"type": "str", "required": false, "description": "Which chamber or bridge span the doorway should center on: left, right, or bridge."},
     "door_x": {"type": "int", "required": false, "description": "Explicit doorway X coordinate instead of centering."},
     "door_y": {"type": "int", "required": false, "description": "Explicit doorway Y coordinate instead of the default focal row."}

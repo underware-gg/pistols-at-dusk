@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source-side pack / tileset / tilesheet manifests for the Phase 4 ingest model.
+"""Source-side pack / tileset / tilesheet manifests for the staged ingest model.
 
 `source_layout` references remain intentionally opaque at this layer. This module
 validates only that a referenced file exists, while callers that need to

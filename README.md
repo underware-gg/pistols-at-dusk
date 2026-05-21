@@ -1,6 +1,6 @@
 # Pistols at Dusk
 
-[![Version](https://img.shields.io/badge/version-0.1.8-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](VERSION) ![Status](https://img.shields.io/badge/status-prototype-orange) ![Python](https://img.shields.io/badge/python-%E2%89%A53.12-3776AB?logo=python&logoColor=white)
 
 Pistols at Dusk game repository, currently centred on tileset and layout tooling:
 staged source-pack ingestion, family-backed compatibility/runtime units,
@@ -16,7 +16,7 @@ The Minimal 8 harness currently covers:
 - staged source-pack entrypoints bridged into family-backed compatibility/runtime units
 - compatibility-family bootstrap from grid-aligned source sheets for the current transitional ingest path
 - semantic tile catalogs with aliases, clusters, constructions, and source-layout ingestion metadata
-- grid-based layout rendering with layered ops, metatiles, transformed refs, underpaint, and reusable box styles
+- grid-based layout rendering with layered ops, patterns, constructions, transformed refs, underpaint, and reusable box styles
 - scene-template expansion for authored room grammar, including data-driven templates and deterministic slot population via scene rulesets
 - inspection and export tooling for family catalogs, scene-runtime snapshots, review packs, and public tile-pack outputs
 

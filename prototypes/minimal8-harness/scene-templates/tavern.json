@@ -45,12 +45,12 @@
     "base_floor": {
       "type": "tile_ref",
       "required": false,
-      "description": "Base floor tile or metatile reference."
+      "description": "Base floor tile or pattern reference."
     },
     "quiet_floor_refs": {
       "type": "list[tile_ref]",
       "required": false,
-      "description": "Tile or metatile references used for sparse floor scatter."
+      "description": "Tile or pattern references used for sparse floor scatter."
     },
     "quiet_floor_density": {
       "type": "float",
@@ -1882,11 +1882,11 @@
       }
     },
     {
-      "kind": "stamp",
+      "kind": "entity",
       "layer": {
         "bind": "architecture_layer"
       },
-      "ref": "@indoors_door_grand_closed",
+      "construction": "indoors.door.grand.closed",
       "x": {
         "bind": "door_x"
       },

@@ -1,6 +1,14 @@
 # Construction and Scene Architecture
 
-How the Minimal 8 stack composes tile-based scenes from atomic tiles, named multi-tile constructions, and recursive scenes. This is a current-state living document; decisions that shaped it are recorded under [decisions/](decisions).
+How the current stack, initially realised through Minimal 8, composes tile-based scenes from atomic tiles, named multi-tile constructions, and recursive scenes. This is a current-state living document; decisions that shaped it are recorded under [decisions/](decisions).
+
+This document should be read as the current composition-side baseline after the metatile-convergence phase, not as a speculative future design:
+
+- the staged source-pack ingest/runtime boundary is now complete elsewhere in the architecture
+- constructions, entity templates, and recursive scene placement are healthy and remain the right centre of gravity here
+- the project-level `metatiles` registry is gone as an active harness/project concept; project-local tile-grid snippets now live under explicit `patterns` consumed through `stamp`, `fill`, `repeat`, `box`, and similar pattern-oriented surfaces
+- former mixed-use registry entries have now been routed onto honest composition nouns: entity-shaped cases onto constructions, pure naming conveniences onto aliases/direct refs, and non-entity reusable snippets onto patterns
+- any future higher-order reusable authored arrangements should ride the existing scene/sub-scene system rather than reviving a generic peer registry
 
 ## Three layers
 
@@ -12,7 +20,7 @@ How the Minimal 8 stack composes tile-based scenes from atomic tiles, named mult
 
 ### Entity vs scene
 
-**Entity** is the supertype of placeable values: a tile reference, a metatile reference, or a construction reference with bound parameters. Anything that, given (x, y), occupies cells.
+**Entity** is the supertype of placeable values: a tile reference, a project pattern reference, or a construction reference with bound parameters. Anything that, given (x, y), occupies cells.
 
 **Scene** is *not* an entity. A scene is a procedure that emits entities into a coordinate space. When a parent scene places a sub-scene at (x, y), the sub-scene's contents unroll into the parent — function inlining, not nested placement. A scene is "top-level" by *use* (the scene the renderer is pointed at), not by data; the same artefact serves both top-level and nested roles.
 

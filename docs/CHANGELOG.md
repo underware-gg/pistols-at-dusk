@@ -8,6 +8,7 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.2.0](changelog/v0.2.0.md) | 2026-05-21 | Converge project metatiles under honest composition assets |
 | [v0.1.8](changelog/v0.1.8.md) | 2026-05-21 | Complete the Phase 4 staged source-pack runtime boundary |
 | [v0.1.7](changelog/v0.1.7.md) | 2026-05-19 | Bridge staged source packs into family-backed loading |
 | [v0.1.6](changelog/v0.1.6.md) | 2026-05-19 | Introduce staged pack, tileset, and tilesheet source manifests |

@@ -4,7 +4,7 @@ Shared engine code for the Minimal 8 layout harness and tile-family ingestion. T
 
 ## Modules
 
-- [source_manifests.py](source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the Phase 4 ingest refactor. This module is intentionally ingest-only; the runtime should continue to consume compatibility/library units rather than these manifests directly.
+- [source_manifests.py](source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the current ingest model. This module is intentionally ingest-only; the runtime should continue to consume compatibility/library units rather than these manifests directly.
 - [source_manifest_bridge.py](source_manifest_bridge.py) — one-way transitional adapter from the staged source manifests into the current family-backed compatibility pipeline. Keeps source-side module identity, module context, render traits, and documented hints explicit while promoting the runtime-relevant subset onto the `TileFamily` / `TileLibraryUnit` boundary.
 - [minimal8_harness.py](minimal8_harness.py) — harness CLI: layout rendering, family bootstrap, inspect/export, review-pack export, semantic queries. Project-specific runtime callbacks for the scene DSL and entity expansion.
 - [tile_families.py](tile_families.py) — generic tile-family loader and query model: family / cluster / tile catalogs, alias resolution, address parsing, construction loading and validation. Also exposes `TileLibraryUnit`, a self-contained runtime-facing compatibility view with promoted runtime metadata, and `TileLibraryRegistry`, the runtime registry over loaded units.

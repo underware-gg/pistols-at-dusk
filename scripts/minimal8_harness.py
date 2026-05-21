@@ -156,7 +156,7 @@ class ProjectTilesetConfig(TypedDict):
     regions: NotRequired[dict[str, ProjectTilesetRegionConfig]]
 
 
-class MetatileRectConfig(TypedDict):
+class PatternRectConfig(TypedDict):
     x: int
     y: int
     width: int
@@ -164,10 +164,10 @@ class MetatileRectConfig(TypedDict):
     tileset: NotRequired[str]
 
 
-class MetatileConfig(TypedDict, total=False):
+class PatternConfig(TypedDict, total=False):
     tileset: str
     rows: list[list[TileRefToken]]
-    rect: MetatileRectConfig
+    rect: PatternRectConfig
     trim: bool
 
 
@@ -199,7 +199,7 @@ class ProjectConfig(TypedDict, total=False):
     scene_rules_dir: str
     grid: ProjectGridConfig
     aliases: dict[str, TileRefToken]
-    metatiles: dict[str, MetatileConfig]
+    patterns: dict[str, PatternConfig]
     box_styles: dict[str, BoxStyleConfig]
     tilesets: dict[str, ProjectTilesetConfig]
 
@@ -919,7 +919,11 @@ class LayoutProject:
         grid = self.config.get("grid", {})
         self.grid_width, self.grid_height, self.render_step_width, self.render_step_height = self._resolve_grid_dimensions(grid)
         self.aliases: dict[str, TileRefToken] = dict(self.config.get("aliases", {}))
-        self.metatile_specs: dict[str, MetatileConfig] = dict(self.config.get("metatiles", {}))
+        if "metatiles" in self.config:
+            raise ValueError(
+                f"{self.project_path} config key `metatiles` is not supported; use `patterns`"
+            )
+        self.pattern_specs: dict[str, PatternConfig] = dict(self.config.get("patterns", {}))
         self.box_styles: dict[str, BoxStyleConfig] = dict(self.config.get("box_styles", {}))
         self.tilesets: dict[str, GridTileset] = self._build_project_tilesets()
         self._family_variant_ids_by_tileset: dict[str, str] = {}
@@ -1278,7 +1282,7 @@ class LayoutProject:
             index=target.index,
         )
 
-    def _validate_metatile_without_loading(
+    def _validate_pattern_without_loading(
         self,
         name: str,
         *,
@@ -1287,10 +1291,10 @@ class LayoutProject:
         if name in seen:
             cycle_start = seen.index(name)
             cycle_path = " -> ".join((*seen[cycle_start:], name))
-            raise ValueError(f"Metatile cycle detected: {cycle_path}")
-        if name not in self.metatile_specs:
-            raise ValueError(f"Unknown metatile: {name}")
-        spec = self.metatile_specs[name]
+            raise ValueError(f"Pattern cycle detected: {cycle_path}")
+        if name not in self.pattern_specs:
+            raise ValueError(f"Unknown pattern: {name}")
+        spec = self.pattern_specs[name]
         default_tileset = spec.get("tileset", self.default_tileset_id())
         if "rows" in spec:
             for row in spec["rows"]:
@@ -1298,7 +1302,7 @@ class LayoutProject:
                     self.validate_ref_without_loading(
                         cell,
                         default_tileset=default_tileset,
-                        _seen_metatiles=(*seen, name),
+                        seen_patterns=(*seen, name),
                     )
             return
         if "rect" in spec:
@@ -1310,14 +1314,14 @@ class LayoutProject:
             width = rect["width"]
             height = rect["height"]
             if x < 0 or y < 0 or width <= 0 or height <= 0:
-                raise ValueError(f"Metatile {name!r} rect must use positive in-bounds dimensions")
+                raise ValueError(f"Pattern {name!r} rect must use positive in-bounds dimensions")
             if x + width > metrics.columns or y + height > metrics.rows:
                 raise ValueError(
-                    f"Metatile {name!r} rect exceeds tileset bounds for {tileset_id}: "
+                    f"Pattern {name!r} rect exceeds tileset bounds for {tileset_id}: "
                     f"origin=({x}, {y}) size=({width}, {height})"
                 )
             return
-        raise ValueError(f"Metatile {name!r} must define either rows or rect")
+        raise ValueError(f"Pattern {name!r} must define either rows or rect")
 
     def _base_image_for_tile(self, tile: ResolvedTile) -> Image.Image:
         if tile.image_override_path is None:
@@ -1584,7 +1588,7 @@ class LayoutProject:
         token: TileRefToken,
         *,
         default_tileset: str | None = None,
-        _seen_metatiles: tuple[str, ...] = (),
+        seen_patterns: tuple[str, ...] = (),
     ) -> None:
         token = self.expand_alias(token)
         if token in (None, ".", " "):
@@ -1604,14 +1608,14 @@ class LayoutProject:
             self.validate_ref_without_loading(
                 cast(TileRefToken, ref),
                 default_tileset=default_tileset,
-                _seen_metatiles=_seen_metatiles,
+                seen_patterns=seen_patterns,
             )
             underpaint = token.get("underpaint")
             if underpaint is not None:
                 self.validate_ref_without_loading(
                     cast(TileRefToken, underpaint),
                     default_tileset=default_tileset,
-                    _seen_metatiles=_seen_metatiles,
+                    seen_patterns=seen_patterns,
                 )
             _normalise_pixel_offset(token.get("offset_left"), context=f"tile ref {token!r} offset_left")
             _normalise_pixel_offset(token.get("offset_bottom"), context=f"tile ref {token!r} offset_bottom")
@@ -1621,7 +1625,7 @@ class LayoutProject:
             raise ValueError(f"Unsupported tile reference: {token!r}")
 
         if token.startswith("@"):
-            self._validate_metatile_without_loading(token[1:], seen=_seen_metatiles)
+            self._validate_pattern_without_loading(token[1:], seen=seen_patterns)
             return
 
         tileset_id = default_tileset or self.default_tileset_id()
@@ -1635,6 +1639,7 @@ class LayoutProject:
         raise ValueError(f"Unsupported tile reference syntax: {token!r}")
 
     def pattern_from_ref(self, token: TileRefToken, *, default_tileset: str | None = None) -> Pattern:
+        """Resolve any pattern-capable ref token, including `@name`, transforms, and single tiles."""
         token = self.expand_alias(token)
         if token in (None, ".", " "):
             return Pattern(width=1, height=1, cells=((None,),))
@@ -1657,16 +1662,17 @@ class LayoutProject:
             )
             return self._apply_occlusion_to_pattern(pattern, occlusion_mode=occlusion_mode)
         if isinstance(token, str) and token.startswith("@"):
-            return self.pattern_from_metatile(token[1:])
+            return self.pattern_from_name(token[1:])
         tile = self.resolve_tile(token, default_tileset=default_tileset)
         return Pattern(width=1, height=1, cells=((tile,),))
 
-    def pattern_from_metatile(self, name: str) -> Pattern:
+    def pattern_from_name(self, name: str) -> Pattern:
+        """Resolve one bare project pattern key from `pattern_specs` without ref-token parsing."""
         if name in self._pattern_cache:
             return self._pattern_cache[name]
-        if name not in self.metatile_specs:
-            raise ValueError(f"Unknown metatile: {name}")
-        spec = self.metatile_specs[name]
+        if name not in self.pattern_specs:
+            raise ValueError(f"Unknown pattern: {name}")
+        spec = self.pattern_specs[name]
         default_tileset = spec.get("tileset", self.default_tileset_id())
 
         rows: list[tuple[ResolvedTile | None, ...]]
@@ -1678,7 +1684,7 @@ class LayoutProject:
                 for cell in row_spec:
                     pattern = self.pattern_from_ref(cell, default_tileset=default_tileset)
                     if pattern.width != 1 or pattern.height != 1:
-                        raise ValueError(f"Metatile rows must resolve to single tiles: {name}")
+                        raise ValueError(f"Pattern rows must resolve to single tiles: {name}")
                     row.append(pattern.cells[0][0])
                 rows.append(tuple(row))
         elif "rect" in spec:
@@ -1698,16 +1704,16 @@ class LayoutProject:
             if spec.get("trim", False):
                 rows = trim_pattern_rows(rows)
         else:
-            raise ValueError(f"Metatile {name!r} must define either rows or rect")
+            raise ValueError(f"Pattern {name!r} must define either rows or rect")
 
         if not rows or not rows[0]:
-            raise ValueError(f"Metatile {name!r} resolved to an empty pattern")
+            raise ValueError(f"Pattern {name!r} resolved to an empty pattern")
         pattern = Pattern(width=len(rows[0]), height=len(rows), cells=tuple(rows))
         self._pattern_cache[name] = pattern
         return pattern
 
-    def metatile_names(self) -> list[str]:
-        return sorted(self.metatile_specs.keys())
+    def pattern_names(self) -> list[str]:
+        return sorted(self.pattern_specs.keys())
 
     def resolve_box_style(self, op: BoxOp) -> BoxOp:
         style_name = op.get("style")
@@ -3092,7 +3098,7 @@ def inspect_tile_edges(project: LayoutProject, tileset_id: str, output_dir: Path
     contact.save(output_dir / "seam_candidate_tiles.png")
 
 
-class MetatileCatalogEntry(TypedDict):
+class PatternCatalogEntry(TypedDict):
     name: str
     width_tiles: int
     height_tiles: int
@@ -3101,12 +3107,12 @@ class MetatileCatalogEntry(TypedDict):
     tileset_ids: list[str]
 
 
-def build_metatile_catalog(
+def build_pattern_catalog(
     project: LayoutProject, *, tileset_id: str | None = None
-) -> list[MetatileCatalogEntry]:
-    catalog: list[MetatileCatalogEntry] = []
-    for name in project.metatile_names():
-        pattern = project.pattern_from_metatile(name)
+) -> list[PatternCatalogEntry]:
+    catalog: list[PatternCatalogEntry] = []
+    for name in project.pattern_names():
+        pattern = project.pattern_from_name(name)
         tileset_ids = sorted(pattern_tileset_ids(pattern))
         if tileset_id is not None and tileset_ids and any(item != tileset_id for item in tileset_ids):
             continue
@@ -3190,7 +3196,7 @@ def build_box_style_catalog(project: LayoutProject) -> list[BoxStyleCatalogEntry
     return catalog
 
 
-def scaffold_metatile(
+def scaffold_pattern(
     project_path: Path,
     *,
     tileset_id: str,
@@ -3221,9 +3227,9 @@ def scaffold_metatile(
     return json.dumps({"tileset": tileset_id, "rows": rows}, indent=2)
 
 
-def inspect_metatiles(project: LayoutProject, tileset_id: str, output_dir: Path) -> None:
-    catalog = build_metatile_catalog(project, tileset_id=tileset_id)
-    (output_dir / "metatiles.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+def inspect_patterns(project: LayoutProject, tileset_id: str, output_dir: Path) -> None:
+    catalog = build_pattern_catalog(project, tileset_id=tileset_id)
+    (output_dir / "patterns.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
     if not catalog:
         return
 
@@ -3243,7 +3249,7 @@ def inspect_metatiles(project: LayoutProject, tileset_id: str, output_dir: Path)
         left = col * card_width
         top = row * card_height
         draw.rectangle((left + 4, top + 4, left + card_width - 5, top + card_height - 5), outline=(246, 195, 124, 255))
-        pattern = project.pattern_from_metatile(entry["name"])
+        pattern = project.pattern_from_name(entry["name"])
         sprite = _resize_nearest(
             render_pattern_image(project, pattern, snap_to_grid=True),
             (entry["width_pixels"] * scale, entry["height_pixels"] * scale),
@@ -3257,7 +3263,7 @@ def inspect_metatiles(project: LayoutProject, tileset_id: str, output_dir: Path)
             f'{entry["width_tiles"]}x{entry["height_tiles"]} tiles',
             fill=(180, 220, 255, 255),
         )
-    contact.save(output_dir / "metatiles.png")
+    contact.save(output_dir / "patterns.png")
 
 
 def inspect_box_styles(project: LayoutProject, output_dir: Path) -> None:
@@ -5529,7 +5535,7 @@ def inspect_family(project_path: Path, tileset_id: str, output_dir: Path) -> Pat
         draw.text((card_left + 8, card_top + 68), f'{entry_col},{entry_row}', fill=(180, 220, 255, 255))
     contact.save(output_dir / "non_empty_tiles.png")
     inspect_tile_edges(project, tileset_id, output_dir)
-    inspect_metatiles(project, tileset_id, output_dir)
+    inspect_patterns(project, tileset_id, output_dir)
     inspect_box_styles(project, output_dir)
     inspect_source_layout(project, tileset_id, output_dir)
     inspect_clusters(project, tileset_id, output_dir)
@@ -5587,13 +5593,13 @@ def _collect_project_semantic_reference_tokens(
     for alias, token in sorted(project.aliases.items()):
         yield (f"project alias {alias}", token)
 
-    for name, spec in sorted(project.metatile_specs.items()):
+    for name, spec in sorted(project.pattern_specs.items()):
         rows = spec.get("rows")
         if rows is None:
             continue
         for row_index, row in enumerate(rows):
             for col_index, cell in enumerate(row):
-                yield (f"metatile {name} rows[{row_index}][{col_index}]", cell)
+                yield (f"pattern {name} rows[{row_index}][{col_index}]", cell)
 
     box_ref_keys = ("tl", "t", "tr", "l", "r", "bl", "b", "br", "fill")
     for style_name, style in sorted(project.box_styles.items()):
@@ -5764,8 +5770,8 @@ def write_starter_map(
     render_step_height: int,
     viewport_width_pixels: int,
     viewport_height_pixels: int,
-    metatiles_tileset_name: str | None = None,
-    metatile_count: int = 0,
+    patterns_tileset_name: str | None = None,
+    pattern_count: int = 0,
 ) -> None:
     width_tiles = 40
     height_tiles = 25
@@ -5840,8 +5846,8 @@ def write_starter_map(
         },
     ]
     tilesets: list[dict[str, object]] = [{"firstgid": 1, "source": "cells.tsx"}]
-    if metatiles_tileset_name is not None and metatile_count:
-        tilesets.append({"firstgid": 1 + cell_count, "source": "metatiles.tsx"})
+    if patterns_tileset_name is not None and pattern_count:
+        tilesets.append({"firstgid": 1 + cell_count, "source": "patterns.tsx"})
     data: dict[str, object] = {
         "compressionlevel": -1,
         "height": height_tiles,
@@ -5864,8 +5870,8 @@ def write_starter_map(
             {"name": "render_step_height", "type": "int", "value": render_step_height},
             {"name": "cells_tileset_name", "type": "string", "value": cells_tileset_name},
             {"name": "cell_count", "type": "int", "value": cell_count},
-            {"name": "metatiles_tileset_name", "type": "string", "value": metatiles_tileset_name or ""},
-            {"name": "metatile_count", "type": "int", "value": metatile_count},
+            {"name": "patterns_tileset_name", "type": "string", "value": patterns_tileset_name or ""},
+            {"name": "pattern_count", "type": "int", "value": pattern_count},
         ],
         "tilesets": tilesets,
     }
@@ -5876,16 +5882,16 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
     project = LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
-    for stale_dir in (output_dir / "cells", output_dir / "metatiles", output_dir / "tiles"):
+    for stale_dir in (output_dir / "cells", output_dir / "patterns", output_dir / "tiles"):
         if stale_dir.exists():
             shutil.rmtree(stale_dir)
     for stale_file in (
         output_dir / "tiles.tsx",
         output_dir / "cells.tsx",
-        output_dir / "metatiles.tsx",
+        output_dir / "patterns.tsx",
         output_dir / "catalog.json",
         output_dir / "cells_catalog.json",
-        output_dir / "metatiles_catalog.json",
+        output_dir / "patterns_catalog.json",
         output_dir / "semantic_catalog.json",
         output_dir / "starter_c64_room.tmj",
         output_dir / "README.md",
@@ -5893,9 +5899,9 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
         if stale_file.exists():
             stale_file.unlink()
     cells_dir = output_dir / "cells"
-    metatiles_dir = output_dir / "metatiles"
+    patterns_dir = output_dir / "patterns"
     cells_dir.mkdir(parents=True, exist_ok=True)
-    metatiles_dir.mkdir(parents=True, exist_ok=True)
+    patterns_dir.mkdir(parents=True, exist_ok=True)
 
     raw_catalog = build_catalog(project, tileset_id)
     semantic_catalog = build_semantic_catalog(project, tileset_id)
@@ -5918,14 +5924,14 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
             }
         )
 
-    metatile_catalog = build_metatile_catalog(project, tileset_id=tileset_id)
-    exported_metatiles: list[CollectionTilesetEntry] = []
-    for exported_id, entry in enumerate(metatile_catalog):
+    pattern_catalog = build_pattern_catalog(project, tileset_id=tileset_id)
+    exported_patterns: list[CollectionTilesetEntry] = []
+    for exported_id, entry in enumerate(pattern_catalog):
         filename = f'{entry["name"]}.png'
-        path = metatiles_dir / filename
-        pattern = project.pattern_from_metatile(entry["name"])
+        path = patterns_dir / filename
+        pattern = project.pattern_from_name(entry["name"])
         render_pattern_image(project, pattern, snap_to_grid=True).save(path)
-        exported_metatiles.append(
+        exported_patterns.append(
             {
                 "id": exported_id,
                 "name": entry["name"],
@@ -5936,7 +5942,7 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
         )
 
     write_collection_tileset(output_dir / "cells.tsx", name=f"{tileset_id} cells", tiles=exported_tiles)
-    write_collection_tileset(output_dir / "metatiles.tsx", name=f"{tileset_id} metatiles", tiles=exported_metatiles)
+    write_collection_tileset(output_dir / "patterns.tsx", name=f"{tileset_id} patterns", tiles=exported_patterns)
     write_starter_map(
         output_dir / "starter_c64_room.tmj",
         cells_tileset_name=tileset_id,
@@ -5947,33 +5953,33 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
         render_step_height=project.render_step_height,
         viewport_width_pixels=project.pixel_width_for_tiles(40),
         viewport_height_pixels=project.pixel_height_for_tiles(25),
-        metatiles_tileset_name=tileset_id,
-        metatile_count=len(exported_metatiles),
+        patterns_tileset_name=tileset_id,
+        pattern_count=len(exported_patterns),
     )
     (output_dir / "cells_catalog.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
-    (output_dir / "metatiles_catalog.json").write_text(json.dumps(metatile_catalog, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "patterns_catalog.json").write_text(json.dumps(pattern_catalog, indent=2) + "\n", encoding="utf-8")
     if semantic_catalog:
         (output_dir / "semantic_catalog.json").write_text(json.dumps(semantic_catalog, indent=2) + "\n", encoding="utf-8")
     readme = "\n".join(
         [
             "# Tiled Kit",
             "",
-            "This exports every non-empty 8x8 cell from the selected spritesheet plus project-defined metatiles.",
+            "This exports every non-empty 8x8 cell from the selected spritesheet plus project-defined patterns.",
             "",
             f"- `cells.tsx`: collection-of-images tileset for all {len(exported_tiles)} non-empty source cells",
-            "- `metatiles.tsx`: collection-of-images tileset for larger reusable modules",
+            "- `patterns.tsx`: collection-of-images tileset for larger reusable modules and snippets",
             (
                 "- `starter_c64_room.tmj`: 40x25 logical starter room, rendered here as "
                 f"{project.pixel_width_for_tiles(40)}x{project.pixel_height_for_tiles(25)} "
                 f"with a {project.render_step_width}x{project.render_step_height} stride"
             ),
             "- `cells_catalog.json`: source-sheet index/coordinate lookup, merged with semantic metadata where available",
-            "- `metatiles_catalog.json`: metatile size and name lookup",
+            "- `patterns_catalog.json`: pattern size and name lookup",
             "- `semantic_catalog.json`: canonical semantic tile metadata for agent-assisted layout work",
             "",
             "Suggested split:",
             "- paint terrain and detail on tile layers using `cells.tsx`",
-            "- place larger structures on object layers using `metatiles.tsx`",
+            "- place larger structures on object layers using `patterns.tsx`",
             "- keep actors and HUD separate so the viewport logic stays clean",
         ]
     )
@@ -6010,7 +6016,7 @@ def bootstrap_project(
                 "regions": {"all": {"x": 0, "y": 0, "width": columns, "height": rows}},
             }
         },
-        "metatiles": {},
+        "patterns": {},
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -6128,8 +6134,8 @@ def main() -> None:
     audit_usage_parser.add_argument("--layouts-dir", type=Path, default=None)
 
     scaffold_parser = subparsers.add_parser(
-        "scaffold-metatile",
-        help="Emit a JSON metatile snippet from a selected rectangle of grid cells.",
+        "scaffold-pattern",
+        help="Emit a JSON pattern snippet from a selected rectangle of grid cells.",
     )
     scaffold_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
     scaffold_parser.add_argument("--tileset", required=True)
@@ -6260,12 +6266,12 @@ def main() -> None:
     elif args.command == "audit-family-semantic-usage":
         report = audit_family_semantic_usage(args.project, args.tileset, layouts_dir=args.layouts_dir)
         print(json.dumps(report, indent=2))
-    elif args.command == "scaffold-metatile":
+    elif args.command == "scaffold-pattern":
         print(
             json.dumps(
                 {
                     args.name: json.loads(
-                        scaffold_metatile(
+                        scaffold_pattern(
                             args.project,
                             tileset_id=args.tileset,
                             name=args.name,
