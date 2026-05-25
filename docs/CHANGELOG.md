@@ -8,6 +8,7 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.2.2](changelog/v0.2.2.md) | 2026-05-25 | Split source-ingest tooling from runtime harness and tighten reference matching |
 | [v0.2.1](changelog/v0.2.1.md) | 2026-05-25 | Ship reference-ingest transforms, matching, and guide tooling |
 | [v0.2.0](changelog/v0.2.0.md) | 2026-05-21 | Converge project metatiles under honest composition assets |
 | [v0.1.8](changelog/v0.1.8.md) | 2026-05-21 | Complete the Phase 4 staged source-pack runtime boundary |

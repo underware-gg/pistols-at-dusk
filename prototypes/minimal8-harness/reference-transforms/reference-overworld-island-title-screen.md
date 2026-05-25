@@ -45,6 +45,7 @@ reference that behaves like clean native tile art.
 
 - rerun the slicer or matcher from the committed JSON config
 - if a reviewer needs to trace a matched cell back to raw source-sheet
-  structure, use `inspect-source-cell` rather than guessing from guide strips
+  structure, use `python3 scripts/source_ingest.py inspect-source-cell`
+  rather than guessing from guide strips
 - treat any new rescue-path activation here as suspicious until proven useful;
   this reference is the main guard against overfitting degraded cases

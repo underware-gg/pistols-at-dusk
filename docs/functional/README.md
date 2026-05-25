@@ -156,14 +156,14 @@ The engine does not parse freeform human notes automatically in this pass.
 
 The functional content of the codebase is also documented co-located with the modules and tracks themselves:
 
-- [scripts/README.md](../../scripts/README.md) — shared engine modules: harness CLI, tile-family loader, scene-template DSL, scene-rules loader, and render output helpers.
+- [scripts/README.md](../../scripts/README.md) — shared code and CLIs split across source-side ingest tooling, the runtime/composition harness, and the bridge between them.
+- [scripts/source_ingest.py](../../scripts/source_ingest.py) — source-side ingest and review CLI: family inspection, source-layout detection, source-cell lookup, semantic review-pack export, collection review-pack export, and ingest/audit checks.
 - [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the current ingest model.
 - [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) — transitional one-way adapter from staged source manifests into `TileFamily` / `TileLibraryUnit` compatibility inputs.
 - [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / pattern / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn either a resolved render-grid transform or an exact tiled-body `span_box` into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens, optionally normalize that span onto a uniform ingest surface, and keep explicit relevant tiled regions, exclusion zones, partial-edge handling, and switchable `separated`/`overlay` guide-line rendering.
 - [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered reference cells to a chosen family variant source sheet and report semantic blank cells, exact matches, and tiered non-exact outcomes (`high_confidence`, `best_guess`, `unresolved`) using the same origin/pitch-or-span solve model, optional normalized ingest surface, and the same relevant-region and exclusion controls as the slicer. Config-driven review overrides keep manual confirmation/correction as a separate axis from machine confidence, and the candidate report now includes a conservative trimmed logical-mask rescue for cases where an old reference shifts whitespace placement inside an otherwise matching tile.
-- [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) `inspect-source-cell` — source-sheet lookup helper for the authoritative ingest map: given a zero-based sheet cell, report its source-layout region/cluster context and any mapped family tile so reference-ingest or review work does not have to guess across `ingestion.json`, semantic cluster IDs, and ad hoc visual review strips.
 - [prototypes/minimal8-harness/reference-transforms/README.md](../../prototypes/minimal8-harness/reference-transforms/README.md) — committed repo-side reference-ingest configs that the slicer and matcher can load via `--config`, including active reviewed work such as the temple courtyard reference.
 
 ## Tests As Documentation
@@ -173,6 +173,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 - [test_tile_families.py](../../tests/test_tile_families.py) — family-package loading, address parsing, alias resolution, construction loading and validator behaviour (adjacency / exposure rules, parametric-run validation).
 - [test_source_manifests.py](../../tests/test_source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loading and validation, including explicit sparse-coverage checks for render variants.
 - [test_source_manifest_bridge.py](../../tests/test_source_manifest_bridge.py) — one-way source-manifest bridge coverage: synthetic adapter fixtures plus equivalence checks against the current Minimal 8 family-backed runtime shape.
+- [test_source_ingest.py](../../tests/test_source_ingest.py) — source-side ingest CLI coverage: source-sheet cell lookup and ingest validation through the dedicated ingest entrypoint.
 - [test_scene_expansion.py](../../tests/test_scene_expansion.py) — scene-template DSL: expression evaluator, data-mode expansion, `entity` / `place_scene` / `scatter` ops, binding isolation, cycle detection.
 - [test_minimal8_harness.py](../../tests/test_minimal8_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.
@@ -182,7 +183,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 Test naming follows the `test_<unit>_<behaviour>` convention; each test reads as a behavioural claim. Run the engine tests with the repo-local virtual environment:
 
 ```bash
-.venv/bin/python -m unittest tests.test_tile_families tests.test_minimal8_harness tests.test_scene_expansion tests.test_prototype_output
+.venv/bin/python -m unittest tests.test_tile_families tests.test_source_ingest tests.test_minimal8_harness tests.test_scene_expansion tests.test_prototype_output
 ```
 
 To inspect line and branch coverage across the shared Python scripts:

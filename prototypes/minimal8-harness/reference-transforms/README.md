@@ -63,11 +63,11 @@ line mode, which inserts thin grid lines between tiles instead of drawing over
 source pixels; a compact `overlay` mode is also available when needed.
 
 When a reviewed reference cell needs to be traced back to the raw source sheet,
-use the authoritative source-layout lookup instead of guessing from the guide
-image or from semantic tile IDs:
+use the source-side ingest CLI instead of guessing from the guide image or from
+semantic tile IDs:
 
 ```bash
-python3 scripts/minimal8_harness.py inspect-source-cell \
+python3 scripts/source_ingest.py inspect-source-cell \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@2bit_colored_bg' \
   --sheet-col 21 \

@@ -7,6 +7,7 @@ Current implementation note:
 
 - `scripts/source_manifests.py` now models staged pack / tileset / logical-tilesheet source manifests directly
 - `scripts/source_manifest_bridge.py` is the temporary one-way adapter that feeds those staged source manifests into the current family-backed compatibility/runtime path
+- `scripts/source_ingest.py`, `scripts/reference_grid.py`, and `scripts/reference_tile_match.py` are the operator-facing source-side tools for inspecting, reviewing, and matching raw-sheet/reference material
 - Minimal 8 project loading now enters through the staged source-pack manifests rather than a direct family path
 - the current Minimal 8 tilesheet manifest still points at `tile-families/minimal8/ingestion.json` for the source-layout payload through the transitional compatibility/source-layout adapter
 - runtime scene work still must not depend on source-manifest files after compatibility units are built

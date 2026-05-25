@@ -3,18 +3,29 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from dataclasses import dataclass
-import json
 from pathlib import Path
-from typing import Literal, Mapping, TypeAlias, cast
+from typing import Literal, cast
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
+from reference_config import (
+    load_reference_config,
+    read_bool,
+    read_content_box,
+    read_float,
+    read_guide_line_mode,
+    read_int,
+    read_normalize_cell_size,
+    read_path,
+    read_rect,
+    read_rectangles,
+    read_string,
+    read_zoom_cell,
+)
+from reference_grid_types import ContentBox, GuideLineMode, NormalizeCellSizeSetting, Rect
+from _manifest_utils import require_mapping
 
 RGBA = tuple[int, int, int, int]
-ContentBox: TypeAlias = tuple[int, int, int, int]
-Rect: TypeAlias = tuple[int, int, int, int]
-GuideLineMode: TypeAlias = Literal["separated", "overlay"]
-NormalizeCellSizeSetting: TypeAlias = int | Literal["auto"] | None
 
 
 @dataclass(frozen=True)
@@ -71,6 +82,9 @@ class PreparedReferenceGrid:
 GUIDE_OUTER_PAD = 8
 GUIDE_LABEL_BAND = 20
 GUIDE_MARGIN = GUIDE_OUTER_PAD + GUIDE_LABEL_BAND
+RELEVANT_FILL_COLOUR: RGBA = (80, 160, 120, 48)
+EXCLUDED_FILL_COLOUR: RGBA = (218, 80, 80, 64)
+EXCLUDED_OUTLINE_COLOUR: RGBA = (218, 80, 80, 255)
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,200 +184,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scale", type=int, default=4, help="Scale factor for the tile contact sheet.")
     return parser.parse_args()
 
-
-def require_mapping(value: object, field_name: str) -> Mapping[str, object]:
-    if not isinstance(value, dict):
-        raise ValueError(f"{field_name} must be a JSON object")
-    return cast(Mapping[str, object], value)
-
-
-def load_reference_config(config_path: Path | None) -> tuple[Mapping[str, object], Path | None]:
-    if config_path is None:
-        return {}, None
-    payload = json.loads(config_path.read_text(encoding="utf-8"))
-    return require_mapping(payload, "config"), config_path.parent
-
-
-def _resolve_relative_path(raw: str, config_dir: Path | None) -> Path:
-    path = Path(raw).expanduser()
-    if path.is_absolute() or config_dir is None:
-        return path
-    return config_dir / path
-
-
-def path_setting(
-    cli_value: Path | None,
-    config: Mapping[str, object],
-    key: str,
-    *,
-    config_dir: Path | None,
-) -> Path | None:
-    if cli_value is not None:
-        return cli_value
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"{key} must be a string path")
-    return _resolve_relative_path(raw, config_dir)
-
-
-def string_setting(cli_value: str | None, config: Mapping[str, object], key: str) -> str | None:
-    if cli_value is not None:
-        return cli_value
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"{key} must be a string")
-    return raw
-
-
-def guide_line_mode_setting(
-    cli_value: str | None,
-    config: Mapping[str, object],
-    key: str,
-) -> GuideLineMode:
-    raw = cli_value if cli_value is not None else config.get(key, "separated")
-    if raw not in {"separated", "overlay"}:
-        raise ValueError(f"{key} must be 'separated' or 'overlay'")
-    return cast(GuideLineMode, raw)
-
-
-def int_setting(cli_value: int | None, config: Mapping[str, object], key: str) -> int | None:
-    if cli_value is not None:
-        return cli_value
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, int):
-        raise ValueError(f"{key} must be an integer")
-    return raw
-
-
-def float_setting(cli_value: float | None, config: Mapping[str, object], key: str) -> float | None:
-    if cli_value is not None:
-        return cli_value
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, (int, float)):
-        raise ValueError(f"{key} must be a number")
-    return float(raw)
-
-
-def rectangle_setting(cli_value: str | None, config: Mapping[str, object], key: str) -> Rect | None:
-    if cli_value is not None:
-        return parse_rect(cli_value)
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a rectangle list")
-    parts = cast(list[object], raw)
-    return parse_rect(",".join(str(part) for part in parts))
-
-
-def normalize_cell_size_setting(
-    cli_value: str | None,
-    config: Mapping[str, object],
-    key: str,
-) -> NormalizeCellSizeSetting:
-    raw: object | None = cli_value if cli_value is not None else config.get(key)
-    if raw is None:
-        return None
-    if raw == "auto":
-        return "auto"
-    if isinstance(raw, int):
-        if raw <= 0:
-            raise ValueError(f"{key} must be positive")
-        return raw
-    if isinstance(raw, str):
-        value = int(raw)
-        if value <= 0:
-            raise ValueError(f"{key} must be positive")
-        return value
-    raise ValueError(f"{key} must be a positive integer or 'auto'")
-
-
-def rectangles_setting(cli_value: list[str] | None, config: Mapping[str, object], key: str) -> tuple[Rect, ...]:
-    if cli_value is not None:
-        return tuple(parse_rect(raw) for raw in cli_value)
-    raw = config.get(key)
-    if raw is None:
-        return ()
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list of rectangles")
-    rectangles: list[Rect] = []
-    items = cast(list[object], raw)
-    for index, item in enumerate(items):
-        if not isinstance(item, list):
-            raise ValueError(f"{key}[{index}] must be a list")
-        parts = cast(list[object], item)
-        rectangles.append(parse_rect(",".join(str(part) for part in parts)))
-    return tuple(rectangles)
-
-
-def content_box_setting(
-    cli_value: str | None,
-    config: Mapping[str, object],
-    key: str,
-    *,
-    tile_size: int,
-) -> ContentBox | None:
-    if cli_value is not None:
-        return parse_content_box(cli_value, tile_size)
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list")
-    parts = cast(list[object], raw)
-    return parse_content_box(",".join(str(part) for part in parts), tile_size)
-
-
-def zoom_cell_setting(cli_value: str | None, config: Mapping[str, object], key: str) -> tuple[int, int] | None:
-    if cli_value is not None:
-        return parse_zoom_cell(cli_value)
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list")
-    parts = cast(list[object], raw)
-    return parse_zoom_cell(",".join(str(part) for part in parts))
-
-
 def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
     config, config_dir = load_reference_config(args.config)
-    grid_config = require_mapping(config.get("grid", {}), "grid")
+    grid_config = require_mapping(config.get("grid", {}), context="grid")
 
-    tile_size = int_setting(args.tile_size, grid_config, "tile_size")
+    tile_size = read_int(args.tile_size, grid_config, "tile_size")
     if tile_size is None:
         tile_size = 8
-    image_path = path_setting(args.image, config, "image", config_dir=config_dir)
-    output_dir = path_setting(args.output_dir, config, "output_dir", config_dir=config_dir)
-    prefix = string_setting(args.prefix, config, "prefix")
-    origin_x = float_setting(args.origin_x, grid_config, "origin_x")
-    origin_y = float_setting(args.origin_y, grid_config, "origin_y")
-    cell_size = float_setting(args.cell_size, grid_config, "cell_size")
-    span_box = rectangle_setting(args.span_box, grid_config, "span_box")
-    normalize_cell_size = normalize_cell_size_setting(args.normalize_cell_size, config, "normalize_cell_size")
-    cols = int_setting(args.cols, grid_config, "cols")
-    rows = int_setting(args.rows, grid_config, "rows")
-    content_box = content_box_setting(args.content_box, grid_config, "content_box", tile_size=tile_size)
-    relevant_boxes = rectangles_setting(args.relevant_box, config, "relevant_boxes")
-    excluded_boxes = rectangles_setting(args.exclude_box, config, "excluded_boxes")
-    raw_exclude_partial_edge_cells = config.get("exclude_partial_edge_cells", False)
-    if not isinstance(raw_exclude_partial_edge_cells, bool):
-        raise ValueError("exclude_partial_edge_cells must be a boolean")
-    exclude_partial_edge_cells = raw_exclude_partial_edge_cells
-    if args.exclude_partial_edge_cells:
-        exclude_partial_edge_cells = True
-    guide_line_mode = guide_line_mode_setting(args.guide_line_mode, config, "guide_line_mode")
-    background = string_setting(args.background, config, "background")
-    zoom_cell = zoom_cell_setting(args.zoom_cell, config, "zoom_cell")
-    scale = int_setting(args.scale, config, "scale")
+    image_path = read_path(args.image, config, "image", config_dir=config_dir)
+    output_dir = read_path(args.output_dir, config, "output_dir", config_dir=config_dir)
+    prefix = read_string(args.prefix, config, "prefix")
+    origin_x = read_float(args.origin_x, grid_config, "origin_x")
+    origin_y = read_float(args.origin_y, grid_config, "origin_y")
+    cell_size = read_float(args.cell_size, grid_config, "cell_size")
+    span_box = read_rect(args.span_box, grid_config, "span_box")
+    normalize_cell_size = read_normalize_cell_size(args.normalize_cell_size, config, "normalize_cell_size")
+    cols = read_int(args.cols, grid_config, "cols")
+    rows = read_int(args.rows, grid_config, "rows")
+    content_box = read_content_box(args.content_box, grid_config, "content_box", tile_size=tile_size)
+    relevant_boxes = read_rectangles(args.relevant_box, config, "relevant_boxes")
+    excluded_boxes = read_rectangles(args.exclude_box, config, "excluded_boxes")
+    exclude_partial_edge_cells = read_bool(
+        args.exclude_partial_edge_cells,
+        config,
+        "exclude_partial_edge_cells",
+        default=False,
+    )
+    guide_line_mode = read_guide_line_mode(args.guide_line_mode, config, "guide_line_mode")
+    background = read_string(args.background, config, "background")
+    zoom_cell = read_zoom_cell(args.zoom_cell, config, "zoom_cell")
+    scale = read_int(args.scale, config, "scale")
     if scale is None:
         scale = 4
 
@@ -373,6 +223,51 @@ def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
         raise ValueError("output_dir is required")
     if prefix is None:
         raise ValueError("prefix is required")
+    return GridRunSettings(
+        image_path=image_path,
+        output_dir=output_dir,
+        prefix=prefix,
+        transform=resolve_grid_transform(
+            origin_x=origin_x,
+            origin_y=origin_y,
+            cell_size=cell_size,
+            span_box=span_box,
+            cols=cols,
+            rows=rows,
+            tile_size=tile_size,
+            content_box=content_box,
+        ),
+        span_box=span_box,
+        normalize_cell_size=normalize_cell_size,
+        columns=cols,
+        rows=rows,
+        relevant_boxes=relevant_boxes,
+        excluded_boxes=excluded_boxes,
+        exclude_partial_edge_cells=exclude_partial_edge_cells,
+        guide_line_mode=guide_line_mode,
+        background=background,
+        zoom_cell=zoom_cell,
+        scale=scale,
+    )
+
+
+def resolve_grid_transform(
+    *,
+    origin_x: float | None,
+    origin_y: float | None,
+    cell_size: float | None,
+    span_box: Rect | None,
+    cols: int | None,
+    rows: int | None,
+    tile_size: int,
+    content_box: ContentBox | None,
+) -> GridTransform:
+    """Resolve the display transform for a reference solve.
+
+    When ``span_box`` is provided, the returned origin/cell_size are synthetic
+    display values derived from the exact span so the rest of the pipeline and
+    reports can still describe the solved grid in one consistent shape.
+    """
     if span_box is not None:
         if cols is None or rows is None:
             raise ValueError("grid.span_box requires grid.cols and grid.rows")
@@ -388,29 +283,12 @@ def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
             raise ValueError("grid.origin_y is required")
         if cell_size is None:
             raise ValueError("grid.cell_size is required")
-
-    return GridRunSettings(
-        image_path=image_path,
-        output_dir=output_dir,
-        prefix=prefix,
-        transform=GridTransform(
-            origin_x=origin_x,
-            origin_y=origin_y,
-            cell_size=cell_size,
-            tile_size=tile_size,
-            content_box=content_box,
-        ),
-        span_box=span_box,
-        normalize_cell_size=normalize_cell_size,
-        columns=cols,
-        rows=rows,
-        relevant_boxes=relevant_boxes,
-        excluded_boxes=excluded_boxes,
-        exclude_partial_edge_cells=exclude_partial_edge_cells,
-        guide_line_mode=guide_line_mode,
-        background=background,
-        zoom_cell=zoom_cell,
-        scale=scale,
+    return GridTransform(
+        origin_x=origin_x,
+        origin_y=origin_y,
+        cell_size=cell_size,
+        tile_size=tile_size,
+        content_box=content_box,
     )
 
 
@@ -485,8 +363,6 @@ def compute_extraction(
 
 
 def _quantized_edges(origin: float, cell_size: float, cells: int) -> list[int]:
-    if cells <= 0:
-        raise ValueError("cells must be positive")
     return [round(origin + (index * cell_size)) for index in range(cells + 1)]
 
 
@@ -509,44 +385,6 @@ def _max_intersecting_cells_within_limit(limit: int, origin: float, cell_size: f
     while round(origin + (cells * cell_size)) < limit:
         cells += 1
     return cells
-
-
-def parse_content_box(raw: str | None, tile_size: int) -> ContentBox | None:
-    if raw is None:
-        return None
-    parts = [int(part.strip()) for part in raw.split(",")]
-    if len(parts) != 4:
-        raise ValueError("content_box must be left,top,right,bottom")
-    left, top, right, bottom = parts
-    if not (0 <= left < right <= tile_size):
-        raise ValueError("content_box horizontal bounds must satisfy 0 <= left < right <= tile_size")
-    if not (0 <= top < bottom <= tile_size):
-        raise ValueError("content_box vertical bounds must satisfy 0 <= top < bottom <= tile_size")
-    return (left, top, right, bottom)
-
-
-def parse_rect(raw: str) -> Rect:
-    parts = [int(part.strip()) for part in raw.split(",")]
-    if len(parts) != 4:
-        raise ValueError("rectangle must be left,top,right,bottom")
-    left, top, right, bottom = parts
-    if right <= left or bottom <= top:
-        raise ValueError("rectangle bounds must satisfy left < right and top < bottom")
-    return (left, top, right, bottom)
-
-
-def _resolve_rectangles(raw_boxes: list[str] | None) -> tuple[Rect, ...]:
-    if not raw_boxes:
-        return ()
-    return tuple(parse_rect(raw) for raw in raw_boxes)
-
-
-def resolve_relevant_boxes(raw_boxes: list[str] | None) -> tuple[Rect, ...]:
-    return _resolve_rectangles(raw_boxes)
-
-
-def resolve_excluded_boxes(raw_boxes: list[str] | None) -> tuple[Rect, ...]:
-    return _resolve_rectangles(raw_boxes)
 
 
 def resolve_background(image: Image.Image, background: str | None) -> RGBA:
@@ -665,18 +503,12 @@ def trim_extraction_to_full_cells(
     min_row = min(row_index for _, row_index in full_cells)
     max_row = max(row_index for _, row_index in full_cells)
 
-    crop_left, crop_top, _, _ = extraction.crop_box
-    x0 = extraction.x_edges[min_col]
-    x1 = extraction.x_edges[max_col + 1]
-    y0 = extraction.y_edges[min_row]
-    y1 = extraction.y_edges[max_row + 1]
-    return GridExtraction(
-        transform=extraction.transform,
-        columns=(max_col - min_col) + 1,
-        rows=(max_row - min_row) + 1,
-        crop_box=(crop_left + x0, crop_top + y0, crop_left + x1, crop_top + y1),
-        x_edges=tuple(edge - x0 for edge in extraction.x_edges[min_col : max_col + 2]),
-        y_edges=tuple(edge - y0 for edge in extraction.y_edges[min_row : max_row + 2]),
+    return _rebuild_extraction_from_cells(
+        extraction,
+        min_col=min_col,
+        max_col=max_col,
+        min_row=min_row,
+        max_row=max_row,
     )
 
 
@@ -704,6 +536,23 @@ def trim_extraction_to_relevant_boxes(
     min_row = min(row_index for _, row_index in intersecting_cells)
     max_row = max(row_index for _, row_index in intersecting_cells)
 
+    return _rebuild_extraction_from_cells(
+        extraction,
+        min_col=min_col,
+        max_col=max_col,
+        min_row=min_row,
+        max_row=max_row,
+    )
+
+
+def _rebuild_extraction_from_cells(
+    extraction: GridExtraction,
+    *,
+    min_col: int,
+    max_col: int,
+    min_row: int,
+    max_row: int,
+) -> GridExtraction:
     crop_left, crop_top, _, _ = extraction.crop_box
     x0 = extraction.x_edges[min_col]
     x1 = extraction.x_edges[max_col + 1]
@@ -992,24 +841,24 @@ def count_solid_guide_pixels(
     else:
         for col in range(extraction.columns):
             cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
-            bounds_x = scaled_partition_bounds(cell_width, extraction.transform.tile_size)
-            left, _, right, _ = content_box
-            left_px = bounds_x[left]
-            right_px = bounds_x[right]
-            if left_px > 0:
-                verticals.append(extraction.x_edges[col] + left_px - 1)
-            if right_px < cell_width:
-                verticals.append(extraction.x_edges[col] + right_px)
+            vertical_offsets, _ = _content_box_edge_offsets(
+                cell_extent=cell_width,
+                tile_size=extraction.transform.tile_size,
+                content_box=content_box,
+                axis="x",
+            )
+            for offset in vertical_offsets:
+                verticals.append(extraction.x_edges[col] + offset)
         for row in range(extraction.rows):
             cell_height = extraction.y_edges[row + 1] - extraction.y_edges[row]
-            bounds_y = scaled_partition_bounds(cell_height, extraction.transform.tile_size)
-            _, top, _, bottom = content_box
-            top_px = bounds_y[top]
-            bottom_px = bounds_y[bottom]
-            if top_px > 0:
-                horizontals.append(extraction.y_edges[row] + top_px - 1)
-            if bottom_px < cell_height:
-                horizontals.append(extraction.y_edges[row] + bottom_px)
+            _, horizontal_offsets = _content_box_edge_offsets(
+                cell_extent=cell_height,
+                tile_size=extraction.transform.tile_size,
+                content_box=content_box,
+                axis="y",
+            )
+            for offset in horizontal_offsets:
+                horizontals.append(extraction.y_edges[row] + offset)
     solid = 0
     total = 0
     rgba = crop.convert("RGBA")
@@ -1030,6 +879,35 @@ def count_solid_guide_pixels(
             total += 1
             solid += cast(RGBA, rgba.getpixel((x, offset))) != background
     return solid, total
+
+
+def _content_box_edge_offsets(
+    *,
+    cell_extent: int,
+    tile_size: int,
+    content_box: ContentBox,
+    axis: Literal["x", "y"],
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    bounds = scaled_partition_bounds(cell_extent, tile_size)
+    if axis == "x":
+        left, _, right, _ = content_box
+        offsets: list[int] = []
+        left_px = bounds[left]
+        right_px = bounds[right]
+        if left_px > 0:
+            offsets.append(left_px - 1)
+        if right_px < cell_extent:
+            offsets.append(right_px)
+        return (tuple(offsets), ())
+    _, top, _, bottom = content_box
+    offsets = []
+    top_px = bounds[top]
+    bottom_px = bounds[bottom]
+    if top_px > 0:
+        offsets.append(top_px - 1)
+    if bottom_px < cell_extent:
+        offsets.append(bottom_px)
+    return ((), tuple(offsets))
 
 
 def render_contact_sheet(
@@ -1271,7 +1149,7 @@ def render_exact_boundary_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            fill=(80, 160, 120, 48),
+            fill=RELEVANT_FILL_COLOUR,
         )
     for left, top, right, bottom in excluded_boxes:
         _fill_region(
@@ -1280,7 +1158,7 @@ def render_exact_boundary_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            fill=(218, 80, 80, 64),
+            fill=EXCLUDED_FILL_COLOUR,
         )
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.load_default()
@@ -1316,7 +1194,7 @@ def render_exact_boundary_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            outline=(218, 80, 80, 255),
+            outline=EXCLUDED_OUTLINE_COLOUR,
         )
     return canvas
 
@@ -1327,108 +1205,147 @@ def render_gutter_overlay(
     background: RGBA,
     relevant_boxes: tuple[Rect, ...] = (),
     excluded_boxes: tuple[Rect, ...] = (),
-    band_colour: RGBA = (218, 206, 185, 40),
     guide_colour: RGBA = (218, 206, 185, 70),
     label_colour: RGBA = (218, 206, 185, 255),
     guide_line_mode: GuideLineMode = "separated",
 ) -> Image.Image:
-    content_box = extraction.transform.content_box
     if guide_line_mode == "separated":
-        grid_width, grid_height = _grid_span_for_separated(extraction)
-        canvas, left_margin, top_margin = _new_guide_canvas(
-            content_width=grid_width,
-            content_height=grid_height,
+        return _render_gutter_overlay_separated(
+            crop=crop,
+            extraction=extraction,
             background=background,
-        )
-        for row in range(extraction.rows):
-            for col in range(extraction.columns):
-                x0 = extraction.x_edges[col]
-                x1 = extraction.x_edges[col + 1]
-                y0 = extraction.y_edges[row]
-                y1 = extraction.y_edges[row + 1]
-                cell = crop.crop((x0, y0, x1, y1))
-                cell_left, cell_top = _mapped_cell_origin_for_separated(
-                    extraction,
-                    col,
-                    row,
-                    left_margin=left_margin,
-                    top_margin=top_margin,
-                )
-                canvas.alpha_composite(cell, (cell_left, cell_top))
-
-        for left, top, right, bottom in relevant_boxes:
-            mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-            mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-            mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-            mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
-            _fill_region(
-                canvas,
-                left=mapped_left,
-                top=mapped_top,
-                right=mapped_right,
-                bottom=mapped_bottom,
-                fill=(80, 160, 120, 48),
-            )
-        for left, top, right, bottom in excluded_boxes:
-            mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-            mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-            mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-            mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
-            _fill_region(
-                canvas,
-                left=mapped_left,
-                top=mapped_top,
-                right=mapped_right,
-                bottom=mapped_bottom,
-                fill=(218, 80, 80, 64),
-            )
-
-        draw = ImageDraw.Draw(canvas)
-        for col in range(1, extraction.columns):
-            edge = extraction.x_edges[col]
-            x = left_margin + edge + col
-            draw.line((x, top_margin, x, top_margin + grid_height - 1), fill=guide_colour, width=1)
-        for row in range(1, extraction.rows):
-            edge = extraction.y_edges[row]
-            y = top_margin + edge + row
-            draw.line((left_margin, y, left_margin + grid_width - 1, y), fill=guide_colour, width=1)
-
-        _draw_guide_border(
-            draw,
-            left_margin=left_margin,
-            top_margin=top_margin,
-            crop_width=grid_width - 1,
-            crop_height=grid_height - 1,
-            line_colour=label_colour,
-        )
-
-        font = ImageFont.load_default()
-        _draw_guide_labels(
-            draw,
-            extraction,
-            guide_line_mode="separated",
-            left_margin=left_margin,
-            top_margin=top_margin,
-            crop_width=grid_width - 1,
-            crop_height=grid_height - 1,
+            relevant_boxes=relevant_boxes,
+            excluded_boxes=excluded_boxes,
+            guide_colour=guide_colour,
             label_colour=label_colour,
-            font=font,
         )
-        for left, top, right, bottom in excluded_boxes:
-            mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-            mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-            mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-            mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
-            _outline_region(
-                draw,
-                left=mapped_left,
-                top=mapped_top,
-                right=mapped_right,
-                bottom=mapped_bottom,
-                outline=(218, 80, 80, 255),
-            )
-        return canvas
+    return _render_gutter_overlay_overlay(
+        crop=crop,
+        extraction=extraction,
+        background=background,
+        relevant_boxes=relevant_boxes,
+        excluded_boxes=excluded_boxes,
+        guide_colour=guide_colour,
+        label_colour=label_colour,
+    )
 
+
+def _render_gutter_overlay_separated(
+    *,
+    crop: Image.Image,
+    extraction: GridExtraction,
+    background: RGBA,
+    relevant_boxes: tuple[Rect, ...],
+    excluded_boxes: tuple[Rect, ...],
+    guide_colour: RGBA,
+    label_colour: RGBA,
+) -> Image.Image:
+    grid_width, grid_height = _grid_span_for_separated(extraction)
+    canvas, left_margin, top_margin = _new_guide_canvas(
+        content_width=grid_width,
+        content_height=grid_height,
+        background=background,
+    )
+    for row in range(extraction.rows):
+        for col in range(extraction.columns):
+            x0 = extraction.x_edges[col]
+            x1 = extraction.x_edges[col + 1]
+            y0 = extraction.y_edges[row]
+            y1 = extraction.y_edges[row + 1]
+            cell = crop.crop((x0, y0, x1, y1))
+            cell_left, cell_top = _mapped_cell_origin_for_separated(
+                extraction,
+                col,
+                row,
+                left_margin=left_margin,
+                top_margin=top_margin,
+            )
+            canvas.alpha_composite(cell, (cell_left, cell_top))
+
+    for left, top, right, bottom in relevant_boxes:
+        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
+        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
+        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
+        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        _fill_region(
+            canvas,
+            left=mapped_left,
+            top=mapped_top,
+            right=mapped_right,
+            bottom=mapped_bottom,
+            fill=RELEVANT_FILL_COLOUR,
+        )
+    for left, top, right, bottom in excluded_boxes:
+        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
+        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
+        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
+        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        _fill_region(
+            canvas,
+            left=mapped_left,
+            top=mapped_top,
+            right=mapped_right,
+            bottom=mapped_bottom,
+            fill=EXCLUDED_FILL_COLOUR,
+        )
+
+    draw = ImageDraw.Draw(canvas)
+    for col in range(1, extraction.columns):
+        edge = extraction.x_edges[col]
+        x = left_margin + edge + col
+        draw.line((x, top_margin, x, top_margin + grid_height - 1), fill=guide_colour, width=1)
+    for row in range(1, extraction.rows):
+        edge = extraction.y_edges[row]
+        y = top_margin + edge + row
+        draw.line((left_margin, y, left_margin + grid_width - 1, y), fill=guide_colour, width=1)
+
+    _draw_guide_border(
+        draw,
+        left_margin=left_margin,
+        top_margin=top_margin,
+        crop_width=grid_width - 1,
+        crop_height=grid_height - 1,
+        line_colour=label_colour,
+    )
+    font = ImageFont.load_default()
+    _draw_guide_labels(
+        draw,
+        extraction,
+        guide_line_mode="separated",
+        left_margin=left_margin,
+        top_margin=top_margin,
+        crop_width=grid_width - 1,
+        crop_height=grid_height - 1,
+        label_colour=label_colour,
+        font=font,
+    )
+    for left, top, right, bottom in excluded_boxes:
+        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
+        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
+        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
+        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        _outline_region(
+            draw,
+            left=mapped_left,
+            top=mapped_top,
+            right=mapped_right,
+            bottom=mapped_bottom,
+            outline=EXCLUDED_OUTLINE_COLOUR,
+        )
+    return canvas
+
+
+def _render_gutter_overlay_overlay(
+    *,
+    crop: Image.Image,
+    extraction: GridExtraction,
+    background: RGBA,
+    relevant_boxes: tuple[Rect, ...],
+    excluded_boxes: tuple[Rect, ...],
+    guide_colour: RGBA,
+    label_colour: RGBA,
+) -> Image.Image:
+    content_box = extraction.transform.content_box
     canvas, left_margin, top_margin = _new_guide_canvas(
         content_width=crop.width,
         content_height=crop.height,
@@ -1442,7 +1359,7 @@ def render_gutter_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            fill=(80, 160, 120, 48),
+            fill=RELEVANT_FILL_COLOUR,
         )
     for left, top, right, bottom in excluded_boxes:
         _fill_region(
@@ -1451,7 +1368,7 @@ def render_gutter_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            fill=(218, 80, 80, 64),
+            fill=EXCLUDED_FILL_COLOUR,
         )
     line_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(line_layer)
@@ -1467,27 +1384,25 @@ def render_gutter_overlay(
     else:
         for col in range(extraction.columns):
             cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
-            bounds_x = scaled_partition_bounds(cell_width, extraction.transform.tile_size)
-            left, _, right, _ = content_box
-            left_px = bounds_x[left]
-            right_px = bounds_x[right]
-            if left_px > 0:
-                x = left_margin + extraction.x_edges[col] + left_px - 1
-                draw.line((x, top_margin, x, top_margin + crop.height), fill=guide_colour, width=1)
-            if right_px < cell_width:
-                x = left_margin + extraction.x_edges[col] + right_px
+            vertical_offsets, _ = _content_box_edge_offsets(
+                cell_extent=cell_width,
+                tile_size=extraction.transform.tile_size,
+                content_box=content_box,
+                axis="x",
+            )
+            for offset in vertical_offsets:
+                x = left_margin + extraction.x_edges[col] + offset
                 draw.line((x, top_margin, x, top_margin + crop.height), fill=guide_colour, width=1)
         for row in range(extraction.rows):
             cell_height = extraction.y_edges[row + 1] - extraction.y_edges[row]
-            bounds_y = scaled_partition_bounds(cell_height, extraction.transform.tile_size)
-            _, top, _, bottom = content_box
-            top_px = bounds_y[top]
-            bottom_px = bounds_y[bottom]
-            if top_px > 0:
-                y = top_margin + extraction.y_edges[row] + top_px - 1
-                draw.line((left_margin, y, left_margin + crop.width, y), fill=guide_colour, width=1)
-            if bottom_px < cell_height:
-                y = top_margin + extraction.y_edges[row] + bottom_px
+            _, horizontal_offsets = _content_box_edge_offsets(
+                cell_extent=cell_height,
+                tile_size=extraction.transform.tile_size,
+                content_box=content_box,
+                axis="y",
+            )
+            for offset in horizontal_offsets:
+                y = top_margin + extraction.y_edges[row] + offset
                 draw.line((left_margin, y, left_margin + crop.width, y), fill=guide_colour, width=1)
     canvas.alpha_composite(line_layer)
     draw = ImageDraw.Draw(canvas)
@@ -1518,16 +1433,9 @@ def render_gutter_overlay(
             top=top_margin + top,
             right=left_margin + right,
             bottom=top_margin + bottom,
-            outline=(218, 80, 80, 255),
+            outline=EXCLUDED_OUTLINE_COLOUR,
         )
     return canvas
-
-
-def parse_zoom_cell(raw: str | None) -> tuple[int, int] | None:
-    if raw is None:
-        return None
-    col_raw, row_raw = raw.split(",", 1)
-    return int(col_raw), int(row_raw)
 
 
 def render_zoom(

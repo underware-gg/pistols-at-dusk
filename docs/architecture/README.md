@@ -87,6 +87,15 @@ See [docs/architecture/decisions/README.md](decisions/README.md).
 - [Minimal 8 Source-Sheet Notes](minimal8-source-sheet-notes.md) — sheet-level facts captured during Minimal 8 ingestion.
 - [Source-Sheet Ingestion Model](source-sheet-ingestion-model.md) — separation between source-sheet layout and tile semantics.
 
+## Operator Surfaces
+
+The operator-facing split should now be read the same way as the code split:
+
+- source-side ingest and review work starts from [scripts/source_ingest.py](../../scripts/source_ingest.py), [scripts/reference_grid.py](../../scripts/reference_grid.py), and [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py)
+- runtime/composition work starts from [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) and the scene/layout artefacts it renders
+
+That keeps raw-sheet interpretation, reference solving, and ingest review away from the runtime harness surface that renders and composes scenes.
+
 ## Cross-cutting design tokens
 
 - [design.md](../../design.md) — palette, typography, layout, and component tokens consumed by the codebase, art pipeline, and engine theming. Lives at the repo root for tooling consumption; indexed here so it is reachable from the architecture layer.

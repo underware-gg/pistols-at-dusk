@@ -70,7 +70,7 @@ reference is as clean as the overworld anchor.
 
 - rerun the slicer or matcher from the committed JSON config
 - inspect the committed guide image, not scratch-only overlays
-- use `inspect-source-cell` when a human description refers to raw sheet
+- use `python3 scripts/source_ingest.py inspect-source-cell` when a human description refers to raw sheet
   structure like “top section of the second column”
 - prefer explaining a disagreement in terms of reference drift or reviewed
   confidence before assuming the grid solve is wrong again

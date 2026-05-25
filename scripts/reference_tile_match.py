@@ -5,37 +5,58 @@ import json
 from dataclasses import dataclass
 import math
 from pathlib import Path
-from typing import Literal, Mapping, TypedDict, cast
+from typing import Literal, Mapping, Sequence, TypedDict, cast
 
 from PIL import Image
 
+from _manifest_utils import require_mapping
+from reference_config import (
+    load_reference_config,
+    read_bool,
+    read_content_box,
+    read_float,
+    read_int,
+    read_normalize_cell_size,
+    read_path,
+    read_rect,
+    read_rectangles,
+    read_string,
+)
 from reference_grid import (
     build_cell_crops,
     cell_intersects_rectangles,
-    content_box_setting,
-    float_setting,
-    int_setting,
-    normalize_cell_size_setting,
-    path_setting,
     prepare_reference_grid,
-    rectangle_setting,
-    rectangles_setting,
-    require_mapping,
-    GridExtraction,
     GridTransform,
+    PreparedReferenceGrid,
     build_tile_grid,
-    load_reference_config,
     normalize_prepared_reference_grid,
-    Rect,
     resolve_normalized_cell_size,
+    resolve_grid_transform,
     resize_nearest,
-    string_setting,
 )
+from reference_grid_types import Rect
 from tile_families import TileFamily
 
 
 RGBA = tuple[int, int, int, int]
 GuideRef = str
+MASK_IOU_RESCUE_THRESHOLD = 0.1
+MASK_IOU_RESCUE_MIN_PROJECTION = 0.9
+MASK_IOU_RESCUE_MIN_CHAMFER = 0.94
+MASK_IOU_RESCUE_WEIGHT = 0.75
+FULL_SCORE_WEIGHTS = {
+    "mask_iou": 0.32,
+    "chamfer": 0.26,
+    "projection": 0.16,
+    "edge": 0.11,
+    "fill": 0.10,
+    "pixel": 0.05,
+}
+CHEAP_SCORE_WEIGHTS = {
+    "projection": 0.5,
+    "fill": 0.3,
+    "edge": 0.2,
+}
 
 
 class TileMatchMetadata(TypedDict):
@@ -113,6 +134,33 @@ class SourceTile:
 
 
 @dataclass(frozen=True)
+class PreparedSourceTile:
+    tile: SourceTile
+    rgba_bytes: bytes
+    features: TileFeatures
+
+    @property
+    def sheet_col(self) -> int:
+        return self.tile.sheet_col
+
+    @property
+    def sheet_row(self) -> int:
+        return self.tile.sheet_row
+
+    @property
+    def tile_id(self) -> str | None:
+        return self.tile.tile_id
+
+    @property
+    def aliases(self) -> tuple[str, ...]:
+        return self.tile.aliases
+
+    @property
+    def image(self) -> Image.Image:
+        return self.tile.image
+
+
+@dataclass(frozen=True)
 class SimilarityScore:
     score: float
     pixel_match_ratio: float
@@ -166,6 +214,13 @@ class MatchRunSettings:
     exclude_partial_edge_cells: bool
     max_candidates: int
     candidate_threshold: float
+
+
+@dataclass(frozen=True)
+class PreparedMatchRun:
+    prepared_grid: "PreparedReferenceGrid"
+    source_tiles: list[PreparedSourceTile]
+    resolved_normalized_cell_size: int | None
 
 
 def parse_args() -> argparse.Namespace:
@@ -295,36 +350,36 @@ def review_overrides_setting(config: Mapping[str, object], key: str) -> dict[Gui
 
 def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
     config, config_dir = load_reference_config(args.config)
-    grid_config = require_mapping(config.get("grid", {}), "grid")
+    grid_config = require_mapping(config.get("grid", {}), context="grid")
 
-    tile_size = int_setting(args.tile_size, grid_config, "tile_size")
+    tile_size = read_int(args.tile_size, grid_config, "tile_size")
     if tile_size is None:
         tile_size = 8
-    image_path = path_setting(args.image, config, "image", config_dir=config_dir)
-    family_path = path_setting(args.family_path, config, "family_path", config_dir=config_dir)
-    output_path = path_setting(args.output, config, "output", config_dir=config_dir)
-    variant_id = string_setting(args.variant_id, config, "variant_id")
-    origin_x = float_setting(args.origin_x, grid_config, "origin_x")
-    origin_y = float_setting(args.origin_y, grid_config, "origin_y")
-    cell_size = float_setting(args.cell_size, grid_config, "cell_size")
-    span_box = rectangle_setting(args.span_box, grid_config, "span_box")
-    normalize_cell_size = normalize_cell_size_setting(args.normalize_cell_size, config, "normalize_cell_size")
+    image_path = read_path(args.image, config, "image", config_dir=config_dir)
+    family_path = read_path(args.family_path, config, "family_path", config_dir=config_dir)
+    output_path = read_path(args.output, config, "output", config_dir=config_dir)
+    variant_id = read_string(args.variant_id, config, "variant_id")
+    origin_x = read_float(args.origin_x, grid_config, "origin_x")
+    origin_y = read_float(args.origin_y, grid_config, "origin_y")
+    cell_size = read_float(args.cell_size, grid_config, "cell_size")
+    span_box = read_rect(args.span_box, grid_config, "span_box")
+    normalize_cell_size = read_normalize_cell_size(args.normalize_cell_size, config, "normalize_cell_size")
     review_overrides = review_overrides_setting(config, "reviews")
-    cols = int_setting(args.cols, grid_config, "cols")
-    rows = int_setting(args.rows, grid_config, "rows")
-    content_box = content_box_setting(args.content_box, grid_config, "content_box", tile_size=tile_size)
-    relevant_boxes = rectangles_setting(args.relevant_box, config, "relevant_boxes")
-    excluded_boxes = rectangles_setting(args.exclude_box, config, "excluded_boxes")
-    raw_exclude_partial_edge_cells = config.get("exclude_partial_edge_cells", False)
-    if not isinstance(raw_exclude_partial_edge_cells, bool):
-        raise ValueError("exclude_partial_edge_cells must be a boolean")
-    exclude_partial_edge_cells = raw_exclude_partial_edge_cells
-    if args.exclude_partial_edge_cells:
-        exclude_partial_edge_cells = True
-    max_candidates = int_setting(args.max_candidates, config, "max_candidates")
+    cols = read_int(args.cols, grid_config, "cols")
+    rows = read_int(args.rows, grid_config, "rows")
+    content_box = read_content_box(args.content_box, grid_config, "content_box", tile_size=tile_size)
+    relevant_boxes = read_rectangles(args.relevant_box, config, "relevant_boxes")
+    excluded_boxes = read_rectangles(args.exclude_box, config, "excluded_boxes")
+    exclude_partial_edge_cells = read_bool(
+        args.exclude_partial_edge_cells,
+        config,
+        "exclude_partial_edge_cells",
+        default=False,
+    )
+    max_candidates = read_int(args.max_candidates, config, "max_candidates")
     if max_candidates is None:
         max_candidates = 5
-    candidate_threshold = float_setting(args.candidate_threshold, config, "candidate_threshold")
+    candidate_threshold = read_float(args.candidate_threshold, config, "candidate_threshold")
     if candidate_threshold is None:
         candidate_threshold = 0.75
 
@@ -332,31 +387,18 @@ def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
         raise ValueError("image is required")
     if family_path is None:
         raise ValueError("family_path is required")
-    if span_box is not None:
-        if cols is None or rows is None:
-            raise ValueError("grid.span_box requires grid.cols and grid.rows")
-        span_width = span_box[2] - span_box[0]
-        span_height = span_box[3] - span_box[1]
-        origin_x = float(span_box[0])
-        origin_y = float(span_box[1])
-        cell_size = ((span_width / cols) + (span_height / rows)) / 2
-    else:
-        if origin_x is None:
-            raise ValueError("grid.origin_x is required")
-        if origin_y is None:
-            raise ValueError("grid.origin_y is required")
-        if cell_size is None:
-            raise ValueError("grid.cell_size is required")
-
     return MatchRunSettings(
         image_path=image_path,
         family_path=family_path,
         variant_id=variant_id,
         output_path=output_path,
-        transform=GridTransform(
+        transform=resolve_grid_transform(
             origin_x=origin_x,
             origin_y=origin_y,
             cell_size=cell_size,
+            span_box=span_box,
+            cols=cols,
+            rows=rows,
             tile_size=tile_size,
             content_box=content_box,
         ),
@@ -412,6 +454,17 @@ def render_source_tiles(source_tiles: list[SourceTile], *, cell_size: int) -> li
     ]
 
 
+def prepare_source_tiles(source_tiles: list[SourceTile], *, background: RGBA) -> list[PreparedSourceTile]:
+    return [
+        PreparedSourceTile(
+            tile=tile,
+            rgba_bytes=tile.image.convert("RGBA").tobytes(),
+            features=_tile_features(tile.image, background, adaptive=False),
+        )
+        for tile in source_tiles
+    ]
+
+
 def _pixel_distance(left: RGBA, right: RGBA) -> int:
     return sum(abs(left[index] - right[index]) for index in range(4))
 
@@ -452,38 +505,32 @@ def _otsu_threshold(values: list[int]) -> int:
 
 
 def _foreground_mask(
-    image: Image.Image,
+    pixels: tuple[RGBA, ...],
     background: RGBA,
     *,
     adaptive: bool,
-) -> list[bool]:
-    rgba = image.convert("RGBA")
-    pixels = [
-        cast(RGBA, rgba.getpixel((x, y)))
-        for y in range(rgba.height)
-        for x in range(rgba.width)
-    ]
+) -> tuple[bool, ...]:
     if not adaptive:
-        return [pixel != background for pixel in pixels]
+        return tuple(pixel != background for pixel in pixels)
 
     distances = [_pixel_distance(pixel, background) for pixel in pixels]
     if not any(distance > 0 for distance in distances):
-        return [False] * len(distances)
+        return tuple(False for _ in distances)
     threshold = _otsu_threshold(distances)
-    return [distance > threshold for distance in distances]
+    return tuple(distance > threshold for distance in distances)
 
 
 def _tile_features(image: Image.Image, background: RGBA, *, adaptive: bool) -> TileFeatures:
     rgba = image.convert("RGBA")
     width, height = rgba.size
+    raw = rgba.tobytes()
     pixels = tuple(
-        cast(RGBA, rgba.getpixel((x, y)))
-        for y in range(height)
-        for x in range(width)
+        (raw[index], raw[index + 1], raw[index + 2], raw[index + 3])
+        for index in range(0, len(raw), 4)
     )
-    foreground_mask = tuple(_foreground_mask(rgba, background, adaptive=adaptive))
-    edge_signature = _edge_signature_from_mask(list(foreground_mask), width, height)
-    edge_points = tuple(_edge_points(list(foreground_mask), width=width, height=height))
+    foreground_mask = _foreground_mask(pixels, background, adaptive=adaptive)
+    edge_signature = _edge_signature_from_mask(foreground_mask, width, height)
+    edge_points = tuple(_edge_points(foreground_mask, width=width, height=height))
     edge_distance_map = _edge_distance_map(edge_points, width=width, height=height)
     row_projection = tuple(
         sum(1 for x in range(width) if foreground_mask[(y * width) + x])
@@ -507,11 +554,7 @@ def _tile_features(image: Image.Image, background: RGBA, *, adaptive: bool) -> T
     )
 
 
-def is_background_tile(image: Image.Image, background: RGBA, *, adaptive: bool = False) -> bool:
-    return not any(_foreground_mask(image, background, adaptive=adaptive))
-
-
-def _edge_signature_from_mask(mask: list[bool], width: int, height: int) -> tuple[bool, bool, bool, bool]:
+def _edge_signature_from_mask(mask: tuple[bool, ...], width: int, height: int) -> tuple[bool, bool, bool, bool]:
     left = any(mask[(y * width)] for y in range(height))
     right = any(mask[(y * width) + (width - 1)] for y in range(height))
     top = any(mask[x] for x in range(width))
@@ -625,7 +668,7 @@ def _projection_similarity(left: TileFeatures, right: TileFeatures) -> float:
     return 1.0 - ((row_diff + col_diff) / (2 * total))
 
 
-def _edge_points(mask: list[bool], *, width: int, height: int) -> list[tuple[int, int]]:
+def _edge_points(mask: tuple[bool, ...], *, width: int, height: int) -> list[tuple[int, int]]:
     points: list[tuple[int, int]] = []
     for y in range(height):
         for x in range(width):
@@ -658,13 +701,60 @@ def _edge_distance_map(
 ) -> tuple[float, ...]:
     if not edge_points:
         return tuple(math.inf for _ in range(width * height))
+    max_distance_sq = float(((width - 1) * (width - 1)) + ((height - 1) * (height - 1)) + 1)
+    edge_mask = [max_distance_sq] * (width * height)
+    for edge_x, edge_y in edge_points:
+        edge_mask[(edge_y * width) + edge_x] = 0.0
+
+    column_transformed: list[list[float]] = [[0.0] * width for _ in range(height)]
+    for x in range(width):
+        column = [edge_mask[(y * width) + x] for y in range(height)]
+        transformed = _distance_transform_1d(column)
+        for y, value in enumerate(transformed):
+            column_transformed[y][x] = value
+
     distances: list[float] = []
     for y in range(height):
-        for x in range(width):
-            distances.append(
-                min(math.hypot(x - edge_x, y - edge_y) for edge_x, edge_y in edge_points)
-            )
+        row = _distance_transform_1d(column_transformed[y])
+        distances.extend(math.sqrt(value) for value in row)
     return tuple(distances)
+
+
+def _distance_transform_1d(values: list[float]) -> list[float]:
+    size = len(values)
+    vertices = [0] * size
+    boundaries = [0.0] * (size + 1)
+    output = [0.0] * size
+    lower_envelope = 0
+    vertices[0] = 0
+    boundaries[0] = -math.inf
+    boundaries[1] = math.inf
+
+    for query in range(1, size):
+        separation = _distance_transform_separation(values, vertices[lower_envelope], query)
+        while separation <= boundaries[lower_envelope]:
+            lower_envelope -= 1
+            separation = _distance_transform_separation(values, vertices[lower_envelope], query)
+        lower_envelope += 1
+        vertices[lower_envelope] = query
+        boundaries[lower_envelope] = separation
+        boundaries[lower_envelope + 1] = math.inf
+
+    lower_envelope = 0
+    for query in range(size):
+        while boundaries[lower_envelope + 1] < query:
+            lower_envelope += 1
+        delta = query - vertices[lower_envelope]
+        output[query] = (delta * delta) + values[vertices[lower_envelope]]
+    return output
+
+
+def _distance_transform_separation(values: list[float], left_index: int, right_index: int) -> float:
+    left_value = values[left_index]
+    right_value = values[right_index]
+    return ((right_value + (right_index * right_index)) - (left_value + (left_index * left_index))) / (
+        2 * (right_index - left_index)
+    )
 
 
 def _average_distance_from_map(
@@ -749,15 +839,23 @@ def _score_tile_similarity(
         if logical_tile_size is not None
         else mask_iou
     )
-    mask_iou_rescue_applied = mask_iou < 0.1 and projection_similarity >= 0.9 and chamfer_similarity >= 0.94
-    effective_mask_iou = max(mask_iou, trimmed_logical_iou * 0.75) if mask_iou_rescue_applied else mask_iou
+    mask_iou_rescue_applied = (
+        mask_iou < MASK_IOU_RESCUE_THRESHOLD
+        and projection_similarity >= MASK_IOU_RESCUE_MIN_PROJECTION
+        and chamfer_similarity >= MASK_IOU_RESCUE_MIN_CHAMFER
+    )
+    effective_mask_iou = (
+        max(mask_iou, trimmed_logical_iou * MASK_IOU_RESCUE_WEIGHT)
+        if mask_iou_rescue_applied
+        else mask_iou
+    )
     score = (
-        (0.32 * effective_mask_iou)
-        + (0.26 * chamfer_similarity)
-        + (0.16 * projection_similarity)
-        + (0.11 * edge_ratio)
-        + (0.10 * fill_similarity)
-        + (0.05 * pixel_ratio)
+        (FULL_SCORE_WEIGHTS["mask_iou"] * effective_mask_iou)
+        + (FULL_SCORE_WEIGHTS["chamfer"] * chamfer_similarity)
+        + (FULL_SCORE_WEIGHTS["projection"] * projection_similarity)
+        + (FULL_SCORE_WEIGHTS["edge"] * edge_ratio)
+        + (FULL_SCORE_WEIGHTS["fill"] * fill_similarity)
+        + (FULL_SCORE_WEIGHTS["pixel"] * pixel_ratio)
     )
     return SimilarityScore(
         score=score,
@@ -784,7 +882,11 @@ def _cheap_similarity(reference: TileFeatures, source: TileFeatures) -> CheapSim
         if left == right
     )
     edge_ratio = edge_matches / 4
-    score = (0.5 * projection_similarity) + (0.3 * fill_similarity) + (0.2 * edge_ratio)
+    score = (
+        (CHEAP_SCORE_WEIGHTS["projection"] * projection_similarity)
+        + (CHEAP_SCORE_WEIGHTS["fill"] * fill_similarity)
+        + (CHEAP_SCORE_WEIGHTS["edge"] * edge_ratio)
+    )
     return CheapSimilarityScore(
         score=score,
         fill_similarity=fill_similarity,
@@ -793,34 +895,54 @@ def _cheap_similarity(reference: TileFeatures, source: TileFeatures) -> CheapSim
     )
 
 
-def exact_matches_for_tile(reference_tile: Image.Image, source_tiles: list[SourceTile]) -> list[SourceTile]:
-    reference_bytes = reference_tile.convert("RGBA").tobytes()
-    return [tile for tile in source_tiles if tile.image.convert("RGBA").tobytes() == reference_bytes]
+def _prepare_source_tile(source_tile: SourceTile | PreparedSourceTile, *, background: RGBA) -> PreparedSourceTile:
+    if isinstance(source_tile, PreparedSourceTile):
+        return source_tile
+    return PreparedSourceTile(
+        tile=source_tile,
+        rgba_bytes=source_tile.image.convert("RGBA").tobytes(),
+        features=_tile_features(source_tile.image, background, adaptive=False),
+    )
 
 
-def candidate_matches_for_tile(
-    reference_tile: Image.Image,
-    source_tiles: list[SourceTile],
+def _coerce_prepared_source_tiles(
+    source_tiles: Sequence[SourceTile | PreparedSourceTile],
+    *,
     background: RGBA,
+) -> list[PreparedSourceTile]:
+    return [_prepare_source_tile(tile, background=background) for tile in source_tiles]
+
+
+def _exact_matches_for_reference_bytes(
+    reference_bytes: bytes,
+    source_tiles: Sequence[PreparedSourceTile],
+) -> list[PreparedSourceTile]:
+    return [tile for tile in source_tiles if tile.rgba_bytes == reference_bytes]
+
+
+def exact_matches_for_tile(
+    reference_tile: Image.Image,
+    source_tiles: Sequence[SourceTile | PreparedSourceTile],
+    background: RGBA,
+) -> list[PreparedSourceTile]:
+    prepared_source_tiles = _coerce_prepared_source_tiles(source_tiles, background=background)
+    reference_bytes = reference_tile.convert("RGBA").tobytes()
+    return _exact_matches_for_reference_bytes(reference_bytes, prepared_source_tiles)
+
+
+def _candidate_matches_for_reference_features(
+    reference_features: TileFeatures,
+    source_tiles: Sequence[PreparedSourceTile],
     *,
     max_candidates: int,
     logical_tile_size: int,
-    source_features: dict[int, TileFeatures] | None = None,
-) -> list[tuple[SourceTile, SimilarityScore]]:
-    reference_features = _tile_features(reference_tile, background, adaptive=True)
-    resolved_source_features = source_features or {
-        id(tile): _tile_features(tile.image, background, adaptive=False) for tile in source_tiles
-    }
-    non_background_tiles = [
-        tile
-        for tile in source_tiles
-        if id(tile) in resolved_source_features
-    ]
+) -> list[tuple[PreparedSourceTile, SimilarityScore]]:
+    non_background_tiles = [tile for tile in source_tiles if tile.features.fill_count > 0]
     shortlist = non_background_tiles
     shortlist_size = max(max_candidates * 16, 64)
     if len(non_background_tiles) > shortlist_size:
         cheap_ranked = [
-            (tile, _cheap_similarity(reference_features, resolved_source_features[id(tile)]))
+            (tile, _cheap_similarity(reference_features, tile.features))
             for tile in non_background_tiles
         ]
         cheap_ranked.sort(
@@ -838,7 +960,7 @@ def candidate_matches_for_tile(
             tile,
             _score_tile_similarity(
                 reference_features,
-                resolved_source_features[id(tile)],
+                tile.features,
                 logical_tile_size=logical_tile_size,
             ),
         )
@@ -847,7 +969,7 @@ def candidate_matches_for_tile(
     ranked.sort(
         key=lambda item: (
             item[1].score,
-            item[1].mask_iou,
+            item[1].effective_mask_iou,
             item[1].chamfer_similarity,
             item[1].projection_similarity,
             item[1].pixel_match_ratio,
@@ -859,21 +981,41 @@ def candidate_matches_for_tile(
     return ranked[:max_candidates]
 
 
-def _match_metadata(tile: SourceTile) -> TileMatchMetadata:
+def candidate_matches_for_tile(
+    reference_tile: Image.Image,
+    source_tiles: Sequence[SourceTile | PreparedSourceTile],
+    background: RGBA,
+    *,
+    max_candidates: int,
+    logical_tile_size: int,
+) -> list[tuple[PreparedSourceTile, SimilarityScore]]:
+    prepared_source_tiles = _coerce_prepared_source_tiles(source_tiles, background=background)
+    reference_features = _tile_features(reference_tile, background, adaptive=True)
+    return _candidate_matches_for_reference_features(
+        reference_features,
+        prepared_source_tiles,
+        max_candidates=max_candidates,
+        logical_tile_size=logical_tile_size,
+    )
+
+
+def _match_metadata(tile: SourceTile | PreparedSourceTile) -> TileMatchMetadata:
+    resolved = tile.tile if isinstance(tile, PreparedSourceTile) else tile
     return {
-        "sheet_col": tile.sheet_col,
-        "sheet_row": tile.sheet_row,
-        "tile_id": tile.tile_id,
-        "aliases": list(tile.aliases),
+        "sheet_col": resolved.sheet_col,
+        "sheet_row": resolved.sheet_row,
+        "tile_id": resolved.tile_id,
+        "aliases": list(resolved.aliases),
     }
 
 
-def _candidate_payload(tile: SourceTile, score: SimilarityScore) -> TileMatchCandidate:
+def _candidate_payload(tile: SourceTile | PreparedSourceTile, score: SimilarityScore) -> TileMatchCandidate:
+    resolved = tile.tile if isinstance(tile, PreparedSourceTile) else tile
     return {
-        "sheet_col": tile.sheet_col,
-        "sheet_row": tile.sheet_row,
-        "tile_id": tile.tile_id,
-        "aliases": list(tile.aliases),
+        "sheet_col": resolved.sheet_col,
+        "sheet_row": resolved.sheet_row,
+        "tile_id": resolved.tile_id,
+        "aliases": list(resolved.aliases),
         "score": round(score.score, 4),
         "pixel_match_ratio": round(score.pixel_match_ratio, 4),
         "mask_match_ratio": round(score.mask_match_ratio, 4),
@@ -886,15 +1028,6 @@ def _candidate_payload(tile: SourceTile, score: SimilarityScore) -> TileMatchCan
         "chamfer_similarity": round(score.chamfer_similarity, 4),
         "projection_similarity": round(score.projection_similarity, 4),
     }
-
-
-def _cell_intersects_region(
-    col_index: int,
-    row_index: int,
-    extraction: GridExtraction,
-    rectangles: tuple[Rect, ...],
-) -> bool:
-    return cell_intersects_rectangles(col_index, row_index, extraction, rectangles)
 
 
 def guide_ref(col_index: int, row_index: int) -> GuideRef:
@@ -948,6 +1081,149 @@ def apply_review_overrides(
     return applied
 
 
+def _make_cell(
+    *,
+    col_index: int,
+    row_index: int,
+    status: str,
+    exact_matches: list[TileMatchMetadata] | None = None,
+    candidates: list[TileMatchCandidate] | None = None,
+) -> ReferenceCellMatch:
+    return {
+        "col": col_index,
+        "row": row_index,
+        "status": status,
+        "exact_matches": exact_matches or [],
+        "candidates": candidates or [],
+        "review": {"status": "unreviewed"},
+    }
+
+
+def _prepare_match_run(
+    *,
+    prepared_grid: PreparedReferenceGrid,
+    source_tiles: list[SourceTile],
+    background: RGBA,
+    normalize_cell_size: int | Literal["auto"] | None,
+) -> PreparedMatchRun:
+    resolved_normalized_cell_size = resolve_normalized_cell_size(
+        normalize_cell_size,
+        prepared_grid.extraction,
+    )
+    active_source_tiles = source_tiles
+    if resolved_normalized_cell_size is not None:
+        prepared_grid = normalize_prepared_reference_grid(
+            prepared_grid,
+            target_cell_size=resolved_normalized_cell_size,
+        )
+        active_source_tiles = render_source_tiles(source_tiles, cell_size=resolved_normalized_cell_size)
+    return PreparedMatchRun(
+        prepared_grid=prepared_grid,
+        source_tiles=prepare_source_tiles(active_source_tiles, background=background),
+        resolved_normalized_cell_size=resolved_normalized_cell_size,
+    )
+
+
+def _match_prepared_reference_tiles(
+    *,
+    prepared_run: PreparedMatchRun,
+    background: RGBA,
+    max_candidates: int = 5,
+    candidate_threshold: float = 0.75,
+) -> tuple[list[ReferenceCellMatch], MatchSummary]:
+    prepared = prepared_run.prepared_grid
+    tile_grid = (
+        build_cell_crops(prepared.crop, prepared.extraction)
+        if prepared.normalized_cell_size is not None
+        else build_tile_grid(prepared.crop, prepared.extraction, background=background)
+    )
+    active_source_tiles = prepared_run.source_tiles
+    logical_tile_size = prepared.extraction.transform.tile_size
+
+    cells: list[ReferenceCellMatch] = []
+    blank_cells = 0
+    exact_cells = 0
+    high_confidence_cells = 0
+    best_guess_cells = 0
+    unresolved_cells = 0
+
+    for row_index, row_tiles in enumerate(tile_grid):
+        for col_index, reference_tile in enumerate(row_tiles):
+            if prepared.relevant_boxes and not cell_intersects_rectangles(
+                col_index,
+                row_index,
+                prepared.extraction,
+                prepared.relevant_boxes,
+            ):
+                cells.append(_make_cell(col_index=col_index, row_index=row_index, status="excluded"))
+                continue
+            if cell_intersects_rectangles(
+                col_index,
+                row_index,
+                prepared.extraction,
+                prepared.excluded_boxes,
+            ):
+                cells.append(_make_cell(col_index=col_index, row_index=row_index, status="excluded"))
+                continue
+
+            reference_features = _tile_features(reference_tile, background, adaptive=True)
+            if reference_features.fill_count == 0:
+                blank_cells += 1
+                cells.append(_make_cell(col_index=col_index, row_index=row_index, status="blank"))
+                continue
+
+            reference_bytes = reference_tile.convert("RGBA").tobytes()
+            exact = _exact_matches_for_reference_bytes(reference_bytes, active_source_tiles)
+            if exact:
+                exact_cells += 1
+                cells.append(
+                    _make_cell(
+                        col_index=col_index,
+                        row_index=row_index,
+                        status="exact",
+                        exact_matches=[_match_metadata(tile) for tile in exact],
+                    )
+                )
+                continue
+
+            candidates = _candidate_matches_for_reference_features(
+                reference_features,
+                active_source_tiles,
+                max_candidates=max_candidates,
+                logical_tile_size=logical_tile_size,
+            )
+            if candidates:
+                if candidates[0][1].score >= candidate_threshold:
+                    high_confidence_cells += 1
+                    status = "high_confidence"
+                else:
+                    best_guess_cells += 1
+                    status = "best_guess"
+            else:
+                unresolved_cells += 1
+                status = "unresolved"
+
+            cells.append(
+                _make_cell(
+                    col_index=col_index,
+                    row_index=row_index,
+                    status=status,
+                    candidates=[_candidate_payload(tile, score) for tile, score in candidates],
+                )
+            )
+
+    summary: MatchSummary = {
+        "columns": prepared.extraction.columns,
+        "rows": prepared.extraction.rows,
+        "blank_cells": blank_cells,
+        "exact_match_cells": exact_cells,
+        "high_confidence_cells": high_confidence_cells,
+        "best_guess_cells": best_guess_cells,
+        "unresolved_cells": unresolved_cells,
+    }
+    return cells, summary
+
+
 def match_reference_tiles(
     *,
     reference_image: Image.Image,
@@ -975,135 +1251,18 @@ def match_reference_tiles(
         exclude_partial_edge_cells=exclude_partial_edge_cells,
         background=background,
     )
-    resolved_normalized_cell_size = resolve_normalized_cell_size(normalize_cell_size, prepared.extraction)
-    active_source_tiles = source_tiles
-    if resolved_normalized_cell_size is not None:
-        prepared = normalize_prepared_reference_grid(
-            prepared,
-            target_cell_size=resolved_normalized_cell_size,
-        )
-        tile_grid = build_cell_crops(prepared.crop, prepared.extraction)
-        active_source_tiles = render_source_tiles(source_tiles, cell_size=resolved_normalized_cell_size)
-    else:
-        tile_grid = build_tile_grid(prepared.crop, prepared.extraction, background=background)
-    source_features = {
-        id(tile): _tile_features(tile.image, background, adaptive=False)
-        for tile in active_source_tiles
-        if not is_background_tile(tile.image, background)
-    }
-
-    cells: list[ReferenceCellMatch] = []
-    blank_cells = 0
-    exact_cells = 0
-    high_confidence_cells = 0
-    best_guess_cells = 0
-    unresolved_cells = 0
-
-    for row_index, row_tiles in enumerate(tile_grid):
-        for col_index, reference_tile in enumerate(row_tiles):
-            if prepared.relevant_boxes and not _cell_intersects_region(
-                col_index,
-                row_index,
-                prepared.extraction,
-                prepared.relevant_boxes,
-            ):
-                cells.append(
-                    {
-                        "col": col_index,
-                        "row": row_index,
-                        "status": "excluded",
-                        "exact_matches": [],
-                        "candidates": [],
-                        "review": {"status": "unreviewed"},
-                    }
-                )
-                continue
-            if _cell_intersects_region(
-                col_index,
-                row_index,
-                prepared.extraction,
-                prepared.excluded_boxes,
-            ):
-                cells.append(
-                    {
-                        "col": col_index,
-                        "row": row_index,
-                        "status": "excluded",
-                        "exact_matches": [],
-                        "candidates": [],
-                        "review": {"status": "unreviewed"},
-                    }
-                )
-                continue
-            if is_background_tile(reference_tile, background, adaptive=True):
-                blank_cells += 1
-                cells.append(
-                    {
-                        "col": col_index,
-                        "row": row_index,
-                        "status": "blank",
-                        "exact_matches": [],
-                        "candidates": [],
-                        "review": {"status": "unreviewed"},
-                    }
-                )
-                continue
-
-            exact = exact_matches_for_tile(reference_tile, active_source_tiles)
-            if exact:
-                exact_cells += 1
-                cells.append(
-                    {
-                        "col": col_index,
-                        "row": row_index,
-                        "status": "exact",
-                        "exact_matches": [_match_metadata(tile) for tile in exact],
-                        "candidates": [],
-                        "review": {"status": "unreviewed"},
-                    }
-                )
-                continue
-
-            candidates = candidate_matches_for_tile(
-                reference_tile,
-                active_source_tiles,
-                background,
-                max_candidates=max_candidates,
-                logical_tile_size=transform.tile_size,
-                source_features=source_features,
-            )
-            if candidates:
-                if candidates[0][1].score >= candidate_threshold:
-                    high_confidence_cells += 1
-                    status = "high_confidence"
-                else:
-                    best_guess_cells += 1
-                    status = "best_guess"
-            else:
-                unresolved_cells += 1
-                status = "unresolved"
-
-            cells.append(
-                {
-                    "col": col_index,
-                    "row": row_index,
-                    "status": status,
-                    "exact_matches": [],
-                    "candidates": [_candidate_payload(tile, score) for tile, score in candidates],
-                    "review": {"status": "unreviewed"},
-                }
-            )
-
-    summary: MatchSummary = {
-        "columns": prepared.extraction.columns,
-        "rows": prepared.extraction.rows,
-        "blank_cells": blank_cells,
-        "exact_match_cells": exact_cells,
-        "high_confidence_cells": high_confidence_cells,
-        "best_guess_cells": best_guess_cells,
-        "unresolved_cells": unresolved_cells,
-    }
-    return cells, summary
+    prepared_run = _prepare_match_run(
+        prepared_grid=prepared,
+        source_tiles=source_tiles,
+        background=background,
+        normalize_cell_size=normalize_cell_size,
+    )
+    return _match_prepared_reference_tiles(
+        prepared_run=prepared_run,
+        background=background,
+        max_candidates=max_candidates,
+        candidate_threshold=candidate_threshold,
+    )
 
 
 def build_match_report(
@@ -1136,22 +1295,18 @@ def build_match_report(
         exclude_partial_edge_cells=exclude_partial_edge_cells,
         background=background,
     )
-    resolved_normalized_cell_size = resolve_normalized_cell_size(normalize_cell_size, prepared.extraction)
     _, resolved_variant_id, source_tiles = load_source_tiles(family_path, variant_id)
-    cells, summary = match_reference_tiles(
-        reference_image=reference_image,
+    prepared_run = _prepare_match_run(
+        prepared_grid=prepared,
         source_tiles=source_tiles,
         background=background,
-        transform=transform,
-        cols=cols,
-        rows=rows,
+        normalize_cell_size=normalize_cell_size,
+    )
+    cells, summary = _match_prepared_reference_tiles(
+        prepared_run=prepared_run,
+        background=background,
         max_candidates=max_candidates,
         candidate_threshold=candidate_threshold,
-        relevant_boxes=relevant_boxes,
-        excluded_boxes=excluded_boxes,
-        exclude_partial_edge_cells=exclude_partial_edge_cells,
-        span_box=span_box,
-        normalize_cell_size=normalize_cell_size,
     )
     reviewed_cells = apply_review_overrides(cells, review_overrides or {})
     return {
@@ -1164,7 +1319,7 @@ def build_match_report(
             "cell_size": transform.cell_size,
             "tile_size": transform.tile_size,
             "span_box": list(span_box) if span_box is not None else None,
-            "normalize_cell_size": resolved_normalized_cell_size,
+            "normalize_cell_size": prepared_run.resolved_normalized_cell_size,
             "content_box": list(transform.content_box) if transform.content_box is not None else None,
             "relevant_boxes": [list(box) for box in relevant_boxes],
             "excluded_boxes": [list(box) for box in excluded_boxes],

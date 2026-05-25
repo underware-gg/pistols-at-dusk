@@ -262,13 +262,13 @@ python3 scripts/minimal8_harness.py scaffold-pattern \
 Inspect the selected family variant and get the real tile catalog:
 
 ```bash
-python3 scripts/minimal8_harness.py inspect-family prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py inspect-family prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 Validate the full ingest contract for the canonical review sheet:
 
 ```bash
-python3 scripts/minimal8_harness.py validate-family-ingest prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py validate-family-ingest prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That report now machine-checks that every Minimal 8 tile record has a
@@ -327,7 +327,7 @@ guess from review strips or from family tile IDs alone. Start with the
 authoritative source-layout map instead:
 
 ```bash
-python3 scripts/minimal8_harness.py inspect-source-cell \
+python3 scripts/source_ingest.py inspect-source-cell \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@2bit_colored_bg' \
   --sheet-col 21 \
@@ -344,7 +344,7 @@ Audit the current alias / project reference surface against those confidence
 values:
 
 ```bash
-python3 scripts/minimal8_harness.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That report surfaces family aliases, project aliases, pattern cells, box-style
@@ -355,7 +355,7 @@ papering them over.
 Detect a first-pass source-layout suggestion directly from the bitmap:
 
 ```bash
-python3 scripts/minimal8_harness.py detect-source-layout prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py detect-source-layout prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That writes `source_layout.detected.json` with suggested regions, clusters, and
@@ -422,7 +422,7 @@ not just the hand-marked regions.
 Export a filtered semantic review pack for manual naming / composition passes:
 
 ```bash
-python3 scripts/minimal8_harness.py export-review-pack \
+python3 scripts/source_ingest.py export-review-pack \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@1bit_colored_bg' \
   --scene tavern \
@@ -442,7 +442,7 @@ That produces:
 Export a committed collection review pack for source-layout refinement:
 
 ```bash
-python3 scripts/minimal8_harness.py export-collection-review-pack \
+python3 scripts/source_ingest.py export-collection-review-pack \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@1bit_colored_bg'
 ```
@@ -467,6 +467,11 @@ shared compatibility family bundle plus the generic tile-family loader. That
 combined metadata layer gives the harness and any scene-layout experiments one
 shared understanding of things like quiet floors, tavern fixtures, underworld
 walls, door variants, usage, contrast, clusters, and semantic aliases.
+
+Command surface rule of thumb:
+
+- use `python3 scripts/source_ingest.py ...` for source-sheet ingest, review, and reference-tracing work
+- use `python3 scripts/minimal8_harness.py ...` for runtime/composition work such as rendering layouts, exporting scene runtimes, or scaffolding project patterns
 
 That means the inspect/export path is no longer just geometry:
 

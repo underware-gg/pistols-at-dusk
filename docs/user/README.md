@@ -2,6 +2,11 @@
 
 ## Main Workflows
 
+For the current architecture, read the command surfaces this way:
+
+- use `python3 scripts/source_ingest.py ...` for source-sheet ingest, reference review, and semantic review work
+- use `python3 scripts/minimal8_harness.py ...` for runtime/composition work such as rendering layouts or inspecting resolved scenes
+
 ### Ingest a new sprite family
 
 1. Prepare a grid-aligned source sheet.
@@ -25,7 +30,7 @@
 Run:
 
 ```bash
-python3 scripts/minimal8_harness.py inspect-family \
+python3 scripts/source_ingest.py inspect-family \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@1bit_colored_bg'
 ```
@@ -45,7 +50,7 @@ This exports:
 Run:
 
 ```bash
-python3 scripts/minimal8_harness.py export-review-pack \
+python3 scripts/source_ingest.py export-review-pack \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@1bit_colored_bg' \
   --scene tavern \
