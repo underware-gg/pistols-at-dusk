@@ -1,0 +1,208 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@1bit_colored_bg",
+  "map": {
+    "width": 20,
+    "height": 14,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "width": 20,
+    "height": 14,
+    "units": "tiles",
+    "scale": 5
+  },
+  "layers": [
+    {
+      "name": "water",
+      "ops": [
+        {
+          "kind": "fill",
+          "ref": "@water_short",
+          "x": 0,
+          "y": 4,
+          "width": 4,
+          "height": 10
+        },
+        {
+          "kind": "fill",
+          "ref": "@water_short",
+          "x": 16,
+          "y": 4,
+          "width": 4,
+          "height": 10
+        }
+      ]
+    },
+    {
+      "name": "backdrop",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@symbols_mid",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "kind": "stamp",
+          "ref": "@symbols_mid",
+          "x": 16,
+          "y": 0
+        }
+      ]
+    },
+    {
+      "name": "terrain",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@rock_bank_left",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "kind": "stamp",
+          "ref": {
+            "ref": "@rock_bank_left",
+            "flip_x": true
+          },
+          "x": 11,
+          "y": 2
+        },
+        {
+          "kind": "stamp",
+          "ref": "@rock_bank_left",
+          "x": -1,
+          "y": 10
+        },
+        {
+          "kind": "stamp",
+          "ref": {
+            "ref": "@rock_bank_left",
+            "flip_x": true
+          },
+          "x": 12,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "name": "rooms",
+      "ops": [
+        {
+          "kind": "box",
+          "style": "temple_gold_court",
+          "x": 5,
+          "y": 0,
+          "width": 10,
+          "height": 7
+        },
+        {
+          "kind": "box",
+          "style": "temple_gold_court",
+          "x": 5,
+          "y": 7,
+          "width": 10,
+          "height": 7
+        }
+      ]
+    },
+    {
+      "name": "ornament",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "@door_arch",
+          "x": 8,
+          "y": 2
+        },
+        {
+          "kind": "stamp",
+          "ref": "prop.torch",
+          "x": 8,
+          "y": 3
+        },
+        {
+          "kind": "stamp",
+          "ref": "prop.torch",
+          "x": 11,
+          "y": 3
+        },
+        {
+          "kind": "stamp",
+          "ref": "@plinth_left",
+          "x": 7,
+          "y": 9
+        },
+        {
+          "kind": "stamp",
+          "ref": "@plinth_right",
+          "x": 10,
+          "y": 9
+        },
+        {
+          "kind": "stamp",
+          "ref": "@entry_steps",
+          "x": 8,
+          "y": 12
+        },
+        {
+          "kind": "stamp",
+          "ref": "overworld_route_node",
+          "x": 7,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "overworld_route_node",
+          "x": 8,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "overworld_route_node",
+          "x": 11,
+          "y": 13
+        },
+        {
+          "kind": "stamp",
+          "ref": "overworld_route_node",
+          "x": 12,
+          "y": 13
+        }
+      ]
+    },
+    {
+      "name": "actors",
+      "ops": [
+        {
+          "kind": "stamp",
+          "ref": "minimal8@1bit_colored_bg:47,12",
+          "x": 10,
+          "y": 7
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@1bit_colored_bg:44,12",
+          "x": 9,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@1bit_colored_bg:50,13",
+          "x": 11,
+          "y": 8
+        },
+        {
+          "kind": "stamp",
+          "ref": "minimal8@1bit_colored_bg:48,13",
+          "x": 12,
+          "y": 7
+        }
+      ]
+    }
+  ],
+  "output": "../generated/polychrome_temple_courtyard.png"
+}

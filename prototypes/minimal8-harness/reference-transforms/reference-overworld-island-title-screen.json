@@ -1,0 +1,45 @@
+{
+  "image": "../../../resources/Super Assets 3000/references/reference-overworld-island-title-screen.png",
+  "family_path": "../tile-families/minimal8",
+  "variant_id": "2bit_colored_bg",
+  "prefix": "reference_overworld_island_title_screen",
+  "normalize_cell_size": "auto",
+  "grid": {
+    "tile_size": 8,
+    "cols": 39,
+    "rows": 26,
+    "span_box": [
+      0,
+      22,
+      1248,
+      854
+    ],
+    "content_box": [
+      0,
+      1,
+      7,
+      8
+    ]
+  },
+  "relevant_boxes": [
+    [
+      0,
+      22,
+      1248,
+      854
+    ]
+  ],
+  "excluded_boxes": [
+    [
+      416,
+      54,
+      832,
+      182
+    ]
+  ],
+  "zoom_cell": [
+    19,
+    13
+  ],
+  "candidate_threshold": 0.9
+}

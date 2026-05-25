@@ -63,6 +63,7 @@ This repo ships opt-in distributed Git hooks:
 - brief: [`.canaries/pre-commit.md`](../../.canaries/pre-commit.md)
 - pre-commit checker: [`tools/git-hooks/pre-commit`](../../tools/git-hooks/pre-commit)
 - commit-message checker: [`tools/git-hooks/commit-msg`](../../tools/git-hooks/commit-msg)
+- Git LFS passthrough hooks: `tools/git-hooks/post-checkout`, `post-commit`, `post-merge`, `pre-push`
 - standard: [docs/standards/canary.md](../standards/canary.md)
 
 Enable them locally with:
@@ -75,6 +76,7 @@ When enabled:
 
 - `tools/git-hooks/pre-commit` runs `scripts/check_pyright.sh`, then rejects commits if the `README.md` version badge does not match `VERSION`, rejects staged `.canary--pre-commit` receipts, then enforces a complete local `.canary--pre-commit` receipt against the brief and deletes the receipt on success
 - `tools/git-hooks/commit-msg` strictly enforces `WIP:` vs versioned vs `release:` subject rules by branch, and checks latest-version and stable-release subjects against the changelog files via `scripts/release_workflow.py`
+- the Git LFS passthrough hooks keep PNG and other LFS-tracked assets behaving normally when `core.hooksPath` points at `tools/git-hooks`
 - write `.canary--pre-commit` at the repo root before committing; leave it unstaged and untracked, and let the hook validate it and delete it on success
 
 ## Commit, Versioning, And Changelog

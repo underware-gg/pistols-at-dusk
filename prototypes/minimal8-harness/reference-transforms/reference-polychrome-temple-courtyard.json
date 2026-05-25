@@ -1,0 +1,110 @@
+{
+  "image": "../../../resources/Super Assets 3000/references/reference-polychrome-temple-courtyard.png",
+  "family_path": "../tile-families/minimal8",
+  "variant_id": "2bit_colored_bg",
+  "prefix": "reference_polychrome_temple_courtyard",
+  "normalize_cell_size": "auto",
+  "candidate_threshold": 0.9,
+  "grid": {
+    "tile_size": 8,
+    "cols": 30,
+    "rows": 20,
+    "span_box": [
+      0,
+      106,
+      794,
+      635
+    ],
+    "content_box": [
+      0,
+      1,
+      7,
+      8
+    ]
+  },
+  "relevant_boxes": [
+    [
+      0,
+      106,
+      794,
+      635
+    ]
+  ],
+  "excluded_boxes": [
+    [
+      0,
+      0,
+      794,
+      106
+    ]
+  ],
+  "reviews": {
+    "C3R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,5"
+      },
+      "note": "Visually confirmed from the reference; best available source match is from the current 2-bit variant."
+    },
+    "C2R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,5"
+      },
+      "note": "Visually confirmed from the reference; best available source match is from the current 2-bit variant."
+    },
+    "C30R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,5"
+      },
+      "note": "Visually confirmed from the reference; best available source match is from the current 2-bit variant."
+    },
+    "C5R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:11,8"
+      },
+      "note": "Reference appears to be the 1-bit tileset while the best available source match comes from the current 2-bit variant."
+    },
+    "C7R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank reference cell."
+    },
+    "C13R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank reference cell."
+    },
+    "C15R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank reference cell."
+    },
+    "C16R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank reference cell."
+    },
+    "C18R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank reference cell."
+    }
+  }
+}

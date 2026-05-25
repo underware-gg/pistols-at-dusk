@@ -1966,6 +1966,17 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             with Image.open(output_path) as image:
                 self.assertEqual(image.size, (2016, 576))
 
+    def test_render_layout_renders_polychrome_temple_courtyard(self) -> None:
+        layout_path = ROOT / "prototypes/minimal8-harness/layouts/polychrome_temple_courtyard.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "polychrome_temple_courtyard.png"
+
+            rendered_path = harness.render_layout(layout_path, output_path)
+
+            self.assertEqual(rendered_path, output_path)
+            with Image.open(output_path) as image:
+                self.assertEqual(image.size, (800, 560))
+
     def test_render_layout_rejects_unknown_layer_operation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             _, project_path = _make_override_family_and_project(Path(temp_dir))
@@ -2214,6 +2225,67 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(len(payload), 2)
         self.assertTrue(all(any(alias.startswith("indoors.bookcase") for alias in entry["aliases"]) for entry in payload))
+
+    def test_main_inspect_source_cell_reports_region_cluster_and_mapped_tile(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        stdout = io.StringIO()
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "minimal8_harness.py",
+                "inspect-source-cell",
+                str(project_path),
+                "--tileset",
+                "minimal8@2bit_colored_bg",
+                "--sheet-col",
+                "21",
+                "--sheet-row",
+                "4",
+            ],
+        ), redirect_stdout(stdout):
+            harness.main()
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["sheet_cell"], {"col": 21, "row": 4, "label_col": 22, "label_row": 5})
+        self.assertEqual(payload["source_layout"]["region"]["id"], "tileset.column_2")
+        self.assertEqual(
+            [cluster["id"] for cluster in payload["source_layout"]["clusters"]],
+            ["tileset.column_2.cluster_01"],
+        )
+        self.assertEqual(payload["tile"]["id"], "minimal8:terrain:2,2")
+        self.assertEqual(payload["tile"]["canonical_tile_id"], "minimal8:terrain:2,2")
+        self.assertEqual(payload["tile"]["aliases"], ["underworld.glyph.c"])
+
+    def test_main_inspect_source_cell_distinguishes_region_membership_from_tile_mapping(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        stdout = io.StringIO()
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "minimal8_harness.py",
+                "inspect-source-cell",
+                str(project_path),
+                "--tileset",
+                "minimal8@2bit_colored_bg",
+                "--sheet-col",
+                "21",
+                "--sheet-row",
+                "24",
+            ],
+        ), redirect_stdout(stdout):
+            harness.main()
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["source_layout"]["region"]["id"], "tileset.column_2")
+        self.assertEqual(
+            [cluster["id"] for cluster in payload["source_layout"]["clusters"]],
+            ["tileset.column_2.cluster_04"],
+        )
+        self.assertIsNone(payload["tile"])
 
 
 if __name__ == "__main__":

@@ -27,5 +27,8 @@ htmlcov/
 # scratch areas (repo-wide or per-track)
 scratch.local/
 
+# transient prototype renders and archive snapshots
+prototypes/minimal8-harness/generated/
+
 # canary receipts (transient pre-commit log)
 .canary--pre-commit

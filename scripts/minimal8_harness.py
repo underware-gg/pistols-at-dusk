@@ -5465,6 +5465,83 @@ def query_semantic_catalog(
     return results
 
 
+def inspect_source_cell(project_path: Path, tileset_id: str, *, sheet_col: int, sheet_row: int) -> dict[str, object]:
+    project = LayoutProject(project_path)
+    family = project.source_family_for_tileset(tileset_id)
+    if family is None:
+        raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
+    if family.source_layout is None:
+        raise ValueError(f"Tileset {tileset_id!r} has no source-layout ingest metadata")
+
+    source_region = family.source_layout.source_region_for_cell(sheet_col, sheet_row)
+    source_clusters = family.source_layout.source_clusters_for_cell(sheet_col, sheet_row)
+    tile = family.tile_at_sheet_cell(sheet_col=sheet_col, sheet_row=sheet_row)
+
+    tile_payload: dict[str, object] | None = None
+    if tile is not None:
+        tile_payload = {
+            "id": tile.id,
+            "canonical_tile_id": family.canonical_tile_id(tile.id),
+            "family_id": tile.family_id,
+            "layer": tile.layer,
+            "category": tile.category,
+            "sheet": {
+                "col": tile.sheet_col,
+                "row": tile.sheet_row,
+                "label_col": None if tile.sheet_col is None else tile.sheet_col + 1,
+                "label_row": None if tile.sheet_row is None else tile.sheet_row + 1,
+            },
+            "source_group": tile.source_group,
+            "semantic_cluster_ids": list(tile.cluster_ids),
+            "aliases": list(family.aliases_for_tile(tile.id)),
+            "semantics": list(tile.semantics),
+            "meaning": tile.meaning,
+            "meaning_confidence": tile.meaning_confidence,
+        }
+
+    return {
+        "project": str(project_path),
+        "tileset": tileset_id,
+        "sheet_cell": {
+            "col": sheet_col,
+            "row": sheet_row,
+            "label_col": sheet_col + 1,
+            "label_row": sheet_row + 1,
+        },
+        "source_layout": {
+            "in_sheet_bounds": family.source_layout.contains_cell(sheet_col, sheet_row),
+            "ignored": family.source_layout.ignored_cell(sheet_col, sheet_row),
+            "region": None
+            if source_region is None
+            else {
+                "id": source_region.id,
+                "label": source_region.label,
+                "bounds": {
+                    "x": source_region.bounds.x,
+                    "y": source_region.bounds.y,
+                    "width": source_region.bounds.width,
+                    "height": source_region.bounds.height,
+                },
+            },
+            "clusters": [
+                {
+                    "id": cluster.id,
+                    "label": cluster.label,
+                    "source_region_id": cluster.source_region_id,
+                    "bounds": {
+                        "x": cluster.bounds.x,
+                        "y": cluster.bounds.y,
+                        "width": cluster.bounds.width,
+                        "height": cluster.bounds.height,
+                    },
+                }
+                for cluster in source_clusters
+            ],
+        },
+        "tile": tile_payload,
+    }
+
+
 def inspect_family(project_path: Path, tileset_id: str, output_dir: Path) -> Path:
     project = LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
@@ -6043,6 +6120,18 @@ def main() -> None:
     detect_source_layout_parser.add_argument("--tileset", required=True)
     detect_source_layout_parser.add_argument("--output-dir", type=Path, default=None)
 
+    inspect_source_cell_parser = subparsers.add_parser(
+        "inspect-source-cell",
+        help=(
+            "Inspect one zero-based source-sheet cell through the authoritative source-layout ingest map, "
+            "including its region/cluster context and any mapped family tile."
+        ),
+    )
+    inspect_source_cell_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    inspect_source_cell_parser.add_argument("--tileset", required=True)
+    inspect_source_cell_parser.add_argument("--sheet-col", required=True, type=int)
+    inspect_source_cell_parser.add_argument("--sheet-row", required=True, type=int)
+
     render_parser = subparsers.add_parser("render-layout", help="Render one layout JSON file.")
     render_parser.add_argument("layout", type=Path)
     render_parser.add_argument("--output", type=Path, default=None)
@@ -6177,6 +6266,18 @@ def main() -> None:
     elif args.command == "detect-source-layout":
         output_dir = args.output_dir or (DEFAULT_INSPECT_DIR / f"{args.tileset}-detected")
         print(detect_family_source_layout(args.project, args.tileset, output_dir))
+    elif args.command == "inspect-source-cell":
+        print(
+            json.dumps(
+                inspect_source_cell(
+                    args.project,
+                    args.tileset,
+                    sheet_col=args.sheet_col,
+                    sheet_row=args.sheet_row,
+                ),
+                indent=2,
+            )
+        )
     elif args.command == "render-layout":
         print(render_layout(args.layout, args.output))
     elif args.command == "inspect-layout-scene":

@@ -12,7 +12,7 @@ How the repo is laid out, and the ownership rules contributors must follow when 
 | `resources/references/` | Shared human-provided references and source inspiration. |
 | `resources/Super Assets 3000/` | Vendor / source asset packs. Treat as upstream — keep clean. |
 | `tests/` | Test suite for shared engine modules. |
-| `tools/` | Repo tooling. `tools/git-hooks/` holds the opt-in distributed `pre-commit` and `commit-msg` hooks; activate with `git config core.hooksPath tools/git-hooks`. |
+| `tools/` | Repo tooling. `tools/git-hooks/` holds the opt-in distributed `pre-commit` and `commit-msg` hooks plus the committed Git LFS passthrough shims; activate with `git config core.hooksPath tools/git-hooks`. |
 | `.canaries/` | Canary briefs that gate subjective contributor work. `.canaries/pre-commit.md` is the current pre-commit brief; the matching transient `.canary--pre-commit` receipt is gitignored. See [docs/standards/canary.md](../standards/canary.md). |
 | `docs/` | The five documentation layers (user, functional, architecture, contributor, standards). Start at [docs/README.md](../README.md). |
 | `docs/standards/` | Cross-cutting standards: versioning, changelog, commit messages, canary. See [docs/standards/README.md](../standards/README.md). |

@@ -25,14 +25,21 @@ deliberately matching a canonical exception.
 - active source-pack entrypoint:
   - [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
   - [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
-  - [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
+- [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
 - transitional compatibility bundle:
   - [tile-families/minimal8](tile-families/minimal8)
   - [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
+- canonical reference transforms:
+  - [reference-transforms/README.md](reference-transforms/README.md)
+  - [reference-transforms/reference-overworld-island-title-screen.json](reference-transforms/reference-overworld-island-title-screen.json)
+  - [reference-transforms/reference-overworld-island-title-screen.md](reference-transforms/reference-overworld-island-title-screen.md)
+  - [reference-transforms/reference-polychrome-temple-courtyard.json](reference-transforms/reference-polychrome-temple-courtyard.json)
+  - [reference-transforms/reference-polychrome-temple-courtyard.md](reference-transforms/reference-polychrome-temple-courtyard.md)
 - [assets/utility_land_undercoat.png](assets/utility_land_undercoat.png)
 - [tile_families.py](../../scripts/tile_families.py)
 - [minimal8_engine_smoke.json](layouts/minimal8_engine_smoke.json)
 - [temple_sanctum.json](layouts/temple_sanctum.json)
+- [polychrome_temple_courtyard.json](layouts/polychrome_temple_courtyard.json)
 - [twin_chambers.json](layouts/twin_chambers.json)
 - [causeway_approach.json](layouts/causeway_approach.json)
 - [fool_and_flintlock.json](layouts/fool_and_flintlock.json)
@@ -313,6 +320,25 @@ That source-layout layer is intentionally separate from the semantic
 `source.*` / `indoors.*` cluster ontology. The source layout answers "where is
 the art on the sheet?" while the semantic clusters answer "what does this art
 mean and how is it reused?"
+
+When a human description starts from the raw sheet layout — for example "top
+section of the second source-sheet column, third tile from the left" — do not
+guess from review strips or from family tile IDs alone. Start with the
+authoritative source-layout map instead:
+
+```bash
+python3 scripts/minimal8_harness.py inspect-source-cell \
+  prototypes/minimal8-harness/project.minimal8.json \
+  --tileset 'minimal8@2bit_colored_bg' \
+  --sheet-col 21 \
+  --sheet-row 4
+```
+
+That reports the zero-based source-sheet cell, its source-layout region and
+cluster, and any mapped family tile in one JSON payload. It also makes the
+important context boundary explicit: source-layout cluster IDs are about
+physical sheet structure, while semantic `cluster_ids` on the tile record are
+about reuse meaning and can legitimately describe a different grouping.
 
 Audit the current alias / project reference surface against those confidence
 values:
