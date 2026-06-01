@@ -85,13 +85,12 @@ def _data_scene_template_spec(*, template_id: str = "sample") -> dict[str, Any]:
         },
         "ops": [
             {
-                "kind": "box",
+                "kind": "entity",
                 "layer": {"bind": "room_layer"},
-                "style": "gold_ui_frame",
+                "construction": "ui.frame.gold_room",
                 "x": {"param": "x"},
                 "y": {"param": "y"},
-                "width": {"param": "width"},
-                "height": {"param": "height"}
+                "params": {"width": {"param": "width"}, "height": {"param": "height"}}
             },
             {
                 "kind": "stamp",
@@ -316,18 +315,18 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(project_path, _project_config_with_template_dir(custom_templates))
             project = harness.LayoutProject(project_path)
 
-            layers = harness.expand_scene(
+            result = harness.expand_scene_runtime(
                 project,
                 {"template": "sample", "x": 10, "y": 5, "width": 12, "height": 8},
                 default_tileset=project.default_tileset_id(),
             )
 
-            boxes = _ops_with_kind(layers, "rooms", "box")
-            self.assertEqual(len(boxes), 1)
-            self.assertEqual(_op_int(boxes[0], "x"), 10)
-            self.assertEqual(_op_int(boxes[0], "width"), 12)
+            frames = [entity for entity in result.entities if entity.layer == "rooms"]
+            self.assertEqual(len(frames), 1)
+            self.assertEqual(frames[0].x, 10)
+            self.assertEqual(frames[0].params.get("width"), 12)
 
-            door_stamps = _ops_with_kind(layers, "ornament", "stamp")
+            door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
             self.assertEqual(len(door_stamps), 1)
             self.assertGreaterEqual(_op_int(door_stamps[0], "x"), 10)
             self.assertLess(_op_int(door_stamps[0], "x"), 22)
@@ -485,21 +484,22 @@ class SanctumSceneTests(unittest.TestCase):
         self.project = harness.LayoutProject(PROJECT_PATH)
         self.tileset = self.project.default_tileset_id()
 
-    def test_emits_outer_box_and_centred_door(self) -> None:
-        layers = harness.expand_scene(
+    def test_emits_outer_frame_and_centred_door(self) -> None:
+        result = harness.expand_scene_runtime(
             self.project,
             {"template": "sanctum", "x": 4, "y": 9, "width": 22, "height": 14},
             default_tileset=self.tileset,
         )
 
-        self.assertIn("rooms", layers)
-        self.assertIn("ornament", layers)
-        boxes = _ops_with_kind(layers, "rooms", "box")
-        self.assertGreaterEqual(len(boxes), 1)
-        self.assertEqual(_op_int(boxes[0], "x"), 4)
-        self.assertEqual(_op_int(boxes[0], "width"), 22)
+        self.assertIn("rooms", result.layers)
+        self.assertIn("ornament", result.layers)
+        frames = [entity for entity in result.entities if entity.layer == "rooms"]
+        self.assertGreaterEqual(len(frames), 1)
+        outer_frame = next(entity for entity in frames if entity.x == 4 and entity.y == 9)
+        self.assertEqual(outer_frame.template.construction_id, "ui.frame.glyph_stone")
+        self.assertEqual(outer_frame.params.get("width"), 22)
 
-        door_stamps = _ops_with_kind(layers, "ornament", "stamp")
+        door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
         self.assertEqual(len(door_stamps), 1)
         self.assertEqual(door_stamps[0].get("ref"), "@door_arch")
 
@@ -530,17 +530,17 @@ class SanctumSceneTests(unittest.TestCase):
         self.assertNotIn("rooms", layers)
         self.assertNotIn("ornament", layers)
 
-    def test_blank_inner_style_skips_inner_box_and_targets_outer_room(self) -> None:
-        layers = harness.expand_scene(
+    def test_blank_inner_style_skips_inner_frame_and_targets_outer_room(self) -> None:
+        result = harness.expand_scene_runtime(
             self.project,
             {"template": "sanctum", "x": 4, "y": 9, "width": 22, "height": 14, "inner_style": ""},
             default_tileset=self.tileset,
         )
 
-        boxes = _ops_with_kind(layers, "rooms", "box")
-        self.assertEqual(len(boxes), 1)
+        frames = [entity for entity in result.entities if entity.layer == "rooms"]
+        self.assertEqual(len(frames), 1)
 
-        door_stamps = _ops_with_kind(layers, "ornament", "stamp")
+        door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
         self.assertEqual(len(door_stamps), 1)
         expected_x = harness.centred_pattern_x(
             self.project,
@@ -557,8 +557,8 @@ class TwinChambersSceneTests(unittest.TestCase):
         self.project = harness.LayoutProject(PROJECT_PATH)
         self.tileset = self.project.default_tileset_id()
 
-    def test_emits_two_chamber_boxes_and_door(self) -> None:
-        layers = harness.expand_scene(
+    def test_emits_two_chamber_frames_and_door(self) -> None:
+        result = harness.expand_scene_runtime(
             self.project,
             {
                 "template": "twin_chambers",
@@ -574,21 +574,24 @@ class TwinChambersSceneTests(unittest.TestCase):
             default_tileset=self.tileset,
         )
 
-        boxes = _ops_with_kind(layers, "rooms", "box")
-        self.assertGreaterEqual(len(boxes), 2)
-        x_origins = sorted({_op_int(box, "x") for box in boxes})
+        frames = [
+            entity for entity in result.entities
+            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "rooms"
+        ]
+        self.assertGreaterEqual(len(frames), 2)
+        x_origins = sorted({entity.x for entity in frames})
         self.assertIn(11, x_origins)
         self.assertIn(11 + 12 + 8, x_origins)
 
-        door_stamps = _ops_with_kind(layers, "ornament", "stamp")
+        door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
         self.assertEqual(len(door_stamps), 1)
         right_x = 11 + 12 + 8
         door_x = _op_int(door_stamps[0], "x")
         self.assertGreaterEqual(door_x, right_x)
         self.assertLess(door_x, right_x + 14)
 
-    def test_blank_bridge_style_skips_bridge_box(self) -> None:
-        layers = harness.expand_scene(
+    def test_blank_bridge_style_skips_bridge_frame(self) -> None:
+        result = harness.expand_scene_runtime(
             self.project,
             {
                 "template": "twin_chambers",
@@ -604,8 +607,11 @@ class TwinChambersSceneTests(unittest.TestCase):
             default_tileset=self.tileset,
         )
 
-        boxes = _ops_with_kind(layers, "rooms", "box")
-        self.assertEqual(len(boxes), 2)
+        frames = [
+            entity for entity in result.entities
+            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "rooms"
+        ]
+        self.assertEqual(len(frames), 2)
 
     def test_invalid_dimensions_fail_constraint(self) -> None:
         with self.assertRaisesRegex(ValueError, "failed constraint: Invalid twin_chambers dimensions"):
@@ -631,7 +637,7 @@ class CausewaySceneTests(unittest.TestCase):
         self.tileset = self.project.default_tileset_id()
 
     def test_emits_water_island_and_centred_door(self) -> None:
-        layers = harness.expand_scene(
+        result = harness.expand_scene_runtime(
             self.project,
             {
                 "template": "causeway",
@@ -646,24 +652,25 @@ class CausewaySceneTests(unittest.TestCase):
             default_tileset=self.tileset,
         )
 
-        water_fills = _ops_with_kind(layers, "water", "fill")
+        water_fills = _ops_with_kind(result.layers, "water", "fill")
         self.assertEqual(len(water_fills), 1)
-        boxes = _ops_with_kind(layers, "island", "box")
-        self.assertGreaterEqual(len(boxes), 1)
-        outer_box = next(
-            box for box in boxes if _op_int(box, "x") == 26 and _op_int(box, "y") == 12
-        )
-        self.assertEqual(_op_int(outer_box, "width"), 12)
-        self.assertEqual(_op_int(outer_box, "height"), 8)
+        frames = [
+            entity for entity in result.entities
+            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "island"
+        ]
+        self.assertGreaterEqual(len(frames), 1)
+        outer_frame = next(entity for entity in frames if entity.x == 26 and entity.y == 12)
+        self.assertEqual(outer_frame.params.get("width"), 12)
+        self.assertEqual(outer_frame.params.get("height"), 8)
 
-        door_stamps = _ops_with_kind(layers, "ornament", "stamp")
+        door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
         self.assertEqual(len(door_stamps), 1)
         door_x = _op_int(door_stamps[0], "x")
         self.assertGreaterEqual(door_x, 26)
         self.assertLess(door_x, 26 + 12)
 
     def test_disables_optional_stem_and_door_when_blank_or_null(self) -> None:
-        layers = harness.expand_scene(
+        result = harness.expand_scene_runtime(
             self.project,
             {
                 "template": "causeway",
@@ -677,9 +684,12 @@ class CausewaySceneTests(unittest.TestCase):
             default_tileset=self.tileset,
         )
 
-        boxes = _ops_with_kind(layers, "island", "box")
-        self.assertEqual(len(boxes), 1)
-        self.assertEqual(_ops_with_kind(layers, "ornament", "stamp"), [])
+        frames = [
+            entity for entity in result.entities
+            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "island"
+        ]
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(_ops_with_kind(result.layers, "ornament", "stamp"), [])
 
     def test_emits_requested_symbol_count(self) -> None:
         layers = harness.expand_scene(

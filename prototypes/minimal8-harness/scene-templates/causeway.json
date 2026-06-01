@@ -17,8 +17,8 @@
     "water_y": {"type": "int", "required": false, "description": "Explicit top tile coordinate for the water fill."},
     "water_width": {"type": "int", "required": false, "description": "Explicit width of the water fill in tiles."},
     "water_height": {"type": "int", "required": false, "description": "Explicit height of the water fill in tiles."},
-    "outer_style": {"type": "str", "required": false, "description": "Box style used for the main island frame."},
-    "stem_style": {"type": "str", "required": false, "description": "Optional box style for the downward causeway or stem."},
+    "outer_style": {"type": "str", "required": false, "description": "Deprecated; no longer selects a style — the island frame construction (ui.frame.gold_room) is fixed by the template. Value is ignored."},
+    "stem_style": {"type": "str", "required": false, "description": "Set to a non-empty value to include the optional downward causeway/stem; the value itself is not used (legacy toggle, pending rename to a boolean enable)."},
     "stem_width": {"type": "int", "required": false, "description": "Stem width in tiles."},
     "stem_height": {"type": "int", "required": false, "description": "Stem height in tiles."},
     "stem_x": {"type": "int", "required": false, "description": "Explicit left tile coordinate for the stem."},
@@ -65,23 +65,40 @@
       "height": {"bind": "water_height"}
     },
     {
-      "kind": "box",
+      "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "style": {"bind": "outer_style"},
+      "construction": "ui.frame.gold_room",
       "x": {"param": "x"},
       "y": {"param": "y"},
-      "width": {"param": "width"},
-      "height": {"param": "height"}
+      "params": {"width": {"param": "width"}, "height": {"param": "height"}}
     },
     {
-      "kind": "box",
+      "kind": "fill",
+      "layer": {"bind": "room_layer"},
+      "ref": "@courtyard_floor",
+      "x": {"add": [{"param": "x"}, 2]},
+      "y": {"add": [{"param": "y"}, 2]},
+      "width": {"sub": [{"param": "width"}, 4]},
+      "height": {"sub": [{"param": "height"}, 4]}
+    },
+    {
+      "kind": "entity",
       "layer": {"bind": "room_layer"},
       "when_present": "stem_style",
-      "style": {"bind": "stem_style"},
+      "construction": "ui.frame.gold_room",
       "x": {"bind": "stem_x"},
       "y": {"bind": "stem_y"},
-      "width": {"bind": "stem_width"},
-      "height": {"bind": "stem_height"}
+      "params": {"width": {"bind": "stem_width"}, "height": {"bind": "stem_height"}}
+    },
+    {
+      "kind": "fill",
+      "layer": {"bind": "room_layer"},
+      "when_present": "stem_style",
+      "ref": "@corridor_floor",
+      "x": {"add": [{"bind": "stem_x"}, 2]},
+      "y": {"add": [{"bind": "stem_y"}, 2]},
+      "width": {"sub": [{"bind": "stem_width"}, 4]},
+      "height": {"sub": [{"bind": "stem_height"}, 4]}
     },
     {
       "kind": "stamp",

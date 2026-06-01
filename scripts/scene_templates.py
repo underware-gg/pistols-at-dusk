@@ -73,31 +73,6 @@ class RepeatOp(_RepeatOpRequired, total=False):
     dy: int
 
 
-class _BoxOpRequired(TypedDict):
-    kind: Literal["box"]
-    x: int
-    y: int
-    width: int
-    height: int
-
-
-class BoxOp(_BoxOpRequired, total=False):
-    style: str
-    edge_mode: str
-    allow_sub_min: bool
-    min_width_tiles: int
-    min_height_tiles: int
-    tl: TileRefToken
-    t: TileRefToken
-    tr: TileRefToken
-    l: TileRefToken
-    r: TileRefToken
-    bl: TileRefToken
-    b: TileRefToken
-    br: TileRefToken
-    fill: TileRefToken
-
-
 class AsciiOp(TypedDict):
     kind: Literal["ascii"]
     x: int
@@ -180,7 +155,22 @@ class SceneSlotFields(_SceneSlotRequired, total=False):
     layer: object
 
 
-SceneOp: TypeAlias = Union[StampOp, FillOp, MaskFillOp, ScatterOp, RepeatOp, BoxOp, AsciiOp]
+# Runtime entity op for hand-authored layouts: unlike the template-mode
+# EntityFields above (whose values are expression objects), a layout entity op
+# carries pre-resolved plain JSON scalars and expands directly to stamps.
+class _EntityOpRequired(TypedDict):
+    kind: Literal["entity"]
+    construction: str
+    x: int
+    y: int
+
+
+class EntityOp(_EntityOpRequired, total=False):
+    params: dict[str, object]
+    variant_id: str
+
+
+SceneOp: TypeAlias = Union[StampOp, FillOp, MaskFillOp, ScatterOp, RepeatOp, AsciiOp, EntityOp]
 SceneLayers: TypeAlias = dict[str, list[SceneOp]]
 SceneTemplate: TypeAlias = dict[str, object]
 
@@ -199,7 +189,6 @@ DEFAULT_SCENE_TEMPLATES_DIRNAME = "scene-templates"
 SCENE_PARAMETER_TYPES = frozenset({"int", "float", "str", "bool", "tile_ref", "list[tile_ref]"})
 SCENE_DATA_OP_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
     "fill": _typed_dict_required_fields(FillOp, exclude={"kind"}),
-    "box": _typed_dict_required_fields(BoxOp, exclude={"kind"}),
     "stamp": _typed_dict_required_fields(StampOp, exclude={"kind"}),
     "spread_stamps": _typed_dict_required_fields(SpreadStampsFields),
     "entity": _typed_dict_required_fields(_EntityFieldsRequired),
@@ -209,7 +198,6 @@ SCENE_DATA_OP_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
 }
 SCENE_DATA_OP_ALLOWED_FIELDS: dict[str, frozenset[str]] = {
     "fill": _typed_dict_allowed_fields(FillOp, exclude={"kind"}),
-    "box": _typed_dict_allowed_fields(BoxOp, exclude={"kind"}),
     "stamp": _typed_dict_allowed_fields(StampOp, exclude={"kind"}),
     "spread_stamps": _typed_dict_allowed_fields(SpreadStampsFields),
     "entity": _typed_dict_allowed_fields(EntityFields),
@@ -1294,8 +1282,6 @@ def _scene_op_from_fields(kind: str, fields: dict[str, object]) -> SceneOp:
         return cast(StampOp, {"kind": "stamp", **fields})
     if kind == "fill":
         return cast(FillOp, {"kind": "fill", **fields})
-    if kind == "box":
-        return cast(BoxOp, {"kind": "box", **fields})
     raise AssertionError(f"unreachable data scene op kind: {kind!r}")
 
 

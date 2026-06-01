@@ -113,7 +113,6 @@ At runtime, the harness now derives a compatibility view before doing ordinary s
 Projects still own:
 
 - patterns
-- box styles
 - scene templates
 - local extra tilesets such as utility undercoats
 
@@ -164,7 +163,7 @@ The functional content of the codebase is also documented co-located with the mo
 - [scripts/source_ingest.py](../../scripts/source_ingest.py) — source-side ingest and review CLI: family inspection, source-layout detection, source-cell lookup, semantic review-pack export, collection review-pack export, and ingest/audit checks.
 - [scripts/source_manifests.py](../../scripts/source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loader and validator for the current ingest model.
 - [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) — transitional one-way adapter from staged source manifests into `TileFamily` / `TileLibraryUnit` compatibility inputs.
-- [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / pattern / box-style authoring conventions and harness commands.
+- [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / pattern authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
 - [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn either a resolved render-grid transform or an exact tiled-body `span_box` into a repeatable crop/guide-overlay workflow for screenshots and title screens, optionally normalize that span onto a uniform ingest surface, and keep explicit relevant tiled regions, exclusion zones, partial-edge handling, and switchable `separated`/`overlay` guide-line rendering. The old recovered-tile contact-sheet view still exists only as an explicit matcher-debug output when low-level tile recovery needs inspection; it is no longer part of the default reference-review workflow.
 - [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered reference cells to one or more candidate source sheets and report semantic blank cells, exact matches, and tiered non-exact outcomes (`high_confidence`, `best_guess`, `unresolved`) using the same origin/pitch-or-span solve model, optional normalized ingest surface, and the same relevant-region and exclusion controls as the slicer. Config-driven review overrides keep manual confirmation/correction as a separate axis from machine confidence, the candidate report includes a conservative trimmed logical-mask rescue for cases where an old reference shifts whitespace placement inside an otherwise matching tile, and mixed-family runs preserve per-candidate source provenance so reviews can confirm either a semantic tile or a raw source-sheet cell. Candidate sources can also be constrained to reference-space `reference_boxes` when a mixed-family screen has clearly separated ownership zones.

@@ -279,7 +279,6 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
             "tilesets": {},
             "aliases": {},
             "patterns": {},
-            "box_styles": {},
         },
     )
     return family_dir, project_path
@@ -476,7 +475,6 @@ def _make_multi_family_project(
         "tilesets": {},
         "aliases": {},
         "patterns": {},
-        "box_styles": {},
     }
     if default_tileset is not None:
         payload["default_tileset"] = default_tileset
@@ -536,7 +534,6 @@ def _make_composite_tileset_project(root: Path) -> Path:
                 "sample.overlay.fill_holes": {"ref": "3,0", "occlusion": "fill_holes"},
             },
             "patterns": {},
-            "box_styles": {},
         },
     )
     return project_path
@@ -663,7 +660,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -806,7 +802,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -840,7 +835,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -870,7 +864,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -892,7 +885,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -917,7 +909,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                         "tilesets": {},
                         "aliases": {},
                         "patterns": {},
-                        "box_styles": {},
                     },
                 )
 
@@ -943,7 +934,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -968,7 +958,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -1003,7 +992,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -1038,7 +1026,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tilesets": {},
                     "aliases": {},
                     "patterns": {},
-                    "box_styles": {},
                 },
             )
 
@@ -1988,16 +1975,48 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             with Image.open(output_path) as image:
                 self.assertEqual(image.size, (192, 128))
 
-    def test_render_layout_renders_box_style_gallery(self) -> None:
-        layout_path = ROOT / "prototypes/minimal8-harness/layouts/box_style_gallery.json"
+    def test_render_layout_supports_entity_op(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        construction_id = "indoors.table.kit.square_2x2"
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "box_style_gallery.png"
+            temp_root = Path(temp_dir)
+            project = harness.LayoutProject(project_path)
+            registry = project.tile_library_registry
+            assert registry is not None
+            stamps = harness.expand_entity_stamps(registry, construction_id, 3, 2, context="test")
+            self.assertTrue(stamps, "fixture construction should expand to stamps")
 
-            rendered_path = harness.render_layout(layout_path, output_path)
+            base_map = {"width": 10, "height": 8, "background": "#00000000"}
+            entity_layout = {
+                "project": str(project_path),
+                "map": base_map,
+                "layers": [
+                    {"name": "main", "ops": [
+                        {"kind": "entity", "construction": construction_id, "x": 3, "y": 2}
+                    ]}
+                ],
+                "output": "ignored.png",
+            }
+            stamp_layout = {
+                "project": str(project_path),
+                "map": base_map,
+                "layers": [{"name": "main", "ops": list(stamps)}],
+                "output": "ignored.png",
+            }
+            entity_path = temp_root / "entity.json"
+            stamp_path = temp_root / "stamp.json"
+            _write_json(entity_path, entity_layout)
+            _write_json(stamp_path, stamp_layout)
 
-            self.assertEqual(rendered_path, output_path)
-            with Image.open(output_path) as image:
-                self.assertEqual(image.size, (2016, 576))
+            entity_out = temp_root / "entity.png"
+            stamp_out = temp_root / "stamp.png"
+            harness.render_layout(entity_path, entity_out)
+            harness.render_layout(stamp_path, stamp_out)
+
+            with Image.open(entity_out).convert("RGBA") as rendered, Image.open(stamp_out).convert("RGBA") as expected:
+                self.assertEqual(rendered.size, expected.size)
+                self.assertEqual(rendered.tobytes(), expected.tobytes())
+                self.assertIsNotNone(rendered.getbbox(), "entity op should place visible tiles")
 
     def test_render_layout_renders_island_overlook(self) -> None:
         layout_path = ROOT / "prototypes/minimal8-harness/layouts/island_overlook.json"
@@ -2151,7 +2170,6 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                     "tile_edges.json",
                     "seam_candidate_tiles.png",
                     "patterns.json",
-                    "box_styles.json",
                     "source_layout.json",
                     "source_layout.guide.png",
                     "source_layout.detected.json",

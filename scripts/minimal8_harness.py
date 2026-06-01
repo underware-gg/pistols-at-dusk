@@ -27,7 +27,7 @@ from scene_rules import (
 )
 from scene_templates import (
     AsciiOp,
-    BoxOp,
+    EntityOp,
     FillOp,
     MaskFillOp,
     RepeatOp,
@@ -94,7 +94,6 @@ DEFAULT_PUBLIC_TILE_PACK_DIR = ROOT / "prototypes/minimal8-harness/scratch.local
 
 COORD_RE = re.compile(r"^(?P<col>\d+),(?P<row>\d+)$")
 TILESET_COORD_RE = re.compile(r"^(?P<tileset>[a-z0-9_.@-]+)#(?P<col>\d+),(?P<row>\d+)$")
-VALID_EDGE_MODES = {"seamless", "padded"}
 DEFAULT_LAYER_ORDER = [
     "water",
     "backdrop",
@@ -178,26 +177,6 @@ class PatternConfig(TypedDict, total=False):
     trim: bool
 
 
-class BoxStyleConfig(TypedDict, total=False):
-    edge_mode: str
-    recommended_scale: str
-    min_width_tiles: int
-    min_height_tiles: int
-    sample_width_tiles: int
-    sample_height_tiles: int
-    tl: TileRefToken
-    t: TileRefToken
-    tr: TileRefToken
-    l: TileRefToken
-    r: TileRefToken
-    bl: TileRefToken
-    b: TileRefToken
-    br: TileRefToken
-    fill: TileRefToken
-    allow_sub_min: bool
-    style: str
-
-
 class ProjectConfig(TypedDict, total=False):
     tile_family: str | ProjectTileFamilyConfig | None
     tile_families: list[str | ProjectTileFamilyConfig | None]
@@ -207,7 +186,6 @@ class ProjectConfig(TypedDict, total=False):
     grid: ProjectGridConfig
     aliases: dict[str, TileRefToken]
     patterns: dict[str, PatternConfig]
-    box_styles: dict[str, BoxStyleConfig]
     tilesets: dict[str, ProjectTilesetConfig]
 
 
@@ -934,7 +912,6 @@ class LayoutProject:
                 f"{self.project_path} config key `metatiles` is not supported; use `patterns`"
             )
         self.pattern_specs: dict[str, PatternConfig] = dict(self.config.get("patterns", {}))
-        self.box_styles: dict[str, BoxStyleConfig] = dict(self.config.get("box_styles", {}))
         self.tilesets: dict[str, GridTileset] = self._build_project_tilesets()
         self._family_variant_ids_by_tileset: dict[str, str] = {}
         self._family_selections_by_tileset: dict[str, TileFamilySelection] = {}
@@ -1773,16 +1750,6 @@ class LayoutProject:
     def pattern_names(self) -> list[str]:
         return sorted(self.pattern_specs.keys())
 
-    def resolve_box_style(self, op: BoxOp) -> BoxOp:
-        style_name = op.get("style")
-        if style_name is None:
-            return op
-        if style_name not in self.box_styles:
-            raise ValueError(f"Unknown box style: {style_name}")
-        merged: dict[str, object] = dict(self.box_styles[style_name])
-        merged.update(op)
-        return cast(BoxOp, merged)
-
     def pixel_x_for_tile(self, x: int) -> int:
         return x * self.render_step_width
 
@@ -2027,25 +1994,6 @@ def render_layer_image(
     return image
 
 
-def render_box_style_image(project: LayoutProject, style_name: str, *, width_tiles: int, height_tiles: int) -> Image.Image:
-    layer = new_layer(width_tiles, height_tiles)
-    op: BoxOp = {
-        "kind": "box",
-        "style": style_name,
-        "x": 0,
-        "y": 0,
-        "width": width_tiles,
-        "height": height_tiles,
-    }
-    apply_box(
-        layer,
-        project,
-        op,
-        default_tileset=project.default_tileset_id(),
-    )
-    return render_layer_image(project, layer)
-
-
 def new_layer(width: int, height: int) -> list[list[ResolvedTile | None]]:
     return [[None for _ in range(width)] for _ in range(height)]
 
@@ -2156,107 +2104,6 @@ def apply_ascii(
             token = legend[char]
             pattern = project.pattern_from_ref(token, default_tileset=default_tileset)
             place_pattern(layer, pattern, origin_x + col_index, origin_y + row_index)
-
-
-def _box_corner(spec: BoxOp, key: str) -> TileRefToken:
-    spec_dict = cast(dict[str, TileRefToken], spec)
-    if key not in spec_dict:
-        raise ValueError(f"Box style is missing required edge ref {key!r}")
-    return spec_dict[key]
-
-
-def apply_box(
-    layer: list[list[ResolvedTile | None]],
-    project: LayoutProject,
-    op: BoxOp,
-    *,
-    default_tileset: str | None,
-) -> None:
-    spec = project.resolve_box_style(op)
-    x = int(spec["x"])
-    y = int(spec["y"])
-    width = int(spec["width"])
-    height = int(spec["height"])
-    edge_mode = spec.get("edge_mode", "seamless")
-    if edge_mode not in VALID_EDGE_MODES:
-        raise ValueError(f"Unsupported box edge_mode: {edge_mode!r}")
-
-    if width < 2 or height < 2:
-        raise ValueError("Box width/height must be at least 2 tiles")
-
-    allow_sub_min = bool(spec.get("allow_sub_min", False))
-    min_width_tiles = int(spec.get("min_width_tiles", 2))
-    min_height_tiles = int(spec.get("min_height_tiles", 2))
-    if not allow_sub_min and (width < min_width_tiles or height < min_height_tiles):
-        raise ValueError(
-            f"Box style {spec.get('style', '<inline>')} expects at least "
-            f"{min_width_tiles}x{min_height_tiles} tiles, got {width}x{height}"
-        )
-
-    tl = project.pattern_from_ref(_box_corner(spec, "tl"), default_tileset=default_tileset)
-    tr = project.pattern_from_ref(_box_corner(spec, "tr"), default_tileset=default_tileset)
-    bl = project.pattern_from_ref(_box_corner(spec, "bl"), default_tileset=default_tileset)
-    br = project.pattern_from_ref(_box_corner(spec, "br"), default_tileset=default_tileset)
-    top_ref = _box_corner(spec, "t")
-    left_ref = _box_corner(spec, "l")
-    top = project.pattern_from_ref(top_ref, default_tileset=default_tileset)
-    bottom = project.pattern_from_ref(spec.get("b", top_ref), default_tileset=default_tileset)
-    left = project.pattern_from_ref(left_ref, default_tileset=default_tileset)
-    right = project.pattern_from_ref(spec.get("r", left_ref), default_tileset=default_tileset)
-
-    left_width = max(tl.width, left.width, bl.width)
-    right_width = max(tr.width, right.width, br.width)
-    top_height = max(tl.height, top.height, tr.height)
-    bottom_height = max(bl.height, bottom.height, br.height)
-    if width < left_width + right_width or height < top_height + bottom_height:
-        raise ValueError("Box dimensions are too small for the chosen style")
-
-    place_pattern(layer, tl, x, y)
-    place_pattern(layer, tr, x + width - tr.width, y)
-    place_pattern(layer, bl, x, y + height - bl.height)
-    place_pattern(layer, br, x + width - br.width, y + height - br.height)
-
-    current_x = x + tl.width
-    top_limit = x + width - tr.width
-    while current_x < top_limit:
-        remaining = top_limit - current_x
-        edge = top if remaining >= top.width else crop_pattern(top, width=remaining)
-        place_pattern(layer, edge, current_x, y)
-        current_x += top.width
-
-    current_x = x + bl.width
-    bottom_limit = x + width - br.width
-    while current_x < bottom_limit:
-        remaining = bottom_limit - current_x
-        edge = bottom if remaining >= bottom.width else crop_pattern(bottom, width=remaining)
-        place_pattern(layer, edge, current_x, y + height - bottom.height)
-        current_x += bottom.width
-
-    current_y = y + tl.height
-    left_limit = y + height - bl.height
-    while current_y < left_limit:
-        remaining = left_limit - current_y
-        edge = left if remaining >= left.height else crop_pattern(left, height=remaining)
-        place_pattern(layer, edge, x, current_y)
-        current_y += left.height
-
-    current_y = y + tr.height
-    right_limit = y + height - br.height
-    while current_y < right_limit:
-        remaining = right_limit - current_y
-        edge = right if remaining >= right.height else crop_pattern(right, height=remaining)
-        place_pattern(layer, edge, x + width - right.width, current_y)
-        current_y += right.height
-
-    fill_ref = spec.get("fill")
-    if fill_ref not in (None, ".", " "):
-        fill_pattern = project.pattern_from_ref(fill_ref, default_tileset=default_tileset)
-        fill_x = x + left_width
-        fill_y = y + top_height
-        fill_width = width - left_width - right_width
-        fill_height = height - top_height - bottom_height
-        if fill_width > 0 and fill_height > 0:
-            apply_fill(layer, fill_pattern, fill_x, fill_y, fill_width, fill_height)
 
 
 def pattern_dimensions(project: LayoutProject, ref: TileRefToken, *, default_tileset: str | None) -> tuple[int, int]:
@@ -2985,8 +2832,22 @@ def _apply_repeat_op(layer: list[list[ResolvedTile | None]], project: LayoutProj
         place_pattern(layer, pattern, op["x"] + index * dx, op["y"] + index * dy)
 
 
-def _apply_box_op(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp, *, default_tileset: str | None) -> None:
-    apply_box(layer, project, cast(BoxOp, op), default_tileset=default_tileset)
+def _apply_entity_op(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp, *, default_tileset: str | None) -> None:
+    op = cast(EntityOp, op)
+    tile_library = project.tile_library_registry
+    if tile_library is None:
+        raise ValueError("layout entity op requires a tile-family-backed project")
+    stamps = expand_entity_stamps(
+        tile_library,
+        op["construction"],
+        op["x"],
+        op["y"],
+        context="layout entity op",
+        params=op.get("params"),
+        variant_id=op.get("variant_id"),
+    )
+    for stamp_op in stamps:
+        _apply_stamp_op(layer, project, stamp_op, default_tileset=default_tileset)
 
 
 def _apply_ascii_op(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp, *, default_tileset: str | None) -> None:
@@ -3017,11 +2878,11 @@ def _make_layer_op_handlers(default_tileset: str | None) -> dict[str, LayerOpHan
     def repeat(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp) -> None:
         _apply_repeat_op(layer, project, op, default_tileset=default_tileset)
 
-    def box(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp) -> None:
-        _apply_box_op(layer, project, op, default_tileset=default_tileset)
-
     def ascii_op(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp) -> None:
         _apply_ascii_op(layer, project, op, default_tileset=default_tileset)
+
+    def entity(layer: list[list[ResolvedTile | None]], project: LayoutProject, op: SceneOp) -> None:
+        _apply_entity_op(layer, project, op, default_tileset=default_tileset)
 
     return {
         "stamp": stamp,
@@ -3029,8 +2890,8 @@ def _make_layer_op_handlers(default_tileset: str | None) -> dict[str, LayerOpHan
         "mask_fill": mask_fill,
         "scatter": scatter,
         "repeat": repeat,
-        "box": box,
         "ascii": ascii_op,
+        "entity": entity,
     }
 
 
@@ -3433,72 +3294,6 @@ def build_pattern_catalog(
     return catalog
 
 
-class BoxStyleCatalogEntry(AlphaBoundsInfo):
-    name: str
-    edge_mode: str
-    recommended_scale: str
-    min_width_tiles: int
-    min_height_tiles: int
-    sample_width_tiles: int
-    sample_height_tiles: int
-    sample_width_pixels: int
-    sample_height_pixels: int
-    warnings: list[str]
-
-
-def build_box_style_catalog(project: LayoutProject) -> list[BoxStyleCatalogEntry]:
-    catalog: list[BoxStyleCatalogEntry] = []
-    for name in sorted(project.box_styles.keys()):
-        spec = project.box_styles[name]
-        edge_mode = spec.get("edge_mode", "seamless")
-        if edge_mode not in VALID_EDGE_MODES:
-            raise ValueError(f"Unsupported box edge_mode for {name}: {edge_mode!r}")
-
-        min_width_tiles = int(spec.get("min_width_tiles", 2))
-        min_height_tiles = int(spec.get("min_height_tiles", 2))
-        sample_width_tiles = int(spec.get("sample_width_tiles", max(12, min_width_tiles)))
-        sample_height_tiles = int(spec.get("sample_height_tiles", max(8, min_height_tiles)))
-        sample = render_box_style_image(
-            project,
-            name,
-            width_tiles=sample_width_tiles,
-            height_tiles=sample_height_tiles,
-        )
-        bounds = analyse_alpha_bounds(sample)
-        inset_keys: tuple[Literal["inset_left_pixels", "inset_top_pixels", "inset_right_pixels", "inset_bottom_pixels"], ...] = (
-            "inset_left_pixels",
-            "inset_top_pixels",
-            "inset_right_pixels",
-            "inset_bottom_pixels",
-        )
-        warnings: list[str] = []
-        if edge_mode == "seamless" and any(bounds[key] > 0 for key in inset_keys):
-            warnings.append("Declared seamless but sample render has visible outer insets.")
-        if edge_mode == "padded" and all(bounds[key] == 0 for key in inset_keys):
-            warnings.append("Declared padded but sample render fills its outer bounds.")
-
-        catalog.append(
-            {
-                "name": name,
-                "edge_mode": edge_mode,
-                "recommended_scale": spec.get("recommended_scale", "any"),
-                "min_width_tiles": min_width_tiles,
-                "min_height_tiles": min_height_tiles,
-                "sample_width_tiles": sample_width_tiles,
-                "sample_height_tiles": sample_height_tiles,
-                "sample_width_pixels": sample.width,
-                "sample_height_pixels": sample.height,
-                "alpha_bbox_pixels": bounds["alpha_bbox_pixels"],
-                "inset_left_pixels": bounds["inset_left_pixels"],
-                "inset_top_pixels": bounds["inset_top_pixels"],
-                "inset_right_pixels": bounds["inset_right_pixels"],
-                "inset_bottom_pixels": bounds["inset_bottom_pixels"],
-                "warnings": warnings,
-            }
-        )
-    return catalog
-
-
 def scaffold_pattern(
     project_path: Path,
     *,
@@ -3567,61 +3362,6 @@ def inspect_patterns(project: LayoutProject, tileset_id: str, output_dir: Path) 
             fill=(180, 220, 255, 255),
         )
     contact.save(output_dir / "patterns.png")
-
-
-def inspect_box_styles(project: LayoutProject, output_dir: Path) -> None:
-    catalog = build_box_style_catalog(project)
-    (output_dir / "box_styles.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
-    if not catalog:
-        return
-
-    scale = 3
-    previews = [
-        (
-            entry,
-            _resize_nearest(
-                render_box_style_image(
-                    project,
-                    entry["name"],
-                    width_tiles=entry["sample_width_tiles"],
-                    height_tiles=entry["sample_height_tiles"],
-                ),
-                (entry["sample_width_pixels"] * scale, entry["sample_height_pixels"] * scale),
-            ),
-        )
-        for entry in catalog
-    ]
-    card_width = max(max(preview.width for _, preview in previews) + 16, 220)
-    card_height = max(max(preview.height for _, preview in previews) + 54, 120)
-    columns = 2
-    rows = (len(previews) + columns - 1) // columns
-    contact = Image.new("RGBA", (columns * card_width, rows * card_height), (24, 25, 32, 255))
-    draw = ImageDraw.Draw(contact)
-
-    for idx, (entry, preview) in enumerate(previews):
-        row = idx // columns
-        col = idx % columns
-        left = col * card_width
-        top = row * card_height
-        draw.rectangle((left + 4, top + 4, left + card_width - 5, top + card_height - 5), outline=(246, 195, 124, 255))
-        px = left + (card_width - preview.width) // 2
-        py = top + 10
-        contact.alpha_composite(preview, (px, py))
-        draw.text((left + 8, top + card_height - 40), entry["name"], fill=(255, 255, 255, 255))
-        draw.text(
-            (left + 8, top + card_height - 28),
-            f'{entry["edge_mode"]} • min {entry["min_width_tiles"]}x{entry["min_height_tiles"]}',
-            fill=(180, 220, 255, 255),
-        )
-        draw.text(
-            (left + 8, top + card_height - 16),
-            (
-                f'inset L{entry["inset_left_pixels"]} T{entry["inset_top_pixels"]} '
-                f'R{entry["inset_right_pixels"]} B{entry["inset_bottom_pixels"]}'
-            ),
-            fill=(190, 200, 190, 255),
-        )
-    contact.save(output_dir / "box_styles.png")
 
 
 class ClusterBoundsPayload(TypedDict):
@@ -6099,7 +5839,6 @@ def inspect_family(
     contact.save(output_dir / "non_empty_tiles.png")
     inspect_tile_edges(project, tileset_id, output_dir)
     inspect_patterns(project, tileset_id, output_dir)
-    inspect_box_styles(project, output_dir)
     inspect_source_layout(project, tileset_id, output_dir)
     inspect_clusters(project, tileset_id, output_dir)
     inspect_semantic_catalog(project, tileset_id, output_dir)
@@ -6168,13 +5907,6 @@ def _collect_project_semantic_reference_tokens(
         for row_index, row in enumerate(rows):
             for col_index, cell in enumerate(row):
                 yield (f"pattern {name} rows[{row_index}][{col_index}]", cell)
-
-    box_ref_keys = ("tl", "t", "tr", "l", "r", "bl", "b", "br", "fill")
-    for style_name, style in sorted(project.box_styles.items()):
-        for key in box_ref_keys:
-            ref = style.get(key)
-            if ref is not None:
-                yield (f"box style {style_name}.{key}", ref)
 
     for layout_path in sorted(layouts_dir.glob("*.json")):
         layout = load_layout_config(layout_path)

@@ -83,12 +83,19 @@
       "name": "rooms",
       "ops": [
         {
-          "kind": "box",
-          "style": "temple_gold_court",
+          "kind": "entity",
+          "construction": "ui.frame.gold_room",
           "x": 13,
           "y": 9,
-          "width": 27,
-          "height": 16
+          "params": { "width": 27, "height": 16 }
+        },
+        {
+          "kind": "fill",
+          "ref": "@temple_floor_sparse",
+          "x": 15,
+          "y": 11,
+          "width": 23,
+          "height": 12
         }
       ]
     },

@@ -51,7 +51,6 @@ deliberately matching a canonical exception.
 - [fool_and_flintlock.json](layouts/fool_and_flintlock.json)
 - [island_overlook.json](layouts/island_overlook.json)
 - [scene_template_showcase.json](layouts/scene_template_showcase.json)
-- [box_style_gallery.json](layouts/box_style_gallery.json)
 - [minimal8_harness.py](../../scripts/minimal8_harness.py)
 - [scene_templates.py](../../scripts/scene_templates.py)
 
@@ -127,7 +126,7 @@ occupancy and seated-pose composition remain a separate future layer.
 - `mask_fill`: tile only the non-blank cells of a hand-authored mask shape
 - `scatter`: sparsely stamp one or more refs across a hand-authored mask using a seed
 - `repeat`: place the same tile or pattern `count` times using `dx,dy`
-- `box`: build a room/corridor frame from a reusable 9-slice-style box definition
+- `entity`: place a construction at `(x, y)` — e.g. a `parametric_frame` border kit for a room/corridor frame — optionally with `params` (width/height) and a `variant_id`
 - `ascii`: compact grid authoring for tile placement
 
 `mask_fill` is the important new primitive for overworld / shoreline work. It
@@ -221,46 +220,29 @@ human reading for the same underlying art. It is not a separate behavioural
 system. In this harness there is just one gameplay concept there: a single-seat
 backless furnishing tile that a character can occupy.
 
-## Box Styles
+## Frame Kits
 
-The project spec can define reusable box styles under `box_styles`.
+Room shells, corridors, platforms, and shrine chambers are framed with
+**`parametric_frame`** border kits — family-owned constructions that live in the
+tileset's `constructions.json` beside `metatile` and `parametric_run` (see
+[docs/architecture/construction-system.md](../../docs/architecture/construction-system.md)).
+A frame kit binds tiles to the nine border roles (corners, edges, optional
+fill), supports per-slot flip-derivation and fat (NxM) corners, and renders at
+any size. The Minimal 8 kits include `ui.frame.gold_room` (fat 2x2 gold
+corners), `ui.frame.glyph_stone` (single-tile glyph corners), and the party
+menu's `ui.frame.outer_screen` / `ui.frame.inner_window`.
 
-Those box styles can mix:
-
-- single-tile refs
-- patterns
-- transformed refs with `flip_x` and `flip_y`
-- metadata like `edge_mode`, recommended scale, and minimum practical size
-
-The engine now clips the last repeated edge span cleanly, so box styles can use
-longer wall segments instead of being forced into `1xN` or `Nx1` repeats.
-
-Those styles are intended for room shells, corridors, platforms, and shrine
-chambers. A layout can then use:
+A layout or scene places a frame through the `entity` op, supplying the size via
+`params`; the floor is a separate `fill` op inset by the corner extent:
 
 ```json
-{
-  "kind": "box",
-  "style": "gold_ui_frame",
-  "x": 12,
-  "y": 9,
-  "width": 28,
-  "height": 16
-}
+{ "kind": "entity", "construction": "ui.frame.gold_room", "x": 13, "y": 9,
+  "params": { "width": 27, "height": 16 } },
+{ "kind": "fill", "ref": "@temple_floor_sparse", "x": 15, "y": 11, "width": 23, "height": 12 }
 ```
 
-That is the first real step from "tile placement engine" toward "layout engine".
-
-In practice, the current styles have different sweet spots:
-
-- `gold_ui_frame`: compact rooms, HUD panels, narrow causeways
-- `glyph_stone_frame`: tighter structural rooms, corridors, and shrine shells
-- `temple_maze_frame`: larger shrine rooms and temple courts where a thicker wall pays off
-
-The current Minimal 8 families are intentionally `padded`, which means the art
-breathes inside the `8x8` cell instead of filling every outer edge. The harness
-now tracks that distinction directly in `box_styles` so we don't accidentally
-treat padded ornamental walls like seamless bricks.
+This is the same construction/entity pipeline used for furniture and actors —
+there is no separate border subsystem.
 
 ## Useful Commands
 
@@ -379,8 +361,8 @@ values:
 python3 scripts/source_ingest.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
-That report surfaces family aliases, project aliases, pattern cells, box-style
-refs, and explicit layout refs that still land on non-confirmed family
+That report surfaces family aliases, project aliases, pattern cells,
+and explicit layout refs that still land on non-confirmed family
 meanings, so ingest can expose semantic contradictions instead of silently
 papering them over.
 
@@ -395,8 +377,8 @@ connected multi-tile component candidates derived from non-empty grid cells on
 the canonical review sheet.
 
 That inspection now also exports a pattern preview/contact sheet based on the
-project spec, plus `box_styles.json`, `box_styles.png`, `tile_edges.json`, and
-`seam_candidate_tiles.png` for wall-family and edge-contact inspection.
+project spec, plus `tile_edges.json` and `seam_candidate_tiles.png` for
+wall-family and edge-contact inspection.
 
 By default those inspection files live under `prototypes/minimal8-harness/scratch.local/inspect/`.
 

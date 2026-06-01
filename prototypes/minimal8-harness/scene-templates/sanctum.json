@@ -8,8 +8,8 @@
     "height": {"type": "int", "required": true, "description": "Outer room height in tiles."},
     "room_layer": {"type": "str", "required": false, "description": "Layer name for room boxes."},
     "ornament_layer": {"type": "str", "required": false, "description": "Layer name for the doorway stamp."},
-    "outer_style": {"type": "str", "required": false, "description": "Box style for the outer sanctum frame."},
-    "inner_style": {"type": "str", "required": false, "description": "Optional inner chamber box style."},
+    "outer_style": {"type": "str", "required": false, "description": "Deprecated; no longer selects a style — the outer sanctum frame (ui.frame.glyph_stone) is fixed by the template. Value is ignored."},
+    "inner_style": {"type": "str", "required": false, "description": "Set to a non-empty value to include the optional inner chamber (ui.frame.gold_room); the value itself is not used (legacy toggle, pending rename to a boolean enable)."},
     "inner_inset_x": {"type": "int", "required": false, "description": "Default horizontal inset for the inner chamber."},
     "inner_inset_y": {"type": "int", "required": false, "description": "Default vertical inset for the inner chamber."},
     "inner_x": {"type": "int", "required": false, "description": "Explicit left tile coordinate for the inner chamber."},
@@ -68,23 +68,40 @@
   },
   "ops": [
     {
-      "kind": "box",
+      "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "style": {"bind": "outer_style"},
+      "construction": "ui.frame.glyph_stone",
       "x": {"param": "x"},
       "y": {"param": "y"},
-      "width": {"param": "width"},
-      "height": {"param": "height"}
+      "params": {"width": {"param": "width"}, "height": {"param": "height"}}
     },
     {
-      "kind": "box",
+      "kind": "fill",
+      "layer": {"bind": "room_layer"},
+      "ref": "@courtyard_floor",
+      "x": {"add": [{"param": "x"}, 1]},
+      "y": {"add": [{"param": "y"}, 1]},
+      "width": {"sub": [{"param": "width"}, 2]},
+      "height": {"sub": [{"param": "height"}, 2]}
+    },
+    {
+      "kind": "entity",
       "layer": {"bind": "room_layer"},
       "when_present": "inner_box_enabled",
-      "style": {"bind": "inner_style"},
+      "construction": "ui.frame.gold_room",
       "x": {"bind": "inner_x"},
       "y": {"bind": "inner_y"},
-      "width": {"bind": "inner_width"},
-      "height": {"bind": "inner_height"}
+      "params": {"width": {"bind": "inner_width"}, "height": {"bind": "inner_height"}}
+    },
+    {
+      "kind": "fill",
+      "layer": {"bind": "room_layer"},
+      "when_present": "inner_box_enabled",
+      "ref": "@courtyard_floor",
+      "x": {"add": [{"bind": "inner_x"}, 2]},
+      "y": {"add": [{"bind": "inner_y"}, 2]},
+      "width": {"sub": [{"bind": "inner_width"}, 4]},
+      "height": {"sub": [{"bind": "inner_height"}, 4]}
     },
     {
       "kind": "stamp",

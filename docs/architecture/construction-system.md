@@ -6,7 +6,7 @@ This document should be read as the current composition-side baseline after the 
 
 - the staged source-pack ingest/runtime boundary is now established at the CLI surface — `source_ingest.py` provides the operator-facing ingest entrypoint, though the ingest function bodies currently remain in `minimal8_harness.py` pending a full implementation-level split
 - constructions, entity templates, and recursive scene placement are healthy and remain the right centre of gravity here
-- the project-level `metatiles` registry is gone as an active harness/project concept; project-local tile-grid snippets now live under explicit `patterns` consumed through `stamp`, `fill`, `repeat`, `box`, and similar pattern-oriented surfaces
+- the project-level `metatiles` registry is gone as an active harness/project concept; project-local tile-grid snippets now live under explicit `patterns` consumed through `stamp`, `fill`, `repeat`, and similar pattern-oriented surfaces
 - former mixed-use registry entries have now been routed onto honest composition nouns: entity-shaped cases onto constructions, pure naming conveniences onto aliases/direct refs, and non-entity reusable snippets onto patterns
 - any future higher-order reusable authored arrangements should ride the existing scene/sub-scene system rather than reviving a generic peer registry
 
@@ -55,7 +55,7 @@ Failures carry the construction id, cell coordinates, and a human-readable reaso
 
 Scenes are templates in `scene-templates/`. The DSL evaluator currently supports:
 
-- **`box`**, **`fill`**, **`stamp`**, **`spread_stamps`** — primitive layout ops.
+- **`fill`**, **`stamp`**, **`spread_stamps`** — primitive layout ops.
 - **`entity`** — places one entity (construction instance) at (x, y), optionally with parameters for parametric kinds. Resolves construction → cells → stamps.
 - **`place_scene`** — places another scene's contents at (x, y), passing arguments. Cycle detection at load. Sub-scene's (0, 0) becomes parent's (x, y). Each call is a fresh binding frame; sub-scenes do not see parent bindings except via passed arguments.
 - **`scatter`** — sparse stamp placement against a hand-authored mask using a deterministic seed (data-mode wrapper over the runtime variant).
