@@ -35,6 +35,7 @@ from tile_library import (
     EMPTY_TILE_LIBRARY_PROMOTED_METADATA,
     SheetCell,
     TileClusterRecord,
+    TileGenesis,
     TileRecord,
     ResolvedFamilyTile,
     attachment_sets_by_target,
@@ -682,11 +683,29 @@ TILE_SEQUENCE_FIELDS = frozenset(
         "alt_uses",
     }
 )
-TILE_EQUALITY_FIELDS = frozenset(field.name for field in fields(TileRecord) if field.name not in TILE_SEQUENCE_FIELDS)
+# Provenance facts that moved onto TileGenesis (ADR 0005) but remain query-able;
+# `cluster_ids` is a sequence field, the rest are equality fields.
+TILE_GENESIS_EQUALITY_FIELDS = frozenset({"sheet_col", "sheet_row", "source_group"})
+TILE_GENESIS_QUERY_FIELDS = TILE_GENESIS_EQUALITY_FIELDS | {"cluster_ids"}
+TILE_EQUALITY_FIELDS = (
+    frozenset(
+        field.name
+        for field in fields(TileRecord)
+        if field.name not in TILE_SEQUENCE_FIELDS and field.name != "genesis"
+    )
+    | TILE_GENESIS_EQUALITY_FIELDS
+)
 TILE_QUERY_ALIASES = {
     "scene": "scenes",
     "semantic_cluster_id": "cluster_ids",
 }
+
+
+def _tile_query_value(tile: TileRecord, field_name: str) -> object:
+    """Read a query field, routing genesis-backed provenance facts to `tile.genesis`."""
+    if field_name in TILE_GENESIS_QUERY_FIELDS:
+        return getattr(tile.genesis, field_name)
+    return getattr(tile, field_name)
 TILE_QUERY_FIELDS_FOR_SUGGESTION = TILE_EQUALITY_FIELDS | TILE_SEQUENCE_FIELDS | set(TILE_QUERY_ALIASES)
 MEANING_CONFIDENCE_VALUES = frozenset({"confirmed", "tentative", "unknown"})
 EXACT_DUPLICATE_INHERITED_SEQUENCE_FIELDS = frozenset(
@@ -1513,9 +1532,9 @@ def _validate_tile_override_images(
 def _index_tiles_by_sheet_cell(tiles: Mapping[str, TileRecord]) -> dict[tuple[int, int], TileRecord]:
     tiles_by_sheet_cell: dict[tuple[int, int], TileRecord] = {}
     for tile in tiles.values():
-        if tile.sheet_col is None or tile.sheet_row is None:
+        if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
             continue
-        key = (tile.sheet_col, tile.sheet_row)
+        key = (tile.genesis.sheet_col, tile.genesis.sheet_row)
         if key in tiles_by_sheet_cell:
             raise ValueError(
                 f"Tiles {tiles_by_sheet_cell[key].id!r} and {tile.id!r} both claim sheet cell {key}"
@@ -1540,8 +1559,8 @@ def _validate_exact_duplicate_pixels(
         for variant in variants.values():
             tile_bytes = _tile_image_bytes(
                 variant=variant,
-                sheet_col=tile.sheet_col,
-                sheet_row=tile.sheet_row,
+                sheet_col=tile.genesis.sheet_col,
+                sheet_row=tile.genesis.sheet_row,
                 tile_width=tile_width,
                 tile_height=tile_height,
                 image_cache=variant_image_cache,
@@ -1557,8 +1576,8 @@ def _validate_exact_duplicate_pixels(
             )
             canonical_bytes = _tile_image_bytes(
                 variant=variant,
-                sheet_col=canonical_tile.sheet_col,
-                sheet_row=canonical_tile.sheet_row,
+                sheet_col=canonical_tile.genesis.sheet_col,
+                sheet_row=canonical_tile.genesis.sheet_row,
                 tile_width=tile_width,
                 tile_height=tile_height,
                 image_cache=variant_image_cache,
@@ -1694,11 +1713,37 @@ def _resolve_tiles_from_catalog(
                 sheet_col = None
                 sheet_row = None
 
+            cluster_ids_value = _tuple(cast(Iterable[str], cluster_ids_raw) if cluster_ids_raw is not None else None)
+            source_group_value = spec.get("source_group")
+            source_notes_value = cast(str, source_notes_raw) if source_notes_raw is not None else None
+            if image_override is None:
+                genesis = TileGenesis(
+                    kind="sheet",
+                    sheet_col=sheet_col,
+                    sheet_row=sheet_row,
+                    source_group=source_group_value,
+                    cluster_ids=cluster_ids_value,
+                )
+            else:
+                # A synthetic tile that is a cell of a construction (compose_group set)
+                # records that construction as a parent link — a derivable structural
+                # fact, so its provenance is non-empty without authoring prose.
+                parent_construction_ids = (
+                    (cast(str, compose_group_raw),) if compose_group_raw is not None else ()
+                )
+                genesis = TileGenesis(
+                    kind="synthetic",
+                    source_group=source_group_value,
+                    cluster_ids=cluster_ids_value,
+                    derivation="image_override",
+                    parent_construction_ids=parent_construction_ids,
+                    authored_notes=source_notes_value,
+                )
+
             tile = TileRecord(
                 id=tile_id,
                 family_id=header.family_id,
-                sheet_col=sheet_col,
-                sheet_row=sheet_row,
+                genesis=genesis,
                 exact_duplicate_of=resolved_duplicate_of,
                 image_override=image_override,
                 layer=str(spec["layer"]),
@@ -1711,8 +1756,6 @@ def _resolve_tiles_from_catalog(
                 scenes=inherited_sequence("scenes"),
                 semantics=inherited_sequence("semantics"),
                 motifs=inherited_sequence("motifs"),
-                cluster_ids=_tuple(cast(Iterable[str], cluster_ids_raw) if cluster_ids_raw is not None else None),
-                source_group=spec.get("source_group"),
                 noise=cast(str, noise_raw) if noise_raw is not None else None,
                 contrast=cast(str, contrast_raw) if contrast_raw is not None else None,
                 temperature=cast(str, temperature_raw) if temperature_raw is not None else None,
@@ -1738,7 +1781,7 @@ def _resolve_tiles_from_catalog(
                 alt_uses=inherited_sequence("alt_uses"),
                 meaning=cast(str, meaning_raw) if meaning_raw is not None else None,
                 meaning_confidence=meaning_confidence,
-                source_notes=cast(str, source_notes_raw) if source_notes_raw is not None else None,
+                source_notes=source_notes_value,
             )
             tiles[tile_id] = tile
             return tile
@@ -1774,7 +1817,7 @@ def _validate_clusters_against_tiles(
             if tile_id not in tiles:
                 raise ValueError(f"Cluster {cluster.id} references unknown tile {tile_id!r}")
     for tile in tiles.values():
-        for cluster_id in tile.cluster_ids:
+        for cluster_id in tile.genesis.cluster_ids:
             if cluster_id not in clusters:
                 raise ValueError(f"Tile {tile.id} references unknown cluster {cluster_id!r}")
 
@@ -2316,9 +2359,9 @@ class TileFamily:
         return self.tiles_by_sheet_cell.get((sheet_col, sheet_row))
 
     def _source_region_id_for_tile(self, tile: TileRecord) -> str | None:
-        if self.source_layout is None or tile.sheet_col is None or tile.sheet_row is None:
+        if self.source_layout is None or tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
             return None
-        source_region = self.source_layout.source_region_for_cell(tile.sheet_col, tile.sheet_row)
+        source_region = self.source_layout.source_region_for_cell(tile.genesis.sheet_col, tile.genesis.sheet_row)
         return None if source_region is None else source_region.id
 
     def source_region_id_for_tile(self, tile: TileRecord) -> str | None:
@@ -2326,9 +2369,9 @@ class TileFamily:
 
     @staticmethod
     def _sheet_sort_key(tile: TileRecord) -> tuple[int, int, int, str]:
-        sheet_row = tile.sheet_row if tile.sheet_row is not None else 10**9
-        sheet_col = tile.sheet_col if tile.sheet_col is not None else 10**9
-        return (1 if tile.sheet_row is None or tile.sheet_col is None else 0, sheet_row, sheet_col, tile.id)
+        sheet_row = tile.genesis.sheet_row if tile.genesis.sheet_row is not None else 10**9
+        sheet_col = tile.genesis.sheet_col if tile.genesis.sheet_col is not None else 10**9
+        return (1 if tile.genesis.sheet_row is None or tile.genesis.sheet_col is None else 0, sheet_row, sheet_col, tile.id)
 
     def summary(self) -> dict[str, object]:
         by_source_region: dict[str, int] = {}
@@ -2340,7 +2383,7 @@ class TileFamily:
         by_scene: dict[str, int] = {}
         tagged = 0
         for tile in self.tiles.values():
-            bucket = self._source_region_id_for_tile(tile) or ("synthetic" if tile.sheet_col is None else "unmapped")
+            bucket = self._source_region_id_for_tile(tile) or ("synthetic" if tile.genesis.sheet_col is None else "unmapped")
             by_source_region[bucket] = by_source_region.get(bucket, 0) + 1
             by_category[tile.category] = by_category.get(tile.category, 0) + 1
             if tile.usage is not None:
@@ -2420,17 +2463,17 @@ class TileFamily:
         uncertain_meaning: list[str] = []
 
         for tile in self.tiles.values():
-            bucket = self._source_region_id_for_tile(tile) or ("synthetic" if tile.sheet_col is None else "unmapped")
+            bucket = self._source_region_id_for_tile(tile) or ("synthetic" if tile.genesis.sheet_col is None else "unmapped")
             region_report = by_source_region[bucket]
             region_report["total"] += 1
-            if tile.source_group is None or not tile.source_group.strip():
+            if tile.genesis.source_group is None or not tile.genesis.source_group.strip():
                 missing_source_group.append(tile.id)
                 region_report["missing_source_group"] += 1
-            if not tile.cluster_ids:
+            if not tile.genesis.cluster_ids:
                 missing_cluster_ids.append(tile.id)
                 region_report["missing_cluster_ids"] += 1
             else:
-                for cluster_id in tile.cluster_ids:
+                for cluster_id in tile.genesis.cluster_ids:
                     by_cluster[cluster_id] = by_cluster.get(cluster_id, 0) + 1
             if tile.meaning is None or not tile.meaning.strip():
                 missing_meaning.append(tile.id)
@@ -2517,18 +2560,18 @@ class TileFamily:
 
         results: list[TileRecord] = []
         for tile in self.tiles.values():
-            if any(getattr(tile, field_name) != expected for field_name, expected in equality_filters.items()):
+            if any(_tile_query_value(tile, field_name) != expected for field_name, expected in equality_filters.items()):
                 continue
             failed = False
             for field_name, required in contains_all.items():
-                values = set(getattr(tile, field_name))
+                values = set(cast("Iterable[object]", _tile_query_value(tile, field_name)))
                 if not required.issubset(values):
                     failed = True
                     break
             if failed:
                 continue
             for field_name, allowed in contains_any.items():
-                values = set(getattr(tile, field_name))
+                values = set(cast("Iterable[object]", _tile_query_value(tile, field_name)))
                 if values.isdisjoint(allowed):
                     failed = True
                     break

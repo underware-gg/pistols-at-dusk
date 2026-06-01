@@ -46,7 +46,7 @@ This keeps constructions neutral about alias-level mapping — the kit owns it.
 
 Validation is a pure function (no I/O, no shared state) and runs at family load over every construction. Two cell-level rules:
 
-- **Adjacency.** Every internal edge between two filled cells must agree on `connects_on`. If cell A's east neighbour is cell B, then `"east"` must appear in A's `connects_on` and `"west"` must appear in B's.
+- **Adjacency.** Every internal edge between two filled cells must agree on `connects_on`. If cell A's east neighbour is cell B, then `"east"` must appear in A's `connects_on` and `"west"` must appear in B's. (`connects_on` is a per-side open/closed flag: it proves a side is *meant* to connect, not that two seams visually *fit*. [ADR 0006](decisions/0006-defer-cross-kit-interchangeability-to-seam-profiles.md) records the intent to replace it with derived machine-verifiable seam profiles when cross-kit interchangeability is built.)
 - **Exposure.** Every cell whose tile lists `requires_exposed_on: [dir]` must have no internal cell on that side. Edge-of-construction or empty cells are acceptable; an internal neighbour is a violation.
 
 Failures carry the construction id, cell coordinates, and a human-readable reason. Load-time enforcement is deliberate: a family containing an invalid construction fails to load, so tile-level rules become load-bearing rather than decorative metadata. Runtime resolution can then trust that every construction it sees is structurally valid.
@@ -80,7 +80,7 @@ Known open questions, deferred:
 
 - **Variant slots within a construction** (alternates per role).
 - **Affordance / walkability propagation** from tile rules up to construction-level composite affordances.
-- **Cross-kit constructions.**
+- **Cross-kit constructions / kit interchangeability.** Deferred by decision — see [ADR 0006](decisions/0006-defer-cross-kit-interchangeability-to-seam-profiles.md). No runtime consumer mixes slot-classes across kits, the one real case (gold simple corners + an ornate body) is already covered by tile-id corner refs, and `connects_on` cannot verify that two seams fit. When a consumer appears, interchangeability will be built on derived machine-verifiable seam profiles (superseding the `connects_on` rule), not hand-declared compatibility groups.
 - **Scene-level validation** (overlap detection, layer correctness, reachability).
 
 ## Out of scope

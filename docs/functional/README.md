@@ -126,6 +126,7 @@ Scene templates now preserve entity identity instead of lowering `entity` ops di
 - `harness.py` resolves those requests against the selected family into first-class entity instances
 - each entity instance now carries an explicit placement anchor plus occupied-cell and affordance-cell sets
 - rendering still lowers entity instances to stamp ops as the final step
+- `inspect-layout-scene` emits each placed entity tile's canonical `TileGenesis` provenance (kind, sheet cell or synthetic derivation), traceable in one hop via `genesis_for(tile_id)` / `genesis_for_alias(alias)` (see [ADR 0005](../architecture/decisions/0005-runtime-tile-genesis-and-provenance.md))
 
 This keeps the runtime honest about the distinction between:
 

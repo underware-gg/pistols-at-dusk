@@ -170,12 +170,13 @@ def build_semantic_catalog_entries(
         resolved = family.resolve_ref(meta.id, variant_id=variant_id)
         if resolved is None:
             continue
+        genesis = meta.genesis
         index: int | None = None
         empty = False
-        if meta.sheet_col is not None and meta.sheet_row is not None:
-            if not (0 <= meta.sheet_col < tileset.columns and 0 <= meta.sheet_row < tileset.rows):
+        if genesis.sheet_col is not None and genesis.sheet_row is not None:
+            if not (0 <= genesis.sheet_col < tileset.columns and 0 <= genesis.sheet_row < tileset.rows):
                 continue
-            index = tileset.index_from_col_row(meta.sheet_col, meta.sheet_row)
+            index = tileset.index_from_col_row(genesis.sheet_col, genesis.sheet_row)
             empty = tileset.is_empty(index)
             if empty and not include_empty:
                 continue
@@ -188,8 +189,8 @@ def build_semantic_catalog_entries(
             "category": meta.category,
             "transparent": meta.transparent,
             "tags": list(meta.tags),
-            "sheet_col": meta.sheet_col,
-            "sheet_row": meta.sheet_row,
+            "sheet_col": genesis.sheet_col,
+            "sheet_row": genesis.sheet_row,
             "exact_duplicate_of": meta.exact_duplicate_of,
             "image_override": meta.image_override,
             "aliases": list(meta.aliases),
@@ -198,8 +199,8 @@ def build_semantic_catalog_entries(
             "scenes": list(meta.scenes),
             "semantics": list(meta.semantics),
             "motifs": list(meta.motifs),
-            "cluster_ids": list(meta.cluster_ids),
-            "source_group": meta.source_group,
+            "cluster_ids": list(genesis.cluster_ids),
+            "source_group": genesis.source_group,
             "noise": meta.noise,
             "contrast": meta.contrast,
             "temperature": meta.temperature,
@@ -1110,9 +1111,9 @@ def _collection_member_sheet_cell(
         tile = family.by_alias(alias) if alias in family.aliases else None
     if tile is None:
         return None
-    if tile.sheet_col is None or tile.sheet_row is None:
+    if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
         return None
-    return (tile.sheet_col, tile.sheet_row)
+    return (tile.genesis.sheet_col, tile.genesis.sheet_row)
 
 
 def _collection_bounds_from_members(
@@ -1144,10 +1145,10 @@ def _semantic_cluster_bounds_from_members(
     cluster: TileClusterRecord,
 ) -> ClusterBoundsPayload | None:
     member_cells = [
-        (tile.sheet_col, tile.sheet_row)
+        (tile.genesis.sheet_col, tile.genesis.sheet_row)
         for tile_id in cluster.members
         for tile in [family.tiles.get(tile_id)]
-        if tile is not None and tile.sheet_col is not None and tile.sheet_row is not None
+        if tile is not None and tile.genesis.sheet_col is not None and tile.genesis.sheet_row is not None
     ]
     if not member_cells:
         return None
@@ -2861,13 +2862,13 @@ def inspect_source_cell(
             "layer": tile.layer,
             "category": tile.category,
             "sheet": {
-                "col": tile.sheet_col,
-                "row": tile.sheet_row,
-                "label_col": None if tile.sheet_col is None else tile.sheet_col + 1,
-                "label_row": None if tile.sheet_row is None else tile.sheet_row + 1,
+                "col": tile.genesis.sheet_col,
+                "row": tile.genesis.sheet_row,
+                "label_col": None if tile.genesis.sheet_col is None else tile.genesis.sheet_col + 1,
+                "label_row": None if tile.genesis.sheet_row is None else tile.genesis.sheet_row + 1,
             },
-            "source_group": tile.source_group,
-            "semantic_cluster_ids": list(tile.cluster_ids),
+            "source_group": tile.genesis.source_group,
+            "semantic_cluster_ids": list(tile.genesis.cluster_ids),
             "aliases": list(family.aliases_for_tile(tile.id)),
             "semantics": list(tile.semantics),
             "meaning": tile.meaning,

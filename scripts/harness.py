@@ -38,6 +38,7 @@ from tile_library import (
     ParametricFrameConstruction,
     ParametricRunConstruction,
     RuntimeConstructionCatalog,
+    TileGenesis,
     TileRecord,
 )
 from tile_families import (
@@ -760,7 +761,26 @@ def build_layout_layers(
     return build_layout_scene(layout, project, default_tileset=default_tileset).layers
 
 
-def _entity_instance_payload(entity: EntityInstance) -> dict[str, object]:
+def _tile_genesis_payload(genesis: TileGenesis | None) -> dict[str, object] | None:
+    if genesis is None:
+        return None
+    return {
+        "kind": genesis.kind,
+        "sheet_col": genesis.sheet_col,
+        "sheet_row": genesis.sheet_row,
+        "source_group": genesis.source_group,
+        "cluster_ids": list(genesis.cluster_ids),
+        "derivation": genesis.derivation,
+        "parent_construction_ids": list(genesis.parent_construction_ids),
+        "parent_tile_ids": list(genesis.parent_tile_ids),
+        "authored_notes": genesis.authored_notes,
+    }
+
+
+def _entity_instance_payload(
+    entity: EntityInstance,
+    genesis_lookup: Callable[[str], TileGenesis | None],
+) -> dict[str, object]:
     def _occupancy_cell_payload(cell: EntityOccupancyCell) -> dict[str, object]:
         return {
             "tile_id": cell.tile_id,
@@ -799,6 +819,7 @@ def _entity_instance_payload(entity: EntityInstance) -> dict[str, object]:
                 "x": placement.x,
                 "y": placement.y,
                 "compose_role": placement.compose_role,
+                "genesis": _tile_genesis_payload(genesis_lookup(placement.tile_id)),
             }
             for placement in entity.tiles
         ],
@@ -833,6 +854,11 @@ def export_layout_scene_runtime(layout_path: Path, output_path: Path) -> Path:
     default_tileset = layout.get("default_tileset", project.default_tileset_id())
     layout_scene = build_layout_scene(layout, project, default_tileset=default_tileset)
 
+    registry = project.tile_library_registry
+
+    def genesis_lookup(tile_id: str) -> TileGenesis | None:
+        return None if registry is None else registry.genesis_for(tile_id)
+
     payload = {
         "layout": str(layout_path),
         "project": str(project_path),
@@ -847,7 +873,7 @@ def export_layout_scene_runtime(layout_path: Path, output_path: Path) -> Path:
             }
             for layer in layout_scene.layers
         ],
-        "entities": [_entity_instance_payload(entity) for entity in layout_scene.entities],
+        "entities": [_entity_instance_payload(entity, genesis_lookup) for entity in layout_scene.entities],
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

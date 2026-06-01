@@ -308,6 +308,33 @@ class TileClusterRecord:
 
 
 @dataclass(frozen=True)
+class TileGenesis:
+    """Canonical runtime-owned provenance for one tile (ADR 0005).
+
+    Replaces the loose combination of `sheet_col` / `sheet_row` / `source_group`
+    / `cluster_ids` that used to be scattered across the tile record. `kind`
+    is ``"sheet"`` for sheet-backed tiles and ``"synthetic"`` for derived /
+    authored tiles, which must explain their derivation rather than merely
+    lacking a sheet cell.
+    """
+
+    kind: str
+    sheet_col: int | None = None
+    sheet_row: int | None = None
+    source_group: str | None = None
+    cluster_ids: tuple[str, ...] = ()
+    derivation: str | None = None
+    parent_construction_ids: tuple[str, ...] = ()
+    parent_tile_ids: tuple[str, ...] = ()
+    authored_notes: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "cluster_ids", tuple(self.cluster_ids))
+        object.__setattr__(self, "parent_construction_ids", tuple(self.parent_construction_ids))
+        object.__setattr__(self, "parent_tile_ids", tuple(self.parent_tile_ids))
+
+
+@dataclass(frozen=True)
 class TileRecord:
     id: str
     family_id: str
@@ -315,8 +342,7 @@ class TileRecord:
     category: str
     transparent: bool
     tags: tuple[str, ...]
-    sheet_col: int | None = None
-    sheet_row: int | None = None
+    genesis: TileGenesis
     exact_duplicate_of: str | None = None
     image_override: str | None = None
     aliases: tuple[str, ...] = ()
@@ -325,8 +351,6 @@ class TileRecord:
     scenes: tuple[str, ...] = ()
     semantics: tuple[str, ...] = ()
     motifs: tuple[str, ...] = ()
-    cluster_ids: tuple[str, ...] = ()
-    source_group: str | None = None
     noise: str | None = None
     contrast: str | None = None
     temperature: str | None = None
@@ -448,6 +472,16 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
 
     def tile_record(self, tile_id: str) -> TileRecord | None:
         return self.tiles.get(tile_id)
+
+    def genesis_for(self, tile_id: str) -> TileGenesis | None:
+        """One-hop tile-id -> genesis lookup (ADR 0005)."""
+        tile = self.tiles.get(tile_id)
+        return None if tile is None else tile.genesis
+
+    def genesis_for_alias(self, alias: str) -> TileGenesis | None:
+        """One-hop alias -> tile id -> genesis lookup (ADR 0005)."""
+        tile_id = self.aliases.get(alias)
+        return None if tile_id is None else self.genesis_for(tile_id)
 
     def tile_at_sheet_cell(self, *, sheet_col: int, sheet_row: int) -> TileRecord | None:
         return self.tiles_by_sheet_cell_index.get((sheet_col, sheet_row))
@@ -657,6 +691,16 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
             return None
         return self.loaded_units_by_id[unit_id].unit
 
+    def genesis_for(self, tile_id: str) -> TileGenesis | None:
+        """One-hop tile-id -> genesis across loaded units (ADR 0005)."""
+        owner = self.tile_owner(tile_id)
+        return None if owner is None else owner.genesis_for(tile_id)
+
+    def genesis_for_alias(self, alias: str) -> TileGenesis | None:
+        """One-hop alias -> tile id -> genesis across loaded units (ADR 0005)."""
+        owner = self.alias_owner(alias)
+        return None if owner is None else owner.genesis_for_alias(alias)
+
     def unit_for_ref(self, ref: str) -> TileLibraryUnit | None:
         loaded_unit = self.loaded_unit_for_ref(ref)
         if loaded_unit is None:
@@ -740,8 +784,8 @@ def _resolved_family_tile(
         family_id=family_id,
         variant_id=variant_id,
         tile_id=tile.id,
-        sheet_col=tile.sheet_col,
-        sheet_row=tile.sheet_row,
+        sheet_col=tile.genesis.sheet_col,
+        sheet_row=tile.genesis.sheet_row,
         image_override_path=(
             resolve_tile_image_override_path(
                 root=root,

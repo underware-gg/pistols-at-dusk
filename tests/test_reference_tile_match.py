@@ -195,6 +195,25 @@ class ReferenceTileMatchTests(unittest.TestCase):
         self._write_json(family_dir / "aliases.json", {"sample.alias": "test.family:all:0,0"})
         return family_dir
 
+    def test_duplicate_source_ids_are_rejected(self) -> None:
+        # source_id is used as a unique dict key by the recommender, so two loaded
+        # sources sharing an id would silently collide. Enforce the invariant (M5).
+        with self.assertRaisesRegex(ValueError, "dup.source"):
+            reference_tile_match.assert_unique_source_ids(
+                [
+                    self._loaded_source(source_id="dup.source"),
+                    self._loaded_source(source_id="dup.source"),
+                ]
+            )
+
+    def test_unique_source_ids_pass(self) -> None:
+        reference_tile_match.assert_unique_source_ids(
+            [
+                self._loaded_source(source_id="source.a"),
+                self._loaded_source(source_id="source.b"),
+            ]
+        )
+
     def test_match_reference_tiles_reports_exact_duplicates(self) -> None:
         tile = self._tile(
             [

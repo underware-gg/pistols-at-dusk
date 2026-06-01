@@ -831,6 +831,23 @@ def load_source_tiles(
     return family, resolved_variant_id, resolved_source_id, tiles
 
 
+def assert_unique_source_ids(loaded_specs: Sequence[LoadedSourceSpec]) -> None:
+    """Enforce that resolved source ids are unique (M5).
+
+    `source_id` is the key the matcher and the sibling-variant recommender index
+    sources by, so two loaded sources sharing an id would silently collide and
+    one would be dropped. Fail fast at the trust boundary instead.
+    """
+    seen: set[str] = set()
+    for spec in loaded_specs:
+        if spec.source_id in seen:
+            raise ValueError(
+                f"Duplicate source id {spec.source_id!r}: each loaded source must have a "
+                f"unique source_id (give explicit source_id values to disambiguate)"
+            )
+        seen.add(spec.source_id)
+
+
 def load_source_tiles_from_specs(
     source_specs: Sequence[MatchSourceSpec],
 ) -> tuple[list[LoadedSourceSpec], list[SourceTile]]:
@@ -870,6 +887,7 @@ def load_source_tiles_from_specs(
             )
         )
         source_tiles.extend(tiles)
+    assert_unique_source_ids(loaded_specs)
     return loaded_specs, source_tiles
 
 

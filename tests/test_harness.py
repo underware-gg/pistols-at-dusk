@@ -1757,6 +1757,27 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertEqual(len(table["occupancy"]["unknown_cells"]), 6)
         self.assertEqual(len(table["affordance_cells"]), 6)
 
+    def test_export_layout_scene_runtime_emits_per_stamp_genesis(self) -> None:
+        layout_path = ROOT / "prototypes/minimal8-harness/layouts/fool_and_flintlock.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "fool_and_flintlock.scene_runtime.json"
+            harness.export_layout_scene_runtime(layout_path, output_path)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        constructions = {entity["template"]["construction_id"]: entity for entity in payload["entities"]}
+        table = constructions["indoors.table.kit.rect_3x2"]
+        self.assertTrue(table["tiles"])
+        for placement in table["tiles"]:
+            self.assertIn("genesis", placement)
+            genesis = placement["genesis"]
+            self.assertIsNotNone(genesis)
+            self.assertIn(genesis["kind"], {"sheet", "synthetic"})
+            if genesis["kind"] == "sheet":
+                self.assertIsNotNone(genesis["sheet_col"])
+                self.assertIsNotNone(genesis["sheet_row"])
+            else:
+                self.assertIsNotNone(genesis["derivation"])
+
     def test_entity_instance_tracks_occupied_cells_separately_from_bounds(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = layout_core.LayoutProject(project_path)

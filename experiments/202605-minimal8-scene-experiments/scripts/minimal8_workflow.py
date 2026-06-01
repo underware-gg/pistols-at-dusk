@@ -161,15 +161,15 @@ class Minimal8:
         return tuple(_require_source_layout(self.catalog).source_regions.keys())
 
     def region_cell_for_tile(self, tile: TileRecord) -> tuple[str, int, int]:
-        if tile.sheet_col is None or tile.sheet_row is None:
+        if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
             raise ValueError(f"Tile {tile.id!r} is not backed by a sheet cell")
-        source_region = _require_source_layout(self.catalog).source_region_for_cell(tile.sheet_col, tile.sheet_row)
+        source_region = _require_source_layout(self.catalog).source_region_for_cell(tile.genesis.sheet_col, tile.genesis.sheet_row)
         if source_region is None:
             raise ValueError(f"Tile {tile.id!r} does not map to a source region")
         return (
             source_region.id,
-            tile.sheet_col - source_region.bounds.x,
-            tile.sheet_row - source_region.bounds.y,
+            tile.genesis.sheet_col - source_region.bounds.x,
+            tile.genesis.sheet_row - source_region.bounds.y,
         )
 
 

@@ -26,6 +26,7 @@ from tile_library import (
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
+    TileGenesis,
     TileRecord,
     entity_template_from_construction,
 )
@@ -1188,8 +1189,7 @@ def _make_tile_record(tile_id: str) -> TileRecord:
         category="tile",
         transparent=False,
         tags=(),
-        sheet_col=0,
-        sheet_row=0,
+        genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0),
     )
 
 

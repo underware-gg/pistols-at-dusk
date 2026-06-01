@@ -19,6 +19,7 @@ from tile_library import (
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
+    TileGenesis,
     TileLibraryRegistry,
     TileRecord,
 )
@@ -500,7 +501,7 @@ class TileFamilyLoadTests(unittest.TestCase):
             family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
             family = TileFamily.load(family_dir)
             tile = family.by_alias("sample.alias")
-            self.assertEqual(tile.cluster_ids, ("cluster.valid",))
+            self.assertEqual(tile.genesis.cluster_ids, ("cluster.valid",))
             self.assertIsNotNone(family.source_layout)
             assert family.source_layout is not None
             self.assertEqual(tuple(family.source_layout.source_regions.keys()), ("sheet.region",))
@@ -537,7 +538,7 @@ class TileFamilyLoadTests(unittest.TestCase):
             self.assertEqual(duplicate.usage, canonical.usage)
             self.assertEqual(duplicate.temperature, canonical.temperature)
             self.assertEqual(duplicate.tags, canonical.tags)
-            self.assertEqual(duplicate.source_group, "test.right")
+            self.assertEqual(duplicate.genesis.source_group, "test.right")
             self.assertEqual(family.canonical_tile_id(duplicate.id), canonical.id)
             self.assertEqual(family.canonical_tile(duplicate).id, canonical.id)
             self.assertTrue(family.ingest_report()["complete"])
@@ -582,8 +583,8 @@ class TileFamilyLoadTests(unittest.TestCase):
 
             tile = family.by_alias("sample.override")
             self.assertEqual(tile.image_override, "derived/override.png")
-            self.assertIsNone(tile.sheet_col)
-            self.assertIsNone(tile.sheet_row)
+            self.assertIsNone(tile.genesis.sheet_col)
+            self.assertIsNone(tile.genesis.sheet_row)
             resolved = family.resolve_ref("sample.override")
             self.assertIsNotNone(resolved)
             assert resolved is not None
@@ -1230,8 +1231,7 @@ def _make_tile(
         category="tile",
         transparent=False,
         tags=(),
-        sheet_col=0,
-        sheet_row=0,
+        genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0),
         compose_group=compose_group,
         compose_role=compose_role,
         connects_on=tuple(connects_on or []),
@@ -1241,6 +1241,70 @@ def _make_tile(
 
 def _make_tiles_dict(*tiles: TileRecord) -> dict[str, TileRecord]:
     return {t.id: t for t in tiles}
+
+
+class TileGenesisTests(unittest.TestCase):
+    def test_sheet_backed_tile_carries_canonical_sheet_genesis(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+            unit = TileFamily.load(family_dir).runtime_unit
+            genesis = unit.genesis_for("testfam:all:0,0")
+            self.assertIsNotNone(genesis)
+            assert genesis is not None
+            self.assertEqual(genesis.kind, "sheet")
+            self.assertEqual((genesis.sheet_col, genesis.sheet_row), (0, 0))
+            self.assertEqual(genesis.source_group, "test.group")
+            self.assertEqual(genesis.cluster_ids, ("cluster.valid",))
+            self.assertIsNone(genesis.derivation)
+
+    def test_genesis_for_alias_resolves_through_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+            unit = TileFamily.load(family_dir).runtime_unit
+            self.assertEqual(
+                unit.genesis_for_alias("sample.alias"),
+                unit.genesis_for("testfam:all:0,0"),
+            )
+
+    def test_genesis_for_unknown_tile_is_none(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+            unit = TileFamily.load(family_dir).runtime_unit
+            self.assertIsNone(unit.genesis_for("testfam:all:9,9"))
+
+    def test_synthetic_tile_genesis_derives_parent_construction_from_compose_group(self) -> None:
+        # Mechanical provenance: a synthetic tile that is a cell of a construction
+        # (carries compose_group) records that construction as a parent link, so its
+        # genesis is non-empty without authoring prose. Verified against real data.
+        fam = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8-characters")
+        unit = fam.runtime_unit
+        genesis = unit.genesis_for("minimal8.characters:head_study.head.first_full.top_left")
+        self.assertIsNotNone(genesis)
+        assert genesis is not None
+        self.assertEqual(genesis.kind, "synthetic")
+        self.assertIn("head_study.head.first_full", genesis.parent_construction_ids)
+
+    def test_synthetic_tile_genesis_explains_derivation(self) -> None:
+        record = TileRecord(
+            id="testfam:derived.shelf",
+            family_id="testfam",
+            layer="map",
+            category="tile",
+            transparent=True,
+            tags=(),
+            image_override="derived/{variant_id}/shelf.png",
+            source_notes="Synthetic middle slice derived from the left endcap tile.",
+            genesis=TileGenesis(
+                kind="synthetic",
+                derivation="image_override",
+                authored_notes="Synthetic middle slice derived from the left endcap tile.",
+            ),
+        )
+        assert record.genesis is not None
+        self.assertEqual(record.genesis.kind, "synthetic")
+        self.assertEqual(record.genesis.derivation, "image_override")
+        self.assertIsNone(record.genesis.sheet_col)
+        self.assertIn("left endcap", record.genesis.authored_notes or "")
 
 
 class AttachmentLoaderTests(unittest.TestCase):
