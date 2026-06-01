@@ -21,8 +21,6 @@
       "y": 11,
       "width": 34,
       "height": 10,
-      "outer_style": "gold_ui_frame",
-      "bridge_style": "gold_ui_frame_dense",
       "left_width": 12,
       "bridge_width": 8,
       "right_width": 14,

@@ -8,6 +8,7 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.7.0](changelog/v0.7.0.md) | 2026-05-30 | Decompose the harness and rename it to the tileset-generic engine |
 | [v0.6.0](changelog/v0.6.0.md) | 2026-05-30 | Migrate all scenes off box and delete the legacy box subsystem |
 | [v0.5.0](changelog/v0.5.0.md) | 2026-05-30 | Split tile_library off ingest and normalise ingest signatures |
 | [v0.4.0](changelog/v0.4.0.md) | 2026-05-30 | Build the parametric_frame construction system end-to-end |

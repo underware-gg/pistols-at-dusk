@@ -49,7 +49,9 @@ That split keeps the source of truth aligned with the asset itself while also gi
 
 - Ingest/loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
 - Runtime library surface module: [scripts/tile_library.py](../../scripts/tile_library.py)
-- Harness entrypoint: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py)
+- Shared layout base (LayoutProject + render/draw primitives): [scripts/layout_core.py](../../scripts/layout_core.py)
+- Source-ingest operators (inspect/export/audit/validate/detect): [scripts/source_ingest_ops.py](../../scripts/source_ingest_ops.py)
+- Harness entrypoint (scene-runtime + render + CLI): [scripts/harness.py](../../scripts/harness.py)
 - Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
 - Minimal 8 compatibility bundle: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
@@ -57,6 +59,9 @@ In the current implementation:
 
 - `tile_families.py` owns ingest: loading, validation, provenance, `TileFamily`, source-layout, detection/bootstrap, and rich source-family queries
 - `tile_library.py` owns the runtime library surface: the construction records (`MetatileConstruction` / `ParametricRunConstruction` / `ParametricFrameConstruction`), tile/cluster records, and the catalog containers (`TileLibraryUnit` / `LoadedTileLibraryUnit` / `TileLibraryRegistry`); the dependency runs one-directional, ingest → library
+- `layout_core.py` owns the shared base: `LayoutProject`, the project/layout config + tile data types, and the render/draw/geometry primitives; it imports only upstream modules and is consumed by both the harness and the operators
+- `source_ingest_ops.py` owns the operator bodies (inspect/export/audit/validate/detect + helpers); it depends on `layout_core` and is invoked by the `source_ingest.py` CLI
+- `harness.py` is now just the scene-runtime + entity-resolution layer, the layout render pipeline, and the CLI dispatch
 - `source_manifests.py` owns the staged pack / tileset / logical-tilesheet source hierarchy
 - `source_manifest_bridge.py` is the transitional one-way adapter from staged source manifests into the current `TileFamily` / `TileLibraryUnit` compatibility path
 - `project.minimal8.json` and `project.minimal8.2bit.json` now select Minimal 8 through `tile_family.source_pack` rather than a direct family path
@@ -92,10 +97,10 @@ See [docs/architecture/decisions/README.md](decisions/README.md).
 
 ## Operator Surfaces
 
-The operator surface is split (`source_ingest.py` is the entrypoint), but the implementation boundary is not complete — the ingest function bodies still reside in `minimal8_harness.py`. The operator-facing split should be read as follows:
+The operator surface is fully split: `source_ingest.py` is the CLI entrypoint and the operator function bodies live in `source_ingest_ops.py` (which depends on `layout_core`). The operator-facing split should be read as follows:
 
 - source-side ingest and review work starts from [scripts/source_ingest.py](../../scripts/source_ingest.py), [scripts/reference_grid.py](../../scripts/reference_grid.py), and [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py)
-- runtime/composition work starts from [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) and the scene/layout artefacts it renders
+- runtime/composition work starts from [scripts/harness.py](../../scripts/harness.py) and the scene/layout artefacts it renders
 
 That keeps raw-sheet interpretation, reference solving, and ingest review away from the runtime harness surface that renders and composes scenes.
 

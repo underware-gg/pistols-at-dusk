@@ -4,7 +4,7 @@ This folder contains the ad hoc scene-composition experiment track for Minimal 8
 
 It is separate from the main layout-engine prototype:
 
-- Engine prototype: `scripts/minimal8_harness.py`
+- Engine prototype: `scripts/harness.py`
 - Experiment workflow: `experiments/202605-minimal8-scene-experiments/scripts/minimal8_workflow.py`
 - Canonical family metadata: `prototypes/minimal8-harness/tile-families/minimal8/`
 

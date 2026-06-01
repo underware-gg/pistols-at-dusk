@@ -11,7 +11,7 @@ Practical guidance for contributors and agents working in this repo. Repo layout
 ## Canonical sources of truth
 
 - Minimal 8 sheet/family semantics: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8).
-- Harness runtime: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py).
+- Harness runtime: [scripts/harness.py](../../scripts/harness.py).
 - Family ingest / loader / query model: [scripts/tile_families.py](../../scripts/tile_families.py).
 - Runtime library surface: [scripts/tile_library.py](../../scripts/tile_library.py).
 - Scene DSL evaluator: [scripts/scene_templates.py](../../scripts/scene_templates.py).

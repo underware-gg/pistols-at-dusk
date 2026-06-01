@@ -4,7 +4,7 @@ How the current stack, initially realised through Minimal 8, composes tile-based
 
 This document should be read as the current composition-side baseline after the metatile-convergence phase, not as a speculative future design:
 
-- the staged source-pack ingest/runtime boundary is now established at the CLI surface — `source_ingest.py` provides the operator-facing ingest entrypoint, though the ingest function bodies currently remain in `minimal8_harness.py` pending a full implementation-level split
+- the staged source-pack ingest/runtime boundary is now established: `source_ingest.py` is the operator CLI entrypoint and the operator function bodies live in `source_ingest_ops.py` (over the shared `layout_core.py`)
 - constructions, entity templates, and recursive scene placement are healthy and remain the right centre of gravity here
 - the project-level `metatiles` registry is gone as an active harness/project concept; project-local tile-grid snippets now live under explicit `patterns` consumed through `stamp`, `fill`, `repeat`, and similar pattern-oriented surfaces
 - former mixed-use registry entries have now been routed onto honest composition nouns: entity-shaped cases onto constructions, pure naming conveniences onto aliases/direct refs, and non-entity reusable snippets onto patterns
@@ -68,7 +68,7 @@ Expression operators include `param`, `add`, `sub`, `mul`, `centered_x` / `cente
 Scene-template expansion runs in two phases at render time:
 
 1. **Generic scene-template expansion** — `scene_templates.py` evaluates the scene DSL into ordinary scene ops plus unresolved entity requests. This phase is family-agnostic.
-2. **Entity resolution** — the harness (`minimal8_harness.py`) resolves entity requests against the selected family into first-class entity instances, then lowers those instances to stamp ops for rendering.
+2. **Entity resolution** — the harness (`harness.py`) resolves entity requests against the selected family into first-class entity instances, then lowers those instances to stamp ops for rendering.
 
 This preserves the distinction between source-layout collections, constructions, derived entity templates, placed scene entities, and render-time stamp ops, instead of collapsing them all into stamps eagerly.
 
@@ -94,6 +94,6 @@ Known open questions, deferred:
 - [scripts/tile_families.py](../../scripts/tile_families.py) — construction loading and validation.
 - [scripts/tile_library.py](../../scripts/tile_library.py) — construction records and the runtime catalog containers they are looked up through.
 - [scripts/scene_templates.py](../../scripts/scene_templates.py) — DSL evaluator.
-- [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) — entity resolution and render pipeline.
+- [scripts/harness.py](../../scripts/harness.py) — entity resolution and render pipeline.
 - [prototypes/minimal8-harness/tile-families/minimal8/constructions.json](../../prototypes/minimal8-harness/tile-families/minimal8/constructions.json) — current Minimal 8 construction set.
 - [prototypes/minimal8-harness/scene-templates/](../../prototypes/minimal8-harness/scene-templates) — current scene templates.

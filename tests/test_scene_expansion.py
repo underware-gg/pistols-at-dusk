@@ -14,7 +14,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import minimal8_harness as harness
+import harness
 import scene_templates
 from tile_library import (
     Construction,
@@ -185,7 +185,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sanctum.json", _scene_template_spec(template_id="mismatch"))
 
             with self.assertRaisesRegex(ValueError, "must match filename stem"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_loader_rejects_unknown_parameter_type(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -197,7 +197,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sample.json", spec)
 
             with self.assertRaisesRegex(ValueError, "has unknown type 'intger'"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_loader_rejects_unknown_data_op_kind(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -208,7 +208,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sample.json", spec)
 
             with self.assertRaisesRegex(ValueError, "unknown kind 'portal'"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_loader_rejects_unknown_data_op_field(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -219,7 +219,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sample.json", spec)
 
             with self.assertRaisesRegex(ValueError, "unknown fields: whe_present"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_loader_rejects_unknown_binding_reference(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -231,7 +231,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sample.json", spec)
 
             with self.assertRaisesRegex(ValueError, "references unknown binding"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_loader_rejects_later_binding_reference(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -245,7 +245,7 @@ class SceneTemplateLibraryTests(unittest.TestCase):
             _write_json(templates_dir / "sample.json", spec)
 
             with self.assertRaisesRegex(ValueError, "before it is declared"):
-                harness.load_scene_template_library(ROOT, str(templates_dir))
+                scene_templates.load_scene_template_library(ROOT, str(templates_dir))
 
     def test_scene_templates_dir_override_works(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -398,8 +398,8 @@ class SceneExpressionEvaluatorTests(unittest.TestCase):
         self.assertEqual(value, expected)
 
     def test_evaluates_boolean_and_conditional_operators(self) -> None:
-        enabled = self._evaluate({"enabled": {"bind": "inner_style"}}, bindings={"inner_style": "gold_ui_frame"})
-        disabled = self._evaluate({"enabled": {"bind": "inner_style"}}, bindings={"inner_style": ""})
+        enabled = self._evaluate({"enabled": {"bind": "inner"}}, bindings={"inner": "gold_ui_frame"})
+        disabled = self._evaluate({"enabled": {"bind": "inner"}}, bindings={"inner": False})
         self.assertTrue(enabled)
         self.assertFalse(disabled)
         self.assertTrue(self._evaluate({"eq": ["bridge", "bridge"]}))
@@ -410,13 +410,13 @@ class SceneExpressionEvaluatorTests(unittest.TestCase):
                 "if": {
                     "all": [
                         {"gt": [{"bind": "inner_width"}, 1]},
-                        {"enabled": {"bind": "inner_style"}}
+                        {"enabled": {"bind": "inner"}}
                     ]
                 },
                 "then": "inner",
                 "else": "outer"
             },
-            bindings={"inner_width": 6, "inner_style": "gold_ui_frame"},
+            bindings={"inner_width": 6, "inner": "gold_ui_frame"},
         )
         self.assertEqual(value, "inner")
 
@@ -530,10 +530,10 @@ class SanctumSceneTests(unittest.TestCase):
         self.assertNotIn("rooms", layers)
         self.assertNotIn("ornament", layers)
 
-    def test_blank_inner_style_skips_inner_frame_and_targets_outer_room(self) -> None:
+    def test_blank_inner_skips_inner_frame_and_targets_outer_room(self) -> None:
         result = harness.expand_scene_runtime(
             self.project,
-            {"template": "sanctum", "x": 4, "y": 9, "width": 22, "height": 14, "inner_style": ""},
+            {"template": "sanctum", "x": 4, "y": 9, "width": 22, "height": 14, "inner": False},
             default_tileset=self.tileset,
         )
 
@@ -590,7 +590,7 @@ class TwinChambersSceneTests(unittest.TestCase):
         self.assertGreaterEqual(door_x, right_x)
         self.assertLess(door_x, right_x + 14)
 
-    def test_blank_bridge_style_skips_bridge_frame(self) -> None:
+    def test_bridge_false_skips_bridge_frame(self) -> None:
         result = harness.expand_scene_runtime(
             self.project,
             {
@@ -602,7 +602,7 @@ class TwinChambersSceneTests(unittest.TestCase):
                 "left_width": 12,
                 "bridge_width": 8,
                 "right_width": 14,
-                "bridge_style": "",
+                "bridge": False,
             },
             default_tileset=self.tileset,
         )
@@ -678,7 +678,7 @@ class CausewaySceneTests(unittest.TestCase):
                 "y": 12,
                 "width": 12,
                 "height": 8,
-                "stem_style": "",
+                "stem": False,
                 "door_ref": None,
             },
             default_tileset=self.tileset,
@@ -1581,7 +1581,7 @@ class ScatterDataModeOpTests(unittest.TestCase):
             templates_dir = Path(tmpdir)
             for name, spec in templates.items():
                 _write_json(templates_dir / f"{name}.json", spec)
-            return harness.load_scene_template_library(Path(tmpdir), str(templates_dir))
+            return scene_templates.load_scene_template_library(Path(tmpdir), str(templates_dir))
 
     def test_scatter_op_emits_to_correct_layer_with_evaluated_fields(self) -> None:
         spec_raw: dict[str, Any] = {
@@ -1714,7 +1714,7 @@ class PlaceSceneTests(unittest.TestCase):
             templates_dir = Path(tmpdir)
             for name, spec in templates.items():
                 _write_json(templates_dir / f"{name}.json", spec)
-            return harness.load_scene_template_library(Path(tmpdir), str(templates_dir))
+            return scene_templates.load_scene_template_library(Path(tmpdir), str(templates_dir))
 
     def _sub_scene_spec(self, template_id: str = "sub") -> dict[str, Any]:
         return {
@@ -1894,7 +1894,7 @@ class PlaceSceneTests(unittest.TestCase):
             _write_json(templates_dir / "alpha.json", alpha_spec)
             _write_json(templates_dir / "beta.json", beta_spec)
             with self.assertRaises(ValueError) as ctx:
-                harness.load_scene_template_library(Path(tmpdir), str(templates_dir))
+                scene_templates.load_scene_template_library(Path(tmpdir), str(templates_dir))
             error_msg = str(ctx.exception)
             self.assertIn("cycle", error_msg.lower())
             self.assertIn("alpha", error_msg)
@@ -1911,7 +1911,7 @@ class PlaceSceneTests(unittest.TestCase):
             templates_dir = Path(tmpdir)
             _write_json(templates_dir / "self_ref.json", self_spec)
             with self.assertRaises(ValueError) as ctx:
-                harness.load_scene_template_library(Path(tmpdir), str(templates_dir))
+                scene_templates.load_scene_template_library(Path(tmpdir), str(templates_dir))
             self.assertIn("cycle", str(ctx.exception).lower())
 
 

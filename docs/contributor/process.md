@@ -23,7 +23,7 @@ Local verification:
 
 - `bash scripts/check_pyright.sh` (or `pnpm typecheck`) — typecheck the Python sources
 - `bash scripts/check_coverage.sh` (or `pnpm test:coverage`) — Python line and branch coverage report
-- `.venv/bin/python -m unittest tests.test_tile_families tests.test_minimal8_harness tests.test_scene_expansion tests.test_prototype_output` — harness module tests
+- `.venv/bin/python -m unittest tests.test_tile_families tests.test_harness tests.test_scene_expansion tests.test_prototype_output` — harness module tests
 - `python scripts/release_workflow.py version-check` — validate the current version bundle
 
 ## Supply-chain policy

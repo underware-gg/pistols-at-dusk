@@ -5,12 +5,12 @@
 For the current architecture, read the command surfaces this way:
 
 - use `python3 scripts/source_ingest.py ...` for source-sheet ingest, reference review, and semantic review work
-- use `python3 scripts/minimal8_harness.py ...` for runtime/composition work such as rendering layouts or inspecting resolved scenes
+- use `python3 scripts/harness.py ...` for runtime/composition work such as rendering layouts or inspecting resolved scenes
 
 ### Ingest a new sprite family
 
 1. Prepare a grid-aligned source sheet.
-2. Run `python3 scripts/minimal8_harness.py bootstrap-family <sheet> <output_dir> --tile-width <w> --tile-height <h>`.
+2. Run `python3 scripts/harness.py bootstrap-family <sheet> <output_dir> --tile-width <w> --tile-height <h>`.
 3. Treat the generated family bundle as the current compatibility/bootstrap layer, not the final source-side entrypoint.
 4. Fill in the generated compatibility bundle:
    - `family.json` for grid and variant metadata
@@ -72,7 +72,7 @@ Use the generated `review_notes.md` to write plain-language corrections per tile
 Run:
 
 ```bash
-python3 scripts/minimal8_harness.py inspect-layout-scene \
+python3 scripts/harness.py inspect-layout-scene \
   prototypes/minimal8-harness/layouts/fool_and_flintlock.json
 ```
 

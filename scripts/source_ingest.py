@@ -5,7 +5,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import minimal8_harness as harness
+import harness
+import source_ingest_ops
+import layout_core
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -85,15 +87,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    project = harness.LayoutProject(args.project)
+    project = layout_core.LayoutProject(args.project)
 
     if args.command == "inspect-family":
         output_dir = args.output_dir or (harness.DEFAULT_INSPECT_DIR / args.tileset)
-        print(harness.inspect_family(project, args.tileset, output_dir))
+        print(source_ingest_ops.inspect_family(project, args.tileset, output_dir))
     elif args.command == "detect-source-layout":
         output_dir = args.output_dir or (harness.DEFAULT_INSPECT_DIR / f"{args.tileset}-detected")
         print(
-            harness.detect_family_source_layout(
+            source_ingest_ops.detect_family_source_layout(
                 project,
                 args.tileset,
                 output_dir,
@@ -102,7 +104,7 @@ def main() -> None:
     elif args.command == "inspect-source-cell":
         print(
             json.dumps(
-                harness.inspect_source_cell(
+                source_ingest_ops.inspect_source_cell(
                     project,
                     args.tileset,
                     sheet_col=args.sheet_col,
@@ -117,10 +119,10 @@ def main() -> None:
             pack_slug_parts = [args.scene or "semantic"]
             if args.category:
                 pack_slug_parts.extend(args.category)
-            pack_slug = harness.slugify_identifier("-".join(pack_slug_parts))
+            pack_slug = layout_core.slugify_identifier("-".join(pack_slug_parts))
             output_dir = harness.DEFAULT_REVIEW_PACK_DIR / pack_slug
         print(
-            harness.export_semantic_review_pack(
+            source_ingest_ops.export_semantic_review_pack(
                 project,
                 args.tileset,
                 output_dir,
@@ -133,13 +135,13 @@ def main() -> None:
     elif args.command == "export-collection-review-pack":
         output_dir = args.output_dir
         if output_dir is None:
-            slug = args.slug or f"{harness.slugify_identifier(args.tileset)}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            slug = args.slug or f"{layout_core.slugify_identifier(args.tileset)}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             output_dir = harness.DEFAULT_COLLECTION_REVIEW_DIR / slug
         scratch_output_dir = args.scratch_output_dir
         if scratch_output_dir is None:
             scratch_output_dir = harness.DEFAULT_COLLECTION_REVIEW_SCRATCH_DIR / output_dir.name
         print(
-            harness.export_collection_review_pack(
+            source_ingest_ops.export_collection_review_pack(
                 project,
                 args.tileset,
                 output_dir,
@@ -148,12 +150,12 @@ def main() -> None:
             )
         )
     elif args.command == "validate-family-ingest":
-        report = harness.validate_family_ingest(project, args.tileset)
+        report = source_ingest_ops.validate_family_ingest(project, args.tileset)
         print(json.dumps(report, indent=2))
         if not report["complete"]:
             raise SystemExit(1)
     elif args.command == "audit-family-semantic-usage":
-        report = harness.audit_family_semantic_usage(
+        report = source_ingest_ops.audit_family_semantic_usage(
             project,
             args.tileset,
             layouts_dir=args.layouts_dir,

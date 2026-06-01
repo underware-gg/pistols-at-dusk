@@ -123,7 +123,7 @@ Inspect/export/audit tooling may still use the richer source-shaped family objec
 Scene templates now preserve entity identity instead of lowering `entity` ops directly to stamp ops.
 
 - `scene_templates.py` expands a scene into ordinary scene ops plus unresolved entity requests
-- `minimal8_harness.py` resolves those requests against the selected family into first-class entity instances
+- `harness.py` resolves those requests against the selected family into first-class entity instances
 - each entity instance now carries an explicit placement anchor plus occupied-cell and affordance-cell sets
 - rendering still lowers entity instances to stamp ops as the final step
 
@@ -178,7 +178,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 - [test_source_manifest_bridge.py](../../tests/test_source_manifest_bridge.py) — one-way source-manifest bridge coverage: synthetic adapter fixtures plus equivalence checks against the current Minimal 8 family-backed runtime shape.
 - [test_source_ingest.py](../../tests/test_source_ingest.py) — source-side ingest CLI coverage: source-sheet cell lookup and ingest validation through the dedicated ingest entrypoint.
 - [test_scene_expansion.py](../../tests/test_scene_expansion.py) — scene-template DSL: expression evaluator, data-mode expansion, `entity` / `place_scene` / `scatter` ops, binding isolation, cycle detection.
-- [test_minimal8_harness.py](../../tests/test_minimal8_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
+- [test_harness.py](../../tests/test_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.
 - [test_reference_grid.py](../../tests/test_reference_grid.py) — render-grid crop math, exact base-tile recovery from scaled screenshots, partial-edge padding, relevant-region trimming, and non-destructive four-sided guide overlay placement.
 - [test_reference_tile_match.py](../../tests/test_reference_tile_match.py) — exact duplicate detection, structural candidate scoring, semantic blank classification, relevant-region filtering, and manual-review override handling for recovered reference cells.
@@ -186,7 +186,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 Test naming follows the `test_<unit>_<behaviour>` convention; each test reads as a behavioural claim. Run the engine tests with the repo-local virtual environment:
 
 ```bash
-.venv/bin/python -m unittest tests.test_tile_families tests.test_source_ingest tests.test_minimal8_harness tests.test_scene_expansion tests.test_prototype_output
+.venv/bin/python -m unittest tests.test_tile_families tests.test_source_ingest tests.test_harness tests.test_scene_expansion tests.test_prototype_output
 ```
 
 To inspect line and branch coverage across the shared Python scripts:

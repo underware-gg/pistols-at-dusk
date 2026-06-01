@@ -51,7 +51,7 @@ deliberately matching a canonical exception.
 - [fool_and_flintlock.json](layouts/fool_and_flintlock.json)
 - [island_overlook.json](layouts/island_overlook.json)
 - [scene_template_showcase.json](layouts/scene_template_showcase.json)
-- [minimal8_harness.py](../../scripts/minimal8_harness.py)
+- [harness.py](../../scripts/harness.py)
 - [scene_templates.py](../../scripts/scene_templates.py)
 
 ## Current Confidence
@@ -154,7 +154,7 @@ ornament passes.
 File-backed template loading, validation, expression evaluation, and data-mode
 scene expansion now live in
 [scene_templates.py](../../scripts/scene_templates.py),
-while [minimal8_harness.py](../../scripts/minimal8_harness.py)
+while [harness.py](../../scripts/harness.py)
 provides the project-specific runtime callbacks and render pipeline.
 
 Scene templates now come in two modes:
@@ -249,7 +249,7 @@ there is no separate border subsystem.
 Bootstrap a brand new compatibility family bundle from any grid-aligned sheet:
 
 ```bash
-python3 scripts/minimal8_harness.py bootstrap-family \
+python3 scripts/harness.py bootstrap-family \
   "resources/Super Assets 3000/Minimal 8/1bit png/minimal_8 v2.1_1bit-1_bit_-_colored.png" \
   prototypes/minimal8-harness/scratch.local/example-family \
   --tile-width 8 \
@@ -263,7 +263,7 @@ to be added around that bundle explicitly.
 Scaffold a pattern snippet from a selected grid rectangle:
 
 ```bash
-python3 scripts/minimal8_harness.py scaffold-pattern \
+python3 scripts/harness.py scaffold-pattern \
   prototypes/minimal8-harness/project.minimal8.json \
   --tileset minimal8_bg_1bit_colored \
   --name door_arch \
@@ -388,7 +388,7 @@ studies and tile boards belong under `studies/`.
 Query the semantic catalog directly:
 
 ```bash
-python3 scripts/minimal8_harness.py query-semantic prototypes/minimal8-harness/project.minimal8.json \
+python3 scripts/harness.py query-semantic prototypes/minimal8-harness/project.minimal8.json \
   --tileset 'minimal8@1bit_colored_bg' \
   --scene tavern \
   --category floor \
@@ -398,19 +398,19 @@ python3 scripts/minimal8_harness.py query-semantic prototypes/minimal8-harness/p
 Render the sample layout:
 
 ```bash
-python3 scripts/minimal8_harness.py render-layout prototypes/minimal8-harness/layouts/minimal8_engine_smoke.json
+python3 scripts/harness.py render-layout prototypes/minimal8-harness/layouts/minimal8_engine_smoke.json
 ```
 
 Render all current samples:
 
 ```bash
-python3 scripts/minimal8_harness.py render-all prototypes/minimal8-harness/layouts
+python3 scripts/harness.py render-all prototypes/minimal8-harness/layouts
 ```
 
 Render the current tavern scene:
 
 ```bash
-python3 scripts/minimal8_harness.py render-layout prototypes/minimal8-harness/layouts/fool_and_flintlock.json
+python3 scripts/harness.py render-layout prototypes/minimal8-harness/layouts/fool_and_flintlock.json
 ```
 
 If the target output already exists, the harness writes the new render to a temporary file first. When that staged file is byte-for-byte identical to the current canonical output, the staged file is discarded and no archive entry is created. When it differs, the previous render is archived to `generated/archive/` using a four-digit sequence such as `fool_and_flintlock-0001.png`, `fool_and_flintlock-0002.png`, and then the staged render replaces the canonical filename.
@@ -418,7 +418,7 @@ If the target output already exists, the harness writes the new render to a temp
 Export a Tiled-ready `8x8` kit:
 
 ```bash
-python3 scripts/minimal8_harness.py export-tiled-kit prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/harness.py export-tiled-kit prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 The Tiled kit now contains:
@@ -485,7 +485,7 @@ walls, door variants, usage, contrast, clusters, and semantic aliases.
 Command surface rule of thumb:
 
 - use `python3 scripts/source_ingest.py ...` for source-sheet ingest, review, and reference-tracing work
-- use `python3 scripts/minimal8_harness.py ...` for runtime/composition work such as rendering layouts, exporting scene runtimes, or scaffolding project patterns
+- use `python3 scripts/harness.py ...` for runtime/composition work such as rendering layouts, exporting scene runtimes, or scaffolding project patterns
 
 That means the inspect/export path is no longer just geometry:
 

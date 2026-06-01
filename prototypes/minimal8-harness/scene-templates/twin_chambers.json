@@ -8,8 +8,7 @@
     "height": {"type": "int", "required": true, "description": "Shared chamber height in tiles."},
     "room_layer": {"type": "str", "required": false, "description": "Layer name for chamber boxes."},
     "ornament_layer": {"type": "str", "required": false, "description": "Layer name for the doorway stamp."},
-    "outer_style": {"type": "str", "required": false, "description": "Deprecated; no longer selects a style — both chamber frames (ui.frame.gold_room) are fixed by the template. Value is ignored."},
-    "bridge_style": {"type": "str", "required": false, "description": "Set to a non-empty value to include the optional connecting bridge span; the value itself is not used (legacy toggle, pending rename to a boolean enable)."},
+    "bridge": {"type": "bool", "required": false, "description": "Whether to include the optional connecting bridge span (default true)."},
     "bridge_width": {"type": "int", "required": false, "description": "Bridge width in tiles."},
     "left_width": {"type": "int", "required": false, "description": "Left chamber width in tiles."},
     "right_width": {"type": "int", "required": false, "description": "Right chamber width in tiles."},
@@ -23,8 +22,7 @@
   "bindings": {
     "room_layer": {"param": "room_layer", "default": "rooms"},
     "ornament_layer": {"param": "ornament_layer", "default": "ornament"},
-    "outer_style": {"param": "outer_style", "default": "gold_ui_frame"},
-    "bridge_style": {"param": "bridge_style", "default": "gold_ui_frame_dense"},
+    "bridge": {"param": "bridge", "default": true},
     "bridge_width": {"param": "bridge_width", "default": {"max": [8, {"floordiv": [{"param": "width"}, 4]}]}},
     "left_width": {
       "param": "left_width",
@@ -54,7 +52,7 @@
     "right_x": {"add": [{"bind": "bridge_x"}, {"bind": "bridge_width"}]},
     "bridge_box_enabled": {
       "all": [
-        {"enabled": {"bind": "bridge_style"}},
+        {"enabled": {"bind": "bridge"}},
         {"gt": [{"bind": "bridge_width"}, 1]}
       ]
     },
