@@ -42855,7 +42855,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-left UI frame block; likely a frame, window, or header detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Top-left corner tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 55,
@@ -42893,7 +42893,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Gold UI top-edge tile used in framed panel and court top runs.",
+    "meaning": "Top edge tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "confirmed",
     "sheet_col": 56,
@@ -42931,7 +42931,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-left UI frame block; likely a frame, window, or header detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Top-right corner tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 57,
@@ -43343,7 +43343,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-right UI frame block; likely a frame, border, or panel detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Top-left corner tile for the less-ornate smooth 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 68,
@@ -43380,7 +43380,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-right UI frame block; likely a frame, border, or panel detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Top edge tile for the less-ornate smooth 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 69,
@@ -43417,7 +43417,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-right UI frame block; likely a frame, border, or panel detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Top-right corner tile for the less-ornate smooth 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "exact_duplicate_of": "minimal8:ui:13,3",
@@ -43493,7 +43493,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Gold UI side-edge tile used in framed panel and court side runs.",
+    "meaning": "Left edge tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "confirmed",
     "sheet_col": 55,
@@ -43569,7 +43569,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-left UI frame block; likely a frame, window, or header detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Right edge tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 57,
@@ -43957,7 +43957,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-right UI frame block; likely a frame, border, or panel detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Left edge tile for the less-ornate smooth 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 68,
@@ -44082,7 +44082,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile in the ui utility area; first-pass semantic role remains uncertain.",
+    "meaning": "Bottom-left corner tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 55,
@@ -44120,7 +44120,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile in the ui utility area; first-pass semantic role remains uncertain.",
+    "meaning": "Bottom edge tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 56,
@@ -44158,7 +44158,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile in the ui utility area; first-pass semantic role remains uncertain.",
+    "meaning": "Bottom-right corner tile for the ornate gapped 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 57,
@@ -44544,7 +44544,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the upper-right UI frame block; likely a frame, border, or panel detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Bottom-left corner tile for the less-ornate smooth 3x3 UI frame family.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 68,
@@ -46459,7 +46459,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the middle UI widget block; likely a divider, gauge, connector, or slot detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Large empty square marker used in party-menu style UI lists and stat rows.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 55,
@@ -46496,7 +46496,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the middle UI widget block; likely a divider, gauge, connector, or slot detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Right-pointing menu cursor used to select a row in party-menu style UI.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 56,
@@ -47088,7 +47088,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the middle UI widget block; likely a divider, gauge, connector, or slot detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Inset square marker used as a smaller checkbox or row marker in party-menu style UI.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 55,
@@ -47606,7 +47606,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the middle UI widget block; likely a divider, gauge, connector, or slot detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Long vertical separator run used to divide portrait gutters from stat text columns.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 69,
@@ -48235,7 +48235,7 @@
     "compose_role": null,
     "connects_on": [],
     "alt_uses": [],
-    "meaning": "Tile from the lower UI frame block; likely a lower frame, stepped border, or slot detail. First-pass semantic meaning remains uncertain.",
+    "meaning": "Long horizontal separator run used for panel titles, row dividers, and larger UI continuations.",
     "source_notes": null,
     "meaning_confidence": "tentative",
     "sheet_col": 69,
@@ -52889,5 +52889,575 @@
     "meaning_confidence": "confirmed",
     "source_notes": "Synthetic tavern drink prop variant authored to test a warmer outline treatment while preserving the approved mug silhouette.",
     "image_override": "derived/prop_tankard_red_outline.png"
+  },
+  {
+    "id": "minimal8:derived.ui.outer_screen.corner.tl",
+    "layer": "ui",
+    "category": "ui",
+    "transparent": true,
+    "sheet_col": null,
+    "sheet_row": null,
+    "tags": [
+      "region:ui",
+      "layer:ui",
+      "category:ui",
+      "semantic:border",
+      "semantic:corner",
+      "derived:reference_backed"
+    ],
+    "semantics": [
+      "ui",
+      "border",
+      "corner"
+    ],
+    "cluster_ids": [
+      "minimal8:cluster:source.ui.middle_widgets_and_slopes"
+    ],
+    "source_group": "ui.synthetic_outer_screen_corner",
+    "contrast": "high",
+    "temperature": "warm",
+    "usage": "frame",
+    "orientation": "top_left",
+    "meaning": "Synthetic outer-screen corner cap derived from the reviewed party-menu reference border and aligned to the plain outer run tiles.",
+    "meaning_confidence": "confirmed",
+    "source_notes": "Reference-backed synthetic corner. Uses the reviewed outer-border corner pixel pattern while preserving the runtime border-run tile vocabulary.",
+    "image_override": "derived/ui_outer_screen_corner_tl.png"
+  },
+  {
+    "id": "minimal8:derived.ui.outer_screen.corner.tr",
+    "layer": "ui",
+    "category": "ui",
+    "transparent": true,
+    "sheet_col": null,
+    "sheet_row": null,
+    "tags": [
+      "region:ui",
+      "layer:ui",
+      "category:ui",
+      "semantic:border",
+      "semantic:corner",
+      "derived:reference_backed"
+    ],
+    "semantics": [
+      "ui",
+      "border",
+      "corner"
+    ],
+    "cluster_ids": [
+      "minimal8:cluster:source.ui.middle_widgets_and_slopes"
+    ],
+    "source_group": "ui.synthetic_outer_screen_corner",
+    "contrast": "high",
+    "temperature": "warm",
+    "usage": "frame",
+    "orientation": "top_right",
+    "meaning": "Synthetic outer-screen corner cap derived from the reviewed party-menu reference border and aligned to the plain outer run tiles.",
+    "meaning_confidence": "confirmed",
+    "source_notes": "Reference-backed synthetic corner. Rotated companion to the canonical top-left outer-screen corner cap.",
+    "image_override": "derived/ui_outer_screen_corner_tr.png"
+  },
+  {
+    "id": "minimal8:derived.ui.outer_screen.corner.bl",
+    "layer": "ui",
+    "category": "ui",
+    "transparent": true,
+    "sheet_col": null,
+    "sheet_row": null,
+    "tags": [
+      "region:ui",
+      "layer:ui",
+      "category:ui",
+      "semantic:border",
+      "semantic:corner",
+      "derived:reference_backed"
+    ],
+    "semantics": [
+      "ui",
+      "border",
+      "corner"
+    ],
+    "cluster_ids": [
+      "minimal8:cluster:source.ui.middle_widgets_and_slopes"
+    ],
+    "source_group": "ui.synthetic_outer_screen_corner",
+    "contrast": "high",
+    "temperature": "warm",
+    "usage": "frame",
+    "orientation": "bottom_left",
+    "meaning": "Synthetic outer-screen corner cap derived from the reviewed party-menu reference border and aligned to the plain outer run tiles.",
+    "meaning_confidence": "confirmed",
+    "source_notes": "Reference-backed synthetic corner. Rotated companion to the canonical top-left outer-screen corner cap.",
+    "image_override": "derived/ui_outer_screen_corner_bl.png"
+  },
+  {
+    "id": "minimal8:derived.ui.outer_screen.corner.br",
+    "layer": "ui",
+    "category": "ui",
+    "transparent": true,
+    "sheet_col": null,
+    "sheet_row": null,
+    "tags": [
+      "region:ui",
+      "layer:ui",
+      "category:ui",
+      "semantic:border",
+      "semantic:corner",
+      "derived:reference_backed"
+    ],
+    "semantics": [
+      "ui",
+      "border",
+      "corner"
+    ],
+    "cluster_ids": [
+      "minimal8:cluster:source.ui.middle_widgets_and_slopes"
+    ],
+    "source_group": "ui.synthetic_outer_screen_corner",
+    "contrast": "high",
+    "temperature": "warm",
+    "usage": "frame",
+    "orientation": "bottom_right",
+    "meaning": "Synthetic outer-screen corner cap derived from the reviewed party-menu reference border and aligned to the plain outer run tiles.",
+    "meaning_confidence": "confirmed",
+    "source_notes": "Reference-backed synthetic corner. Rotated companion to the canonical top-left outer-screen corner cap.",
+    "image_override": "derived/ui_outer_screen_corner_br.png"
+  },
+  {
+    "id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid",
+    "layer": "ui",
+    "category": "ui",
+    "transparent": true,
+    "sheet_col": null,
+    "sheet_row": null,
+    "tags": [
+      "region:ui",
+      "layer:ui",
+      "category:ui",
+      "semantic:frame",
+      "semantic:divider",
+      "derived:reference_backed"
+    ],
+    "semantics": [
+      "ui",
+      "frame",
+      "divider"
+    ],
+    "cluster_ids": [
+      "minimal8:cluster:source.ui.middle_widgets_and_slopes"
+    ],
+    "source_group": "ui.synthetic_party_menu_inner_window_row_6_mid",
+    "contrast": "high",
+    "temperature": "warm",
+    "usage": "frame",
+    "orientation": "horizontal",
+    "meaning": "Synthetic repeatable inner-window row segment derived from the reviewed party-menu reference row 6 interior run.",
+    "meaning_confidence": "confirmed",
+    "source_notes": "Reference-backed synthetic middle segment for the party-menu inner-window row 6 run. Derived from the repeated dash cell visible at guide coordinates C18R6 through C29R6.",
+    "image_override": "derived/ui_party_menu_inner_row6_mid.png"
+  },
+  {
+    "id": "minimal8:terrain:2,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 2,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:3,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 3,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:4,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 4,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:5,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 5,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:6,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 6,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:10,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 10,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:11,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 11,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:12,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 12,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:15,29",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 15,
+    "sheet_row": 29
+  },
+  {
+    "id": "minimal8:terrain:15,30",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 15,
+    "sheet_row": 30
+  },
+  {
+    "id": "minimal8:terrain:16,30",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_04"
+    ],
+    "source_group": "tileset.column_1.cluster_04",
+    "meaning": "Exact source promotion from the wind and spiral floor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 16,
+    "sheet_row": 30
+  },
+  {
+    "id": "minimal8:terrain:2,32",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 2,
+    "sheet_row": 32
+  },
+  {
+    "id": "minimal8:terrain:3,32",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 3,
+    "sheet_row": 32
+  },
+  {
+    "id": "minimal8:terrain:4,32",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 4,
+    "sheet_row": 32
+  },
+  {
+    "id": "minimal8:terrain:5,32",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 5,
+    "sheet_row": 32
+  },
+  {
+    "id": "minimal8:terrain:7,32",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 7,
+    "sheet_row": 32
+  },
+  {
+    "id": "minimal8:terrain:2,35",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 2,
+    "sheet_row": 35
+  },
+  {
+    "id": "minimal8:terrain:3,35",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 3,
+    "sheet_row": 35
+  },
+  {
+    "id": "minimal8:terrain:4,35",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_1.cluster_05"
+    ],
+    "source_group": "tileset.column_1.cluster_05",
+    "meaning": "Exact source promotion from the outdoor motifs band for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 4,
+    "sheet_row": 35
+  },
+  {
+    "id": "minimal8:terrain:19,35",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_06"
+    ],
+    "source_group": "tileset.column_2.cluster_06",
+    "meaning": "Exact source promotion from the water line and ripple strip for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 19,
+    "sheet_row": 35
+  },
+  {
+    "id": "minimal8:terrain:20,35",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_06"
+    ],
+    "source_group": "tileset.column_2.cluster_06",
+    "meaning": "Exact source promotion from the water line and ripple strip for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 20,
+    "sheet_row": 35
+  },
+  {
+    "id": "minimal8:terrain:19,36",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_06"
+    ],
+    "source_group": "tileset.column_2.cluster_06",
+    "meaning": "Exact source promotion from the water line and ripple strip for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 19,
+    "sheet_row": 36
+  },
+  {
+    "id": "minimal8:terrain:20,36",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_06"
+    ],
+    "source_group": "tileset.column_2.cluster_06",
+    "meaning": "Exact source promotion from the water line and ripple strip for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 20,
+    "sheet_row": 36
+  },
+  {
+    "id": "minimal8:terrain:22,24",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_04"
+    ],
+    "source_group": "tileset.column_2.cluster_04",
+    "meaning": "Exact source promotion from the nature boundary sections for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 22,
+    "sheet_row": 24
+  },
+  {
+    "id": "minimal8:terrain:22,25",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_04"
+    ],
+    "source_group": "tileset.column_2.cluster_04",
+    "meaning": "Exact source promotion from the nature boundary sections for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 22,
+    "sheet_row": 25
+  },
+  {
+    "id": "minimal8:terrain:22,26",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_04"
+    ],
+    "source_group": "tileset.column_2.cluster_04",
+    "meaning": "Exact source promotion from the nature boundary sections for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 22,
+    "sheet_row": 26
+  },
+  {
+    "id": "minimal8:terrain:22,27",
+    "layer": "map",
+    "category": "terrain",
+    "transparent": false,
+    "tags": ["region:terrain", "layer:map", "category:terrain"],
+    "cluster_ids": [
+      "minimal8:cluster:source.tileset.column_2.cluster_04"
+    ],
+    "source_group": "tileset.column_2.cluster_04",
+    "meaning": "Exact source promotion from the nature boundary sections for reference-backed scene reconstruction.",
+    "meaning_confidence": "tentative",
+    "sheet_col": 22,
+    "sheet_row": 27
   }
 ]

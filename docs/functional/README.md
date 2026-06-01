@@ -44,6 +44,8 @@ Three address forms are supported:
 
 - Physical sheet address: `minimal8:20,17`
 - Concrete variant identity: `minimal8@1bit_colored_bg:20,17`
+- Variant-qualified stable tile ID: `minimal8@1bit_colored_bg:minimal8:terrain:1,15`
+- Variant-qualified semantic alias: `minimal8@1bit_colored_bg:indoors.table.long.left`
 - Raw tileset coordinate: `minimal8@1bit_colored_bg#20,24`
 - Semantic alias: `indoors.table.long.left`
 - Stable tile ID: `minimal8:terrain:1,15`
@@ -51,6 +53,8 @@ Three address forms are supported:
 Rules:
 
 - Physical and variant addresses are direct sheet-cell refs for sheet-backed family tiles.
+- Variant-qualified stable IDs and aliases preserve semantic identity while selecting
+  a specific sibling colourway.
 - Raw tileset coordinates bypass the family catalogue and use `tileset_id#col,row`.
 - Unprefixed `col,row` still means a raw coordinate on the default tileset.
 - Stable tile IDs stay fixed across migrations and resolve as opaque identifiers.
@@ -162,8 +166,8 @@ The functional content of the codebase is also documented co-located with the mo
 - [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) — transitional one-way adapter from staged source manifests into `TileFamily` / `TileLibraryUnit` compatibility inputs.
 - [prototypes/minimal8-harness/README.md](../../prototypes/minimal8-harness/README.md) — main prototype track: layout / scene / pattern / box-style authoring conventions and harness commands.
 - [experiments/202605-minimal8-scene-experiments/README.md](../../experiments/202605-minimal8-scene-experiments/README.md) — exploratory scene-composition experiment track (not canonical).
-- [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn either a resolved render-grid transform or an exact tiled-body `span_box` into a repeatable crop/contact-sheet/guide-overlay workflow for screenshots and title screens, optionally normalize that span onto a uniform ingest surface, and keep explicit relevant tiled regions, exclusion zones, partial-edge handling, and switchable `separated`/`overlay` guide-line rendering.
-- [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered reference cells to a chosen family variant source sheet and report semantic blank cells, exact matches, and tiered non-exact outcomes (`high_confidence`, `best_guess`, `unresolved`) using the same origin/pitch-or-span solve model, optional normalized ingest surface, and the same relevant-region and exclusion controls as the slicer. Config-driven review overrides keep manual confirmation/correction as a separate axis from machine confidence, and the candidate report now includes a conservative trimmed logical-mask rescue for cases where an old reference shifts whitespace placement inside an otherwise matching tile.
+- [scripts/reference_grid.py](../../scripts/reference_grid.py) — reference-sheet review helper: turn either a resolved render-grid transform or an exact tiled-body `span_box` into a repeatable crop/guide-overlay workflow for screenshots and title screens, optionally normalize that span onto a uniform ingest surface, and keep explicit relevant tiled regions, exclusion zones, partial-edge handling, and switchable `separated`/`overlay` guide-line rendering. The old recovered-tile contact-sheet view still exists only as an explicit matcher-debug output when low-level tile recovery needs inspection; it is no longer part of the default reference-review workflow.
+- [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py) — reference matching helper: compare the recovered reference cells to one or more candidate source sheets and report semantic blank cells, exact matches, and tiered non-exact outcomes (`high_confidence`, `best_guess`, `unresolved`) using the same origin/pitch-or-span solve model, optional normalized ingest surface, and the same relevant-region and exclusion controls as the slicer. Config-driven review overrides keep manual confirmation/correction as a separate axis from machine confidence, the candidate report includes a conservative trimmed logical-mask rescue for cases where an old reference shifts whitespace placement inside an otherwise matching tile, and mixed-family runs preserve per-candidate source provenance so reviews can confirm either a semantic tile or a raw source-sheet cell. Candidate sources can also be constrained to reference-space `reference_boxes` when a mixed-family screen has clearly separated ownership zones.
 - [prototypes/minimal8-harness/reference-transforms/README.md](../../prototypes/minimal8-harness/reference-transforms/README.md) — committed repo-side reference-ingest configs that the slicer and matcher can load via `--config`, including active reviewed work such as the temple courtyard reference.
 
 ## Tests As Documentation

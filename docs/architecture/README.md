@@ -85,6 +85,7 @@ See [docs/architecture/decisions/README.md](decisions/README.md).
 ## Related Notes
 
 - [Minimal 8 Source-Sheet Notes](minimal8-source-sheet-notes.md) — sheet-level facts captured during Minimal 8 ingestion.
+- [Runtime Tile Genesis and Provenance](runtime-tile-genesis-and-provenance.md) — runtime-owned provenance model for tracing resolved tiles and scene stamps back to their promoted source genesis without reopening ingest-time files.
 - [Source-Sheet Ingestion Model](source-sheet-ingestion-model.md) — separation between source-sheet layout and tile semantics.
 
 ## Operator Surfaces

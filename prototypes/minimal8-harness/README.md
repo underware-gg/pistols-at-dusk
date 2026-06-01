@@ -21,20 +21,26 @@ deliberately matching a canonical exception.
 ## Files
 
 - [project.minimal8.json](project.minimal8.json)
+- [project.minimal8.characters.json](project.minimal8.characters.json)
 - [pattern-migration-inventory.md](pattern-migration-inventory.md)
 - active source-pack entrypoint:
   - [tile-packs/minimal8/pack.json](tile-packs/minimal8/pack.json)
   - [tile-packs/minimal8/tilesets/minimal8.json](tile-packs/minimal8/tilesets/minimal8.json)
+  - [tile-packs/minimal8/tilesets/characters.json](tile-packs/minimal8/tilesets/characters.json)
 - [tile-packs/minimal8/tilesheets/main.json](tile-packs/minimal8/tilesheets/main.json)
+- [tile-packs/minimal8/tilesheets/characters.json](tile-packs/minimal8/tilesheets/characters.json)
 - transitional compatibility bundle:
   - [tile-families/minimal8](tile-families/minimal8)
   - [tile-families/minimal8/ingestion.json](tile-families/minimal8/ingestion.json)
+  - [tile-families/minimal8-characters](tile-families/minimal8-characters)
 - canonical reference transforms:
   - [reference-transforms/README.md](reference-transforms/README.md)
   - [reference-transforms/reference-overworld-island-title-screen.json](reference-transforms/reference-overworld-island-title-screen.json)
   - [reference-transforms/reference-overworld-island-title-screen.md](reference-transforms/reference-overworld-island-title-screen.md)
   - [reference-transforms/reference-polychrome-temple-courtyard.json](reference-transforms/reference-polychrome-temple-courtyard.json)
   - [reference-transforms/reference-polychrome-temple-courtyard.md](reference-transforms/reference-polychrome-temple-courtyard.md)
+  - [reference-transforms/reference-party-menu-character-stats.json](reference-transforms/reference-party-menu-character-stats.json)
+  - [reference-transforms/reference-party-menu-character-stats.md](reference-transforms/reference-party-menu-character-stats.md)
 - [assets/utility_land_undercoat.png](assets/utility_land_undercoat.png)
 - [tile_families.py](../../scripts/tile_families.py)
 - [minimal8_engine_smoke.json](layouts/minimal8_engine_smoke.json)
@@ -48,6 +54,32 @@ deliberately matching a canonical exception.
 - [box_style_gallery.json](layouts/box_style_gallery.json)
 - [minimal8_harness.py](../../scripts/minimal8_harness.py)
 - [scene_templates.py](../../scripts/scene_templates.py)
+
+## Current Confidence
+
+- `fool_and_flintlock` is the only current composed-scene output that should be
+  treated as a trustworthy visual anchor.
+- `reference-overworld-island-title-screen.*` and
+  `reference-polychrome-temple-courtyard.*` are trusted **reference-ingest**
+  artefacts, and `island_overlook` / `polychrome_temple_courtyard` are now
+  direct tile reconstructions authored from those committed reference solves.
+  Treat them as trusted reference-backed visual anchors, not as proof that the
+  higher-level semantic scene-authoring layer is solved for those spaces yet.
+- `project.minimal8.characters.json` and the `minimal8.characters` source pack /
+  compatibility family are the active scaffold for the separate Characters
+  sheet. That track is intentionally **not** treated as a settled source-layout
+  ingest yet: the pack bridge is committed, but the sheet structure still needs
+  a manual pass before we land source regions, ignores, collections, or runtime
+  actor constructions.
+- `reference-party-menu-character-stats.*` is now the canonical reviewed
+  handoff for that screen, and `party_menu_character_stats` is the tracked
+  data recreation of that reviewed tile-and-colour truth. The only intentional
+  difference is `C31R17`, where the recreation keeps a brown tree trunk
+  instead of the green reference colour.
+- The remaining generated scene outputs are historical prototype attempts. They
+  may still be useful as engine smoke fixtures or idea sketches, but they are
+  not trustworthy scene references and should not be used to judge layout
+  quality.
 
 ## Reference Syntax
 

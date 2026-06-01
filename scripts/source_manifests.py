@@ -446,6 +446,11 @@ def _load_compatibility_family_source(
                 if mapping.get("constructions") is not None
                 else None
             ),
+            attachments_path=(
+                _load_file_reference(mapping["attachments"], base_dir=compatibility_root, context=f"{context}.attachments")
+                if mapping.get("attachments") is not None
+                else None
+            ),
         ),
         family_id=_require_manifest_id(mapping["family_id"], context=f"{context}.family_id"),
         render_step_width=(

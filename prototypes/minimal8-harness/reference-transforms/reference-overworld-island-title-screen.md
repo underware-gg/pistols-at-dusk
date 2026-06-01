@@ -18,8 +18,6 @@ well-behaved reference before we rely on the same tooling for messier inputs.
 - the reference uses the same bottom-left / top-right-gutter convention as the
   current Minimal 8 family
 - the matcher behaves well without any special rescue path taking the top slot
-- the recreated overworld scene was already a trusted authoring anchor before
-  these ingest tools were generalized
 
 ## Current Solve
 
@@ -31,8 +29,16 @@ well-behaved reference before we rely on the same tooling for messier inputs.
 
 - this reference still contains the decorative heading at the top, so the solve
   deliberately treats the tiled body as a relevant region below that heading
+- six sparse diagonal turf cells (`C11R15`, `C5R17`, `C13R17`, `C2R19`,
+  `C9R20`, `C4R21`) were manually confirmed as `minimal8:terrain:4,3`
+  after local matching overfit a very similar icon silhouette; this is a
+  context-sensitive ingest edge case rather than a transform failure
 - the reference is trusted for ingest calibration, but the reconstructed scene
   is still a scene authoring artefact rather than a literal recovered tile dump
+- the current `island_overlook` layout/render is now a direct tile
+  reconstruction built from this committed reference solve; treat it as a
+  trusted visual anchor for this reference, but not as evidence that a richer
+  semantic overworld composition workflow has already been recovered
 
 ## Confidence
 

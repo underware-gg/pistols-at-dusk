@@ -1,205 +1,125 @@
 {
   "project": "../project.minimal8.json",
-  "default_tileset": "minimal8@1bit_colored_bg",
+  "default_tileset": "minimal8@2bit_colored_bg",
   "map": {
-    "width": 20,
-    "height": 14,
+    "width": 30,
+    "height": 20,
     "background": "#24192A"
   },
   "viewport": {
     "x": 0,
     "y": 0,
-    "width": 20,
-    "height": 14,
+    "width": 30,
+    "height": 20,
     "units": "tiles",
-    "scale": 5
+    "scale": 4
   },
   "layers": [
     {
-      "name": "water",
+      "name": "reference_reconstruction",
       "ops": [
         {
-          "kind": "fill",
-          "ref": "@water_short",
+          "kind": "ascii",
           "x": 0,
-          "y": 4,
-          "width": 4,
-          "height": 10
-        },
-        {
-          "kind": "fill",
-          "ref": "@water_short",
-          "x": 16,
-          "y": 4,
-          "width": 4,
-          "height": 10
-        }
-      ]
-    },
-    {
-      "name": "backdrop",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "@symbols_mid",
-          "x": 0,
-          "y": 0
-        },
-        {
-          "kind": "stamp",
-          "ref": "@symbols_mid",
-          "x": 16,
-          "y": 0
-        }
-      ]
-    },
-    {
-      "name": "terrain",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "@rock_bank_left",
-          "x": 0,
-          "y": 2
-        },
-        {
-          "kind": "stamp",
-          "ref": {
-            "ref": "@rock_bank_left",
-            "flip_x": true
-          },
-          "x": 11,
-          "y": 2
-        },
-        {
-          "kind": "stamp",
-          "ref": "@rock_bank_left",
-          "x": -1,
-          "y": 10
-        },
-        {
-          "kind": "stamp",
-          "ref": {
-            "ref": "@rock_bank_left",
-            "flip_x": true
-          },
-          "x": 12,
-          "y": 10
-        }
-      ]
-    },
-    {
-      "name": "rooms",
-      "ops": [
-        {
-          "kind": "box",
-          "style": "temple_gold_court",
-          "x": 5,
           "y": 0,
-          "width": 10,
-          "height": 7
-        },
-        {
-          "kind": "box",
-          "style": "temple_gold_court",
-          "x": 5,
-          "y": 7,
-          "width": 10,
-          "height": 7
-        }
-      ]
-    },
-    {
-      "name": "ornament",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "@door_arch",
-          "x": 8,
-          "y": 2
-        },
-        {
-          "kind": "stamp",
-          "ref": "prop.torch",
-          "x": 8,
-          "y": 3
-        },
-        {
-          "kind": "stamp",
-          "ref": "prop.torch",
-          "x": 11,
-          "y": 3
-        },
-        {
-          "kind": "stamp",
-          "ref": "@plinth_left",
-          "x": 7,
-          "y": 9
-        },
-        {
-          "kind": "stamp",
-          "ref": "@plinth_right",
-          "x": 10,
-          "y": 9
-        },
-        {
-          "kind": "stamp",
-          "ref": "@entry_steps",
-          "x": 8,
-          "y": 12
-        },
-        {
-          "kind": "stamp",
-          "ref": "overworld_route_node",
-          "x": 7,
-          "y": 13
-        },
-        {
-          "kind": "stamp",
-          "ref": "overworld_route_node",
-          "x": 8,
-          "y": 13
-        },
-        {
-          "kind": "stamp",
-          "ref": "overworld_route_node",
-          "x": 11,
-          "y": 13
-        },
-        {
-          "kind": "stamp",
-          "ref": "overworld_route_node",
-          "x": 12,
-          "y": 13
-        }
-      ]
-    },
-    {
-      "name": "actors",
-      "ops": [
-        {
-          "kind": "stamp",
-          "ref": "minimal8@1bit_colored_bg:47,12",
-          "x": 10,
-          "y": 7
-        },
-        {
-          "kind": "stamp",
-          "ref": "minimal8@1bit_colored_bg:44,12",
-          "x": 9,
-          "y": 8
-        },
-        {
-          "kind": "stamp",
-          "ref": "minimal8@1bit_colored_bg:50,13",
-          "x": 11,
-          "y": 8
-        },
-        {
-          "kind": "stamp",
-          "ref": "minimal8@1bit_colored_bg:48,13",
-          "x": 12,
-          "y": 7
+          "legend": {
+            "0": "22,6",
+            "1": "19,6",
+            "2": "21,6",
+            "3": "2,4",
+            "4": "6,7",
+            "5": "3,5",
+            "6": "19,9",
+            "7": "5,10",
+            "8": "2,5",
+            "9": "3,4",
+            "A": "21,7",
+            "B": "21,27",
+            "C": "20,7",
+            "D": "66,9",
+            "E": "22,7",
+            "F": "2,8",
+            "G": "23,9",
+            "H": "4,6",
+            "I": "10,4",
+            "J": "9,7",
+            "K": "5,6",
+            "L": "32,10",
+            "M": "25,10",
+            "N": "19,27",
+            "O": "22,27",
+            "P": "28,10",
+            "Q": "12,8",
+            "R": "62,13",
+            "S": "65,9",
+            "T": "62,12",
+            "U": "22,26",
+            "V": "12,9",
+            "W": "11,8",
+            "X": "31,11",
+            "Y": "10,8",
+            "Z": "2,12",
+            "a": "3,12",
+            "b": "30,10",
+            "c": "2,9",
+            "d": "8,12",
+            "e": "2,13",
+            "f": "57,5",
+            "g": "31,10",
+            "h": "30,31",
+            "i": "22,24",
+            "j": "29,10",
+            "k": "2,6",
+            "l": "10,5",
+            "m": "9,12",
+            "n": "19,24",
+            "o": "25,9",
+            "p": "5,20",
+            "q": "4,20",
+            "r": "19,7",
+            "s": "50,4",
+            "t": "24,4",
+            "u": "6,6",
+            "v": "21,4",
+            "w": "50,6",
+            "x": "38,10",
+            "y": "5,25",
+            "z": "7,25",
+            "!": "19,26",
+            "#": "5,26",
+            "$": "7,26",
+            "%": "5,27",
+            "&": "6,27",
+            "(": "7,27",
+            ")": "5,4",
+            "*": "2,7",
+            "+": "4,4",
+            ",": "19,25",
+            "-": "23,4",
+            "/": "22,25"
+          },
+          "rows": [
+            "001021202344567768449210120112",
+            "210A02020866668566665021BB2101",
+            "20CBBBDAEFGHI4JJ4IKGFEBLMMNA11",
+            "1EOMMMPBBQGFRFRSFTFGQLMMMMMP20",
+            "0UMMMMMMMVGWXYZaYXWGVMMMMMMMA1",
+            "0UMMbMMMMcGcdcefcdcGcMMg6hMM10",
+            "02i66hjMMkGHlKmmHlKGkg66h66n12",
+            "201i6h666kopqppppppok66666n2rC",
+            "102U6h63456pppqsqtp6849666PBBB",
+            "rCBL666u666pvpwqxpp666u666MMMM",
+            "BLMM666u6pppppqpvpppp6uh66P011",
+            "Mg2Ohhhu6py2zpqppy0zp6u66hM!20",
+            "21UM6h6u6p#A$pppp#A$p6uhh6jP12",
+            "00UM6h6u6p%&(qppq%&(p6u6h66M!0",
+            "02U6h6hu6pppppppppppp6u6h6hjPr",
+            "210i6h6u6666kp77pk6666u66666M!",
+            "0r21ihh844)G*m85m*G+445hh6h6j!",
+            "BLPBL66h6666,t-tt/6666h66666n2",
+            "MgjMM666h666,-t-t/66666h6666!0",
+            "0201U6666666,ttt-/6h6666666h!1"
+          ]
         }
       ]
     }

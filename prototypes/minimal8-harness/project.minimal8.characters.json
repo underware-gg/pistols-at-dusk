@@ -1,0 +1,10 @@
+{
+  "tile_family": {
+    "source_pack": "./tile-packs/minimal8/pack.json",
+    "tileset_id": "characters",
+    "tilesheet_id": "characters",
+    "family_id": "minimal8.characters",
+    "variant_id": "2bit_colored"
+  },
+  "default_tileset": "minimal8.characters@2bit_colored"
+}

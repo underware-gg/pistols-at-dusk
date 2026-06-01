@@ -17,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from tile_families import (
     ConstructionConfig,
+    ConstructionAttachmentSetConfig,
     ConstructionValidationError,
     MetatileConstruction,
     ParametricRunConstruction,
@@ -28,6 +29,7 @@ from tile_families import (
     compute_non_empty_tile_mask,
     compute_source_layout_coverage,
     detect_source_layout,
+    load_attachment_sets_from_data,
 )
 
 
@@ -257,6 +259,143 @@ def make_duplicate_family_dir(root: Path, *, identical: bool) -> Path:
     return family_dir
 
 
+def make_attachment_family_dir(root: Path) -> Path:
+    family_dir = root / "family"
+    family_dir.mkdir()
+    Image.new("RGBA", (16, 16), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+
+    write_json(
+        family_dir / "family.json",
+        {
+            "family_id": "testfam",
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "default_variant_id": "base",
+            "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
+            "ingestion_spec": "ingestion.json",
+        },
+    )
+    write_json(
+        family_dir / "ingestion.json",
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 2, "height": 2},
+            "regions": [{"id": "sheet.region", "bounds": {"x": 0, "y": 0, "width": 2, "height": 2}}],
+            "clusters": [],
+            "ignore_regions": [],
+            "collections": [],
+        },
+    )
+    write_json(family_dir / "clusters.json", [])
+    write_json(
+        family_dir / "tiles.json",
+        [
+            {
+                "id": "testfam:body:0,0",
+                "sheet_col": 0,
+                "sheet_row": 0,
+                "layer": "sprite",
+                "category": "character",
+                "transparent": True,
+                "compose_group": "test.body",
+                "compose_role": "base",
+                "connects_on": ["east", "south"],
+                "cluster_ids": [],
+                "source_group": "test",
+                "meaning": "Base tile",
+                "meaning_confidence": "confirmed",
+            },
+            {
+                "id": "testfam:head:1,0",
+                "sheet_col": 1,
+                "sheet_row": 0,
+                "layer": "sprite",
+                "category": "character",
+                "transparent": True,
+                "compose_group": "test.head.alt",
+                "compose_role": "base",
+                "connects_on": ["west", "south"],
+                "cluster_ids": [],
+                "source_group": "test",
+                "meaning": "Head tile",
+                "meaning_confidence": "confirmed",
+            },
+            {
+                "id": "testfam:big:0,1",
+                "sheet_col": 0,
+                "sheet_row": 1,
+                "layer": "sprite",
+                "category": "character",
+                "transparent": True,
+                "compose_group": "test.big",
+                "compose_role": "left",
+                "connects_on": ["east"],
+                "cluster_ids": [],
+                "source_group": "test",
+                "meaning": "Big left",
+                "meaning_confidence": "confirmed",
+            },
+            {
+                "id": "testfam:big:1,1",
+                "sheet_col": 1,
+                "sheet_row": 1,
+                "layer": "sprite",
+                "category": "character",
+                "transparent": True,
+                "compose_group": "test.big",
+                "compose_role": "right",
+                "connects_on": ["west"],
+                "cluster_ids": [],
+                "source_group": "test",
+                "meaning": "Big right",
+                "meaning_confidence": "confirmed",
+            },
+        ],
+    )
+    write_json(family_dir / "aliases.json", {})
+    write_json(
+        family_dir / "constructions.json",
+        {
+            "constructions": [
+                {
+                    "id": "test.body",
+                    "collection_id": "test.body",
+                    "kind": "metatile",
+                    "cells": [[{"role": "base"}]],
+                },
+                {
+                    "id": "test.head.alt",
+                    "collection_id": "test.head.alt",
+                    "kind": "metatile",
+                    "cells": [[{"role": "base"}]],
+                    "expose_as_entity": False,
+                },
+                {
+                    "id": "test.big",
+                    "collection_id": "test.big",
+                    "kind": "metatile",
+                    "cells": [[{"role": "left"}, {"role": "right"}]],
+                    "expose_as_entity": False,
+                },
+            ]
+        },
+    )
+    write_json(
+        family_dir / "attachments.json",
+        {
+            "attachment_sets": [
+                {
+                    "id": "test.body.heads",
+                    "param": "head",
+                    "required": True,
+                    "target_construction_ids": ["test.body"],
+                    "canvas": {"x": 0, "y": 0, "width": 1, "height": 1},
+                    "variants": [{"id": "alt", "construction_id": "test.head.alt"}],
+                }
+            ]
+        },
+    )
+    return family_dir
+
+
 def make_image_override_family_dir(root: Path, *, image_size: tuple[int, int] = (8, 8)) -> Path:
     family_dir = root / "family"
     family_dir.mkdir()
@@ -468,6 +607,168 @@ class TileFamilyLoadTests(unittest.TestCase):
             tile = family.by_alias("sample.override")
             self.assertEqual(tile.image_override, "derived/override.png")
 
+    def test_load_accepts_attachment_manifest_and_projects_entity_template(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            family = TileFamily.load(family_dir)
+
+            template = family.entity_template("test.body")
+            self.assertIsNotNone(template)
+            assert template is not None
+            self.assertEqual(len(template.attachment_sets), 1)
+            self.assertTrue(template.attachment_sets[0].required)
+            self.assertEqual(template.attachment_sets[0].variant_ids, ("alt",))
+            self.assertEqual([entry.id for entry in family.entity_templates()], ["test.body"])
+
+    def test_load_rejects_non_boolean_expose_as_entity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            constructions = cast(dict[str, object], json.loads((family_dir / "constructions.json").read_text(encoding="utf-8")))
+            raw_constructions = cast(list[dict[str, object]], constructions["constructions"])
+            raw_constructions[0]["expose_as_entity"] = "yes"
+            write_json(family_dir / "constructions.json", constructions)
+
+            with self.assertRaisesRegex(ValueError, "expose_as_entity must be a boolean"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_set_with_empty_param(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["param"] = ""
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "param must be a non-empty string"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_set_with_empty_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["target_construction_ids"] = []
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "target_construction_ids must be a non-empty list"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_set_with_unknown_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["target_construction_ids"] = ["missing.target"]
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "unknown target construction"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_canvas_outside_target_bounds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["canvas"] = {"x": 1, "y": 0, "width": 1, "height": 1}
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "must stay inside target construction"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_set_with_no_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["variants"] = []
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "must define at least one variant"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_duplicate_attachment_variant_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            variants = cast(list[dict[str, object]], attachment_sets[0]["variants"])
+            variants.append(dict(variants[0]))
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "duplicate variant id"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_unknown_attachment_variant_construction(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            variants = cast(list[dict[str, object]], attachment_sets[0]["variants"])
+            variants[0]["construction_id"] = "missing.variant"
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "references unknown construction"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_variant_that_exceeds_canvas(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            variants = cast(list[dict[str, object]], attachment_sets[0]["variants"])
+            variants[0]["construction_id"] = "test.big"
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "exceeds canvas"):
+                TileFamily.load(family_dir)
+
+    def test_load_accepts_attachment_default_variant_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["required"] = False
+            attachment_sets[0]["default_variant_id"] = "alt"
+            write_json(family_dir / "attachments.json", attachments)
+
+            family = TileFamily.load(family_dir)
+            attachment_set = family.attachment_sets_for_construction("test.body")[0]
+            self.assertFalse(attachment_set.required)
+            self.assertEqual(attachment_set.default_variant_id, "alt")
+
+    def test_load_rejects_attachment_default_variant_id_empty_string(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["default_variant_id"] = ""
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "default_variant_id must be a non-empty string"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_default_variant_id_unknown_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["default_variant_id"] = "missing"
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "must match a declared variant id"):
+                TileFamily.load(family_dir)
+
+    def test_load_rejects_attachment_required_non_bool(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_attachment_family_dir(Path(temp_dir))
+            attachments = cast(dict[str, object], json.loads((family_dir / "attachments.json").read_text(encoding="utf-8")))
+            attachment_sets = cast(list[dict[str, object]], attachments["attachment_sets"])
+            attachment_sets[0]["required"] = "yes"
+            write_json(family_dir / "attachments.json", attachments)
+
+            with self.assertRaisesRegex(ValueError, "required must be a boolean"):
+                TileFamily.load(family_dir)
+
     def test_load_rejects_declared_missing_ingestion_spec(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
@@ -618,7 +919,7 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
         report = family.ingest_report()
         self.assertTrue(report["complete"], json.dumps(report, indent=2))
-        self.assertEqual(report["tile_count"], 1376)
+        self.assertEqual(report["tile_count"], 1408)
         self.assertEqual(report["missing_source_group"], [])
         self.assertEqual(report["missing_cluster_ids"], [])
         self.assertEqual(report["missing_meaning"], [])
@@ -894,6 +1195,66 @@ def _make_tiles_dict(*tiles: TileRecord) -> dict[str, TileRecord]:
     return {t.id: t for t in tiles}
 
 
+class AttachmentLoaderTests(unittest.TestCase):
+    def _constructions(self) -> dict[str, MetatileConstruction | ParametricRunConstruction]:
+        body = MetatileConstruction(
+            id="test.body",
+            collection_id="test.body",
+            cells=((_make_tile("test:body", compose_group="test.body", compose_role="base"),),),
+        )
+        head = MetatileConstruction(
+            id="test.head.alt",
+            collection_id="test.head.alt",
+            cells=((_make_tile("test:head", compose_group="test.head.alt", compose_role="base"),),),
+            expose_as_entity=False,
+        )
+        run = ParametricRunConstruction(
+            id="test.run",
+            collection_id="test.run",
+            axis="x",
+            length_param="length",
+            start_tile=_make_tile("test:run.start", compose_group="test.run", compose_role="start"),
+            repeat_tile=_make_tile("test:run.repeat", compose_group="test.run", compose_role="repeat"),
+            end_tile=_make_tile("test:run.end", compose_group="test.run", compose_role="end"),
+            expose_as_entity=False,
+        )
+        return {
+            body.id: body,
+            head.id: head,
+            run.id: run,
+        }
+
+    def _attachment_config(
+        self,
+        *,
+        target_construction_ids: list[str] | None = None,
+        variant_construction_id: str = "test.head.alt",
+    ) -> ConstructionAttachmentSetConfig:
+        return {
+            "id": "test.body.heads",
+            "param": "head",
+            "target_construction_ids": target_construction_ids or ["test.body"],
+            "canvas": {"x": 0, "y": 0, "width": 1, "height": 1},
+            "variants": [{"id": "alt", "construction_id": variant_construction_id}],
+        }
+
+    def test_loader_rejects_parametric_run_target_construction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must reference a fixed metatile construction, not parametric_run"):
+            load_attachment_sets_from_data(
+                (self._attachment_config(target_construction_ids=["test.run"]),),
+                attachments_path=Path("attachments.json"),
+                constructions=self._constructions(),
+            )
+
+    def test_loader_rejects_parametric_run_variant_construction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must reference a fixed metatile construction, not parametric_run"):
+            load_attachment_sets_from_data(
+                (self._attachment_config(variant_construction_id="test.run"),),
+                attachments_path=Path("attachments.json"),
+                constructions=self._constructions(),
+            )
+
+
 class ConstructionLoaderTests(unittest.TestCase):
     def test_grand_door_construction_loads_and_validates(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
@@ -1032,6 +1393,28 @@ class TileLibraryRegistryTests(unittest.TestCase):
             self.assertEqual(registry.unit_for_ref("family.a:all:0,0"), alias_a_owner)
             self.assertIsNotNone(registry.entity_template("construction.a"))
             self.assertIsNotNone(registry.entity_template("construction.b"))
+
+    def test_registry_resolves_attachment_sets_for_construction(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            attachment_family = TileFamily.load(make_attachment_family_dir(root))
+            other_family = TileFamily.load(
+                make_family_dir(
+                    root,
+                    cluster_ids=["cluster.valid"],
+                    family_id="family.other",
+                    alias_name="alias.other",
+                    directory_name="other_family",
+                    construction_id="construction.other",
+                )
+            )
+
+            registry = TileLibraryRegistry.from_units([attachment_family.runtime_unit, other_family.runtime_unit])
+
+            attachment_sets = registry.attachment_sets_for_construction("test.body")
+            self.assertEqual(len(attachment_sets), 1)
+            self.assertEqual(attachment_sets[0].param, "head")
+            self.assertEqual(registry.attachment_sets_for_construction("missing.construction"), ())
 
     def test_registry_rejects_duplicate_unit_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,0 +1,27 @@
+{
+  "tileset_id": "characters",
+  "title": "Minimal 8 Characters",
+  "module_context": [
+    {
+      "axis_id": "domain",
+      "value_id": "party_ui"
+    },
+    {
+      "axis_id": "asset_role",
+      "value_id": "character_sheet"
+    }
+  ],
+  "render_traits": {
+    "alignment_origin": "bottom_left"
+  },
+  "logical_tilesheets": [
+    {
+      "tilesheet_id": "characters",
+      "manifest": "../tilesheets/characters.json"
+    }
+  ],
+  "notes": [
+    "Source-side tileset for the separate Minimal 8 Characters sheet.",
+    "This tileset shares the 8x8 ownership grid with base Minimal 8 but most useful figures span multiple cells and should be composed through reviewed constructions or other multi-cell runtime surfaces rather than treated as one-cell semantic actors."
+  ]
+}

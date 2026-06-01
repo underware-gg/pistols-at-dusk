@@ -17,7 +17,10 @@ if str(SCRIPTS_DIR) not in sys.path:
 import minimal8_harness as harness
 import scene_templates
 from tile_families import (
+    ConstructionAttachmentSet,
+    ConstructionAttachmentVariant,
     EntityTemplateRecord,
+    GridBounds,
     MetatileConstruction,
     ParametricRunConstruction,
     TileRecord,
@@ -110,13 +113,23 @@ def _project_config_with_template_dir(
     rules_dir: Path | None = None,
 ) -> dict[str, Any]:
     config = _read_json(PROJECT_PATH)
-    tile_family = cast(dict[str, Any], config["tile_family"])
-    if "path" in tile_family:
-        tile_family["path"] = str((PROJECT_PATH.parent / cast(str, tile_family["path"])).resolve())
-    if "source_pack" in tile_family:
-        tile_family["source_pack"] = str(
-            (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
-        )
+    if "tile_family" in config:
+        tile_family = cast(dict[str, Any], config["tile_family"])
+        if "path" in tile_family:
+            tile_family["path"] = str((PROJECT_PATH.parent / cast(str, tile_family["path"])).resolve())
+        if "source_pack" in tile_family:
+            tile_family["source_pack"] = str(
+                (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
+            )
+    else:
+        for raw_spec in cast(list[object], config["tile_families"]):
+            tile_family = cast(dict[str, Any], raw_spec)
+            if "path" in tile_family:
+                tile_family["path"] = str((PROJECT_PATH.parent / cast(str, tile_family["path"])).resolve())
+            if "source_pack" in tile_family:
+                tile_family["source_pack"] = str(
+                    (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
+                )
     utility_tileset = cast(dict[str, Any], cast(dict[str, Any], config["tilesets"])["utility_land"])
     utility_tileset["sheet"] = str((PROJECT_PATH.parent / cast(str, utility_tileset["sheet"])).resolve())
     config["scene_templates_dir"] = str(template_dir)
@@ -812,8 +825,9 @@ class PopulateSlotsDataSceneTests(unittest.TestCase):
                 _project_config_with_template_dir(custom_templates, rules_dir=custom_rules),
             )
 
+            project = harness.LayoutProject(project_path)
             with self.assertRaisesRegex(ValueError, "scene template cycle detected"):
-                harness.LayoutProject(project_path)
+                _ = project.scene_template_library
 
     def test_populate_slots_dynamic_scene_cycles_fail_during_expansion(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1127,8 +1141,9 @@ class PopulateSlotsDataSceneTests(unittest.TestCase):
                 project_path,
                 _project_config_with_template_dir(custom_templates, rules_dir=custom_rules),
             )
+            project = harness.LayoutProject(project_path)
             with self.assertRaisesRegex(ValueError, "references an unknown stamp ref"):
-                harness.LayoutProject(project_path)
+                _ = project.scene_rules_library
 
             _write_json(
                 custom_rules / "sample.json",
@@ -1146,8 +1161,9 @@ class PopulateSlotsDataSceneTests(unittest.TestCase):
                 project_path,
                 _project_config_with_template_dir(custom_templates, rules_dir=custom_rules),
             )
+            project = harness.LayoutProject(project_path)
             with self.assertRaisesRegex(ValueError, "references an unknown stamp ref"):
-                harness.LayoutProject(project_path)
+                _ = project.scene_rules_library
 
 
 def _make_tile_record(tile_id: str) -> TileRecord:
@@ -1164,17 +1180,29 @@ def _make_tile_record(tile_id: str) -> TileRecord:
 
 
 class _FakeFamily:
-    def __init__(self, constructions: dict[str, MetatileConstruction | ParametricRunConstruction]) -> None:
+    def __init__(
+        self,
+        constructions: dict[str, MetatileConstruction | ParametricRunConstruction],
+        *,
+        attachment_sets: dict[str, tuple[ConstructionAttachmentSet, ...]] | None = None,
+    ) -> None:
         self._constructions = constructions
+        self._attachment_sets = attachment_sets or {}
 
     def lookup_construction(self, construction_id: str) -> MetatileConstruction | ParametricRunConstruction | None:
         return self._constructions.get(construction_id)
+
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        return self._attachment_sets.get(construction_id, ())
 
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         construction = self.lookup_construction(construction_id)
         if construction is None:
             return None
-        return entity_template_from_construction(construction)
+        return entity_template_from_construction(
+            construction,
+            attachment_sets=self.attachment_sets_for_construction(construction_id),
+        )
 
 
 def _make_fixture_family() -> _FakeFamily:
@@ -1189,6 +1217,51 @@ def _make_fixture_family() -> _FakeFamily:
         ),
     )
     return _FakeFamily({"test.fixture.two_cells": construction})
+
+
+def _make_fixture_family_with_attachment() -> _FakeFamily:
+    return _make_configured_fixture_family_with_attachment(required=True)
+
+
+def _make_configured_fixture_family_with_attachment(
+    *,
+    required: bool,
+    default_variant_id: str | None = None,
+) -> _FakeFamily:
+    tile_a = _make_tile_record("testfam:all:0,0")
+    tile_b = _make_tile_record("testfam:all:1,0")
+    base = MetatileConstruction(
+        id="test.fixture.body",
+        collection_id="test.fixture.body",
+        cells=((tile_a,),),
+    )
+    attachment = MetatileConstruction(
+        id="test.fixture.head.alt",
+        collection_id="test.fixture.head.alt",
+        cells=((tile_b,),),
+        expose_as_entity=False,
+    )
+    attachment_set = ConstructionAttachmentSet(
+        id="test.fixture.body.heads",
+        param="head",
+        target_construction_ids=("test.fixture.body",),
+        canvas=GridBounds(x=0, y=0, width=1, height=1),
+        variants={
+            "alt": ConstructionAttachmentVariant(
+                id="alt",
+                construction_id="test.fixture.head.alt",
+            )
+        },
+        required=required,
+        default_variant_id=default_variant_id,
+    )
+    return _FakeFamily(
+        {
+            "test.fixture.body": base,
+            "test.fixture.head.alt": attachment,
+        },
+        attachment_sets={"test.fixture.body": (attachment_set,)},
+    )
 
 
 class EntityOpExpandStampsTests(unittest.TestCase):
@@ -1239,6 +1312,80 @@ class EntityOpExpandStampsTests(unittest.TestCase):
                 context="test op 3",
             )
         self.assertIn("missing.construction.id", str(ctx.exception))
+
+    def test_attachment_params_expand_additional_stamps(self) -> None:
+        family = _make_fixture_family_with_attachment()
+
+        stamps = harness.expand_entity_stamps(
+            family,  # type: ignore[arg-type]
+            "test.fixture.body",
+            x=3,
+            y=4,
+            context="test attachment expansion",
+            params={"head": "alt"},
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [
+                ("testfam:all:0,0", 3, 4),
+                ("testfam:all:1,0", 3, 4),
+            ],
+        )
+
+    def test_missing_optional_attachment_param_uses_default_variant_when_present(self) -> None:
+        family = _make_configured_fixture_family_with_attachment(
+            required=False,
+            default_variant_id="alt",
+        )
+
+        stamps = harness.expand_entity_stamps(
+            family,  # type: ignore[arg-type]
+            "test.fixture.body",
+            x=3,
+            y=4,
+            context="test attachment default",
+        )
+
+        self.assertEqual(len(stamps), 2)
+        self.assertEqual(cast(str, stamps[1]["ref"]), "testfam:all:1,0")
+
+    def test_missing_optional_attachment_param_skips_overlay_when_no_default(self) -> None:
+        family = _make_configured_fixture_family_with_attachment(required=False)
+
+        stamps = harness.expand_entity_stamps(
+            family,  # type: ignore[arg-type]
+            "test.fixture.body",
+            x=3,
+            y=4,
+            context="test attachment optional",
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [("testfam:all:0,0", 3, 4)],
+        )
+
+    def test_scene_entity_request_applies_attachment_params(self) -> None:
+        family = _make_fixture_family_with_attachment()
+
+        entity = harness._resolve_scene_entity_request(  # type: ignore[attr-defined]
+            family,  # type: ignore[arg-type]
+            harness.SceneEntityRequest(
+                entity_id="fixture.body",
+                source_template_id="fixture",
+                construction_id="test.fixture.body",
+                layer="actors",
+                x=8,
+                y=9,
+                params={"head": "alt"},
+            ),
+        )
+
+        self.assertEqual(
+            [(placement.ref, placement.x, placement.y) for placement in entity.tiles],
+            [("testfam:all:0,0", 8, 9), ("testfam:all:1,0", 8, 9)],
+        )
 
 
 class EntityOpDataSceneTests(unittest.TestCase):

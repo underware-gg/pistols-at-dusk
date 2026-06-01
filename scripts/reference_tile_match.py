@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 from typing import Literal, Mapping, Sequence, TypedDict, cast
+from typing_extensions import NotRequired
 
 from PIL import Image
 
@@ -20,6 +21,7 @@ from reference_config import (
     read_path,
     read_rect,
     read_rectangles,
+    read_string_list,
     read_string,
 )
 from reference_grid import (
@@ -60,17 +62,41 @@ CHEAP_SCORE_WEIGHTS = {
 
 
 class TileMatchMetadata(TypedDict):
+    source_id: str
+    family_id: str
+    variant_id: str
+    colorway: str | None
     sheet_col: int
     sheet_row: int
     tile_id: str | None
     aliases: list[str]
+    physical_ref: str
+    variant_ref: str
+    semantic_variant_ref: str | None
+    recommended_variant_id: NotRequired[str]
+    recommended_colorway: NotRequired[str | None]
+    recommended_variant_ref: NotRequired[str]
+    recommended_semantic_variant_ref: NotRequired[str | None]
+    recommended_color_score: NotRequired[float]
 
 
 class TileMatchCandidate(TypedDict):
+    source_id: str
+    family_id: str
+    variant_id: str
+    colorway: str | None
     sheet_col: int
     sheet_row: int
     tile_id: str | None
     aliases: list[str]
+    physical_ref: str
+    variant_ref: str
+    semantic_variant_ref: str | None
+    recommended_variant_id: NotRequired[str]
+    recommended_colorway: NotRequired[str | None]
+    recommended_variant_ref: NotRequired[str]
+    recommended_semantic_variant_ref: NotRequired[str | None]
+    recommended_color_score: NotRequired[float]
     score: float
     pixel_match_ratio: float
     mask_match_ratio: float
@@ -96,6 +122,10 @@ class ReferenceCellMatch(TypedDict):
 class ReferenceCellSelection(TypedDict, total=False):
     kind: str
     tile_id: str
+    variant_id: str
+    source_id: str
+    sheet_col: int
+    sheet_row: int
 
 
 class ReferenceCellReview(TypedDict, total=False):
@@ -115,13 +145,55 @@ class MatchSummary(TypedDict):
     unresolved_cells: int
 
 
+class MatchReportSourceVariant(TypedDict):
+    variant_id: str
+    colorway: str | None
+    palette_family: str | None
+    background_mode: str | None
+
+
+class MatchReportSource(TypedDict):
+    source_id: str
+    family_path: str
+    family_id: str
+    variant_id: str
+    colorway: str | None
+    palette_family: str | None
+    background_mode: str | None
+    available_variants: list[MatchReportSourceVariant]
+    source_region_ids: list[str]
+    reference_boxes: list[list[int]]
+
+
 class MatchReport(TypedDict):
     reference_image: str
-    family_path: str
-    variant_id: str
+    sources: list[MatchReportSource]
     grid: dict[str, object]
     summary: MatchSummary
     cells: list[ReferenceCellMatch]
+
+
+@dataclass(frozen=True)
+class MatchSourceSpec:
+    family_path: Path
+    variant_id: str | None = None
+    source_id: str | None = None
+    source_region_ids: tuple[str, ...] = ()
+    reference_boxes: tuple[Rect, ...] = ()
+
+
+@dataclass(frozen=True)
+class LoadedSourceSpec:
+    source_id: str
+    family_path: Path
+    family_id: str
+    variant_id: str
+    colorway: str | None = None
+    palette_family: str | None = None
+    background_mode: str | None = None
+    available_variants: tuple[MatchReportSourceVariant, ...] = ()
+    source_region_ids: tuple[str, ...] = ()
+    reference_boxes: tuple[Rect, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -131,6 +203,10 @@ class SourceTile:
     tile_id: str | None
     aliases: tuple[str, ...]
     image: Image.Image
+    source_id: str
+    family_id: str
+    variant_id: str
+    colorway: str | None = None
 
 
 @dataclass(frozen=True)
@@ -150,6 +226,18 @@ class PreparedSourceTile:
     @property
     def tile_id(self) -> str | None:
         return self.tile.tile_id
+
+    @property
+    def source_id(self) -> str:
+        return self.tile.source_id
+
+    @property
+    def family_id(self) -> str:
+        return self.tile.family_id
+
+    @property
+    def variant_id(self) -> str:
+        return self.tile.variant_id
 
     @property
     def aliases(self) -> tuple[str, ...]:
@@ -200,8 +288,7 @@ class TileFeatures:
 @dataclass(frozen=True)
 class MatchRunSettings:
     image_path: Path
-    family_path: Path
-    variant_id: str | None
+    source_specs: tuple[MatchSourceSpec, ...]
     output_path: Path | None
     transform: GridTransform
     span_box: Rect | None
@@ -219,8 +306,211 @@ class MatchRunSettings:
 @dataclass(frozen=True)
 class PreparedMatchRun:
     prepared_grid: "PreparedReferenceGrid"
-    source_tiles: list[PreparedSourceTile]
+    loaded_sources: tuple[LoadedSourceSpec, ...]
+    global_source_tiles: tuple[PreparedSourceTile, ...]
+    boxed_sources: tuple[tuple[LoadedSourceSpec, tuple[PreparedSourceTile, ...]], ...]
     resolved_normalized_cell_size: int | None
+    color_recommender: "SiblingVariantColorRecommender"
+
+
+@dataclass(frozen=True)
+class VariantColorRecommendation:
+    variant_id: str
+    colorway: str | None
+    variant_ref: str
+    semantic_variant_ref: str | None
+    score: float
+
+
+class SiblingVariantColorRecommender:
+    def __init__(
+        self,
+        *,
+        background: RGBA,
+        loaded_sources: Sequence[LoadedSourceSpec],
+    ) -> None:
+        self.background = background
+        self._sources_by_source_id = {source.source_id: source for source in loaded_sources}
+        self._family_cache: dict[Path, TileFamily] = {}
+        self._sheet_cache: dict[tuple[Path, str], Image.Image] = {}
+        self._prepared_tile_cache: dict[tuple[str, str, int, int, int, int], PreparedSourceTile] = {}
+
+    def recommend(
+        self,
+        *,
+        reference_tile: Image.Image,
+        reference_features: TileFeatures,
+        matched_tile: SourceTile | PreparedSourceTile,
+    ) -> VariantColorRecommendation:
+        resolved = matched_tile.tile if isinstance(matched_tile, PreparedSourceTile) else matched_tile
+        source = self._sources_by_source_id.get(resolved.source_id)
+        if source is None:
+            return self._current_variant_recommendation(resolved)
+        if not source.available_variants:
+            return self._current_variant_recommendation(resolved)
+        if not (source.family_path / "family.json").exists():
+            return self._current_variant_recommendation(resolved)
+
+        eligible_variants = self._eligible_variants(source)
+        if len(eligible_variants) <= 1:
+            return self._current_variant_recommendation(resolved)
+
+        best_variant_id = resolved.variant_id
+        best_colorway = resolved.colorway
+        best_score = -1.0
+        for sibling in eligible_variants:
+            prepared = self._prepared_tile_for_variant(
+                source=source,
+                variant_id=sibling["variant_id"],
+                sheet_col=resolved.sheet_col,
+                sheet_row=resolved.sheet_row,
+                target_size=reference_tile.size,
+            )
+            score = _foreground_colour_similarity(reference_features, prepared.features)
+            if score > best_score:
+                best_variant_id = sibling["variant_id"]
+                best_colorway = sibling["colorway"]
+                best_score = score
+
+        return VariantColorRecommendation(
+            variant_id=best_variant_id,
+            colorway=best_colorway,
+            variant_ref=_variant_ref(
+                family_id=resolved.family_id,
+                variant_id=best_variant_id,
+                sheet_col=resolved.sheet_col,
+                sheet_row=resolved.sheet_row,
+            ),
+            semantic_variant_ref=_semantic_variant_ref(
+                family_id=resolved.family_id,
+                variant_id=best_variant_id,
+                tile_id=resolved.tile_id,
+            ),
+            score=max(best_score, 0.0),
+        )
+
+    def _current_variant_recommendation(self, resolved: SourceTile) -> VariantColorRecommendation:
+        return VariantColorRecommendation(
+            variant_id=resolved.variant_id,
+            colorway=resolved.colorway,
+            variant_ref=_variant_ref(
+                family_id=resolved.family_id,
+                variant_id=resolved.variant_id,
+                sheet_col=resolved.sheet_col,
+                sheet_row=resolved.sheet_row,
+            ),
+            semantic_variant_ref=_semantic_variant_ref(
+                family_id=resolved.family_id,
+                variant_id=resolved.variant_id,
+                tile_id=resolved.tile_id,
+            ),
+            score=1.0,
+        )
+
+    def _eligible_variants(self, source: LoadedSourceSpec) -> list[MatchReportSourceVariant]:
+        eligible = [
+            variant
+            for variant in source.available_variants
+            if variant["palette_family"] == source.palette_family
+            and variant["background_mode"] == source.background_mode
+        ]
+        if not eligible:
+            eligible = list(source.available_variants)
+        return eligible or [
+            {
+                "variant_id": source.variant_id,
+                "colorway": source.colorway,
+                "palette_family": source.palette_family,
+                "background_mode": source.background_mode,
+            }
+        ]
+
+    def _prepared_tile_for_variant(
+        self,
+        *,
+        source: LoadedSourceSpec,
+        variant_id: str,
+        sheet_col: int,
+        sheet_row: int,
+        target_size: tuple[int, int],
+    ) -> PreparedSourceTile:
+        cache_key = (
+            str(source.family_path),
+            variant_id,
+            sheet_col,
+            sheet_row,
+            target_size[0],
+            target_size[1],
+        )
+        cached = self._prepared_tile_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        family = self._family(source.family_path)
+        variant = family.variant(variant_id)
+        sheet = self._sheet(source.family_path, variant_id, variant.sheet_path)
+        left = sheet_col * family.tile_width
+        top = sheet_row * family.tile_height
+        image = sheet.crop((left, top, left + family.tile_width, top + family.tile_height))
+        if image.size != target_size:
+            image = resize_nearest(image, target_size)
+        tile_record = family.tile_at_sheet_cell(sheet_col=sheet_col, sheet_row=sheet_row)
+        tile_id = tile_record.id if tile_record is not None else None
+        aliases = tuple(sorted(family.aliases_by_tile.get(tile_id, ()))) if tile_id is not None else ()
+        tile = SourceTile(
+            sheet_col=sheet_col,
+            sheet_row=sheet_row,
+            tile_id=tile_id,
+            aliases=aliases,
+            image=image,
+            source_id=source.source_id,
+            family_id=source.family_id,
+            variant_id=variant_id,
+            colorway=variant.colorway,
+        )
+        tile_background = cast(RGBA, image.getpixel((0, 0)))
+        prepared = PreparedSourceTile(
+            tile=tile,
+            rgba_bytes=image.convert("RGBA").tobytes(),
+            features=_tile_features(image, tile_background, adaptive=True),
+        )
+        self._prepared_tile_cache[cache_key] = prepared
+        return prepared
+
+    def _family(self, family_path: Path) -> TileFamily:
+        cached = self._family_cache.get(family_path)
+        if cached is not None:
+            return cached
+        loaded = TileFamily.load(family_path)
+        self._family_cache[family_path] = loaded
+        return loaded
+
+    def _sheet(self, family_path: Path, variant_id: str, sheet_path: Path) -> Image.Image:
+        cache_key = (family_path, variant_id)
+        cached = self._sheet_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        loaded = Image.open(sheet_path).convert("RGBA")
+        self._sheet_cache[cache_key] = loaded
+        return loaded
+
+
+def _default_source_id(*, family_id: str, variant_id: str) -> str:
+    return f"{family_id}@{variant_id}"
+
+
+def _physical_ref(*, family_id: str, sheet_col: int, sheet_row: int) -> str:
+    return f"{family_id}:{sheet_col},{sheet_row}"
+
+
+def _variant_ref(*, family_id: str, variant_id: str, sheet_col: int, sheet_row: int) -> str:
+    return f"{family_id}@{variant_id}:{sheet_col},{sheet_row}"
+
+
+def _semantic_variant_ref(*, family_id: str, variant_id: str, tile_id: str | None) -> str | None:
+    if tile_id is None:
+        return None
+    return f"{family_id}@{variant_id}:{tile_id}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -310,14 +600,36 @@ def _parse_review_selection(raw: object, field_name: str) -> ReferenceCellSelect
         raise ValueError(f"{field_name} must be an object")
     selection = cast(dict[str, object], raw)
     kind = selection.get("kind")
-    if kind not in {"tile", "blank"}:
-        raise ValueError(f"{field_name}.kind must be 'tile' or 'blank'")
+    if kind not in {"tile", "blank", "source_cell"}:
+        raise ValueError(f"{field_name}.kind must be 'tile', 'blank', or 'source_cell'")
     parsed: ReferenceCellSelection = {"kind": cast(str, kind)}
     tile_id = selection.get("tile_id")
+    variant_id = selection.get("variant_id")
+    if variant_id is not None and not isinstance(variant_id, str):
+        raise ValueError(f"{field_name}.variant_id must be a string when provided")
     if kind == "tile":
         if not isinstance(tile_id, str):
             raise ValueError(f"{field_name}.tile_id must be a string when kind='tile'")
         parsed["tile_id"] = tile_id
+        if isinstance(variant_id, str):
+            parsed["variant_id"] = variant_id
+    if kind == "source_cell":
+        source_id = selection.get("source_id")
+        sheet_col = selection.get("sheet_col")
+        sheet_row = selection.get("sheet_row")
+        if not isinstance(source_id, str):
+            raise ValueError(f"{field_name}.source_id must be a string when kind='source_cell'")
+        if not isinstance(sheet_col, int):
+            raise ValueError(f"{field_name}.sheet_col must be an int when kind='source_cell'")
+        if not isinstance(sheet_row, int):
+            raise ValueError(f"{field_name}.sheet_row must be an int when kind='source_cell'")
+        parsed["source_id"] = source_id
+        parsed["sheet_col"] = sheet_col
+        parsed["sheet_row"] = sheet_row
+        if isinstance(variant_id, str):
+            parsed["variant_id"] = variant_id
+    if kind == "blank" and variant_id is not None:
+        raise ValueError(f"{field_name}.variant_id is not valid when kind='blank'")
     return parsed
 
 
@@ -348,6 +660,52 @@ def review_overrides_setting(config: Mapping[str, object], key: str) -> dict[Gui
     return overrides
 
 
+def _source_specs_from_config(
+    config: Mapping[str, object],
+    *,
+    config_dir: Path | None,
+) -> tuple[MatchSourceSpec, ...]:
+    raw_sources = config.get("sources")
+    if raw_sources is None:
+        return ()
+    if not isinstance(raw_sources, list):
+        raise ValueError("sources must be a list")
+    source_specs: list[MatchSourceSpec] = []
+    for index, raw_source in enumerate(cast(list[object], raw_sources), start=1):
+        source_config = require_mapping(raw_source, context=f"sources[{index}]")
+        family_path = read_path(None, source_config, "family_path", config_dir=config_dir)
+        if family_path is None:
+            raise ValueError(f"sources[{index}].family_path is required")
+        source_specs.append(
+            MatchSourceSpec(
+                family_path=family_path,
+                variant_id=read_string(None, source_config, "variant_id"),
+                source_id=read_string(None, source_config, "source_id"),
+                source_region_ids=read_string_list(None, source_config, "source_region_ids"),
+                reference_boxes=read_rectangles(None, source_config, "reference_boxes"),
+            )
+        )
+    return tuple(source_specs)
+
+
+def _resolve_source_specs(
+    args: argparse.Namespace,
+    config: Mapping[str, object],
+    *,
+    config_dir: Path | None,
+) -> tuple[MatchSourceSpec, ...]:
+    config_source_specs = _source_specs_from_config(config, config_dir=config_dir)
+    single_family_path = read_path(args.family_path, config, "family_path", config_dir=config_dir)
+    single_variant_id = read_string(args.variant_id, config, "variant_id")
+    if config_source_specs:
+        if single_family_path is not None or single_variant_id is not None:
+            raise ValueError("reference match config must define either sources or family_path/variant_id, not both")
+        return config_source_specs
+    if single_family_path is None:
+        return ()
+    return (MatchSourceSpec(family_path=single_family_path, variant_id=single_variant_id),)
+
+
 def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
     config, config_dir = load_reference_config(args.config)
     grid_config = require_mapping(config.get("grid", {}), context="grid")
@@ -356,9 +714,8 @@ def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
     if tile_size is None:
         tile_size = 8
     image_path = read_path(args.image, config, "image", config_dir=config_dir)
-    family_path = read_path(args.family_path, config, "family_path", config_dir=config_dir)
+    source_specs = _resolve_source_specs(args, config, config_dir=config_dir)
     output_path = read_path(args.output, config, "output", config_dir=config_dir)
-    variant_id = read_string(args.variant_id, config, "variant_id")
     origin_x = read_float(args.origin_x, grid_config, "origin_x")
     origin_y = read_float(args.origin_y, grid_config, "origin_y")
     cell_size = read_float(args.cell_size, grid_config, "cell_size")
@@ -385,12 +742,11 @@ def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
 
     if image_path is None:
         raise ValueError("image is required")
-    if family_path is None:
-        raise ValueError("family_path is required")
+    if not source_specs:
+        raise ValueError("reference match config must define at least one source")
     return MatchRunSettings(
         image_path=image_path,
-        family_path=family_path,
-        variant_id=variant_id,
+        source_specs=source_specs,
         output_path=output_path,
         transform=resolve_grid_transform(
             origin_x=origin_x,
@@ -415,14 +771,44 @@ def resolve_match_run_settings(args: argparse.Namespace) -> MatchRunSettings:
     )
 
 
-def load_source_tiles(family_path: Path, variant_id: str | None) -> tuple[TileFamily, str, list[SourceTile]]:
+def load_source_tiles(
+    family_path: Path,
+    variant_id: str | None,
+    *,
+    source_id: str | None = None,
+    source_region_ids: Sequence[str] = (),
+) -> tuple[TileFamily, str, str, list[SourceTile]]:
     family = TileFamily.load(family_path)
     resolved_variant_id = variant_id or family.default_variant_id
+    resolved_source_id = source_id or _default_source_id(
+        family_id=family.family_id,
+        variant_id=resolved_variant_id,
+    )
+    allowed_source_region_ids = frozenset(source_region_ids)
+    if allowed_source_region_ids:
+        if family.source_layout is None:
+            raise ValueError(f"Source family {family.family_id} does not define source-layout regions")
+        unknown_region_ids = sorted(set(allowed_source_region_ids) - set(family.source_layout.source_regions))
+        if unknown_region_ids:
+            raise ValueError(
+                f"Unknown source-region ids for family {family.family_id}: {', '.join(unknown_region_ids)}"
+            )
     variant = family.variant(resolved_variant_id)
     sheet = Image.open(variant.sheet_path).convert("RGBA")
     tiles: list[SourceTile] = []
     for sheet_row in range(sheet.height // family.tile_height):
         for sheet_col in range(sheet.width // family.tile_width):
+            source_region = None
+            if family.source_layout is not None:
+                if not family.source_layout.contains_cell(sheet_col, sheet_row):
+                    continue
+                if family.source_layout.ignored_cell(sheet_col, sheet_row):
+                    continue
+                source_region = family.source_layout.source_region_for_cell(sheet_col, sheet_row)
+                if source_region is None:
+                    continue
+                if allowed_source_region_ids and source_region.id not in allowed_source_region_ids:
+                    continue
             left = sheet_col * family.tile_width
             top = sheet_row * family.tile_height
             tile_image = sheet.crop((left, top, left + family.tile_width, top + family.tile_height))
@@ -436,9 +822,55 @@ def load_source_tiles(family_path: Path, variant_id: str | None) -> tuple[TileFa
                     tile_id=tile_id,
                     aliases=aliases,
                     image=tile_image,
+                    source_id=resolved_source_id,
+                    family_id=family.family_id,
+                    variant_id=resolved_variant_id,
+                    colorway=variant.colorway,
                 )
             )
-    return family, resolved_variant_id, tiles
+    return family, resolved_variant_id, resolved_source_id, tiles
+
+
+def load_source_tiles_from_specs(
+    source_specs: Sequence[MatchSourceSpec],
+) -> tuple[list[LoadedSourceSpec], list[SourceTile]]:
+    loaded_specs: list[LoadedSourceSpec] = []
+    source_tiles: list[SourceTile] = []
+    for spec in source_specs:
+        family, resolved_variant_id, resolved_source_id, tiles = load_source_tiles(
+            spec.family_path,
+            spec.variant_id,
+            source_id=spec.source_id,
+            source_region_ids=spec.source_region_ids,
+        )
+        if not tiles:
+            raise ValueError(
+                f"Source family {family.family_id}@{resolved_variant_id} did not yield any source tiles"
+            )
+        loaded_specs.append(
+            LoadedSourceSpec(
+                source_id=resolved_source_id,
+                family_path=spec.family_path,
+                family_id=family.family_id,
+                variant_id=resolved_variant_id,
+                colorway=family.variant(resolved_variant_id).colorway,
+                palette_family=family.variant(resolved_variant_id).palette_family,
+                background_mode=family.variant(resolved_variant_id).background_mode,
+                available_variants=tuple(
+                    {
+                        "variant_id": sibling.id,
+                        "colorway": sibling.colorway,
+                        "palette_family": sibling.palette_family,
+                        "background_mode": sibling.background_mode,
+                    }
+                    for sibling in family.variants.values()
+                ),
+                source_region_ids=spec.source_region_ids,
+                reference_boxes=spec.reference_boxes,
+            )
+        )
+        source_tiles.extend(tiles)
+    return loaded_specs, source_tiles
 
 
 def render_source_tiles(source_tiles: list[SourceTile], *, cell_size: int) -> list[SourceTile]:
@@ -449,6 +881,10 @@ def render_source_tiles(source_tiles: list[SourceTile], *, cell_size: int) -> li
             tile_id=tile.tile_id,
             aliases=tile.aliases,
             image=resize_nearest(tile.image, (cell_size, cell_size)),
+            source_id=tile.source_id,
+            family_id=tile.family_id,
+            variant_id=tile.variant_id,
+            colorway=tile.colorway,
         )
         for tile in source_tiles
     ]
@@ -459,7 +895,7 @@ def prepare_source_tiles(source_tiles: list[SourceTile], *, background: RGBA) ->
         PreparedSourceTile(
             tile=tile,
             rgba_bytes=tile.image.convert("RGBA").tobytes(),
-            features=_tile_features(tile.image, background, adaptive=False),
+            features=_tile_features(tile.image, background, adaptive=True),
         )
         for tile in source_tiles
     ]
@@ -568,6 +1004,32 @@ def _mask_iou(left: list[bool], right: list[bool]) -> float:
         return 1.0
     intersection = sum(1 for left_value, right_value in zip(left, right) if left_value and right_value)
     return intersection / union
+
+
+def _foreground_colour_similarity(reference: TileFeatures, source: TileFeatures) -> float:
+    union_count = 0
+    colour_sum = 0.0
+    for index, (reference_is_foreground, source_is_foreground) in enumerate(
+        zip(reference.foreground_mask, source.foreground_mask)
+    ):
+        if not reference_is_foreground and not source_is_foreground:
+            continue
+        union_count += 1
+        if not reference_is_foreground or not source_is_foreground:
+            continue
+        reference_pixel = reference.pixels[index]
+        source_pixel = source.pixels[index]
+        distance = (
+            abs(reference_pixel[0] - source_pixel[0])
+            + abs(reference_pixel[1] - source_pixel[1])
+            + abs(reference_pixel[2] - source_pixel[2])
+        ) / (255 * 3)
+        colour_sum += 1.0 - distance
+    if union_count == 0:
+        return 1.0
+    colour_similarity = colour_sum / union_count
+    mask_alignment = _mask_iou(list(reference.foreground_mask), list(source.foreground_mask))
+    return (colour_similarity * 0.9) + (mask_alignment * 0.1)
 
 
 def _logical_axis_bounds(size: int, logical_tile_size: int) -> list[tuple[int, int]]:
@@ -801,7 +1263,7 @@ def score_tile_similarity(
     logical_tile_size: int | None = None,
 ) -> SimilarityScore:
     reference_features = _tile_features(reference_tile, background, adaptive=True)
-    source_features = _tile_features(source_tile, background, adaptive=False)
+    source_features = _tile_features(source_tile, background, adaptive=True)
     return _score_tile_similarity(reference_features, source_features, logical_tile_size=logical_tile_size)
 
 
@@ -901,7 +1363,7 @@ def _prepare_source_tile(source_tile: SourceTile | PreparedSourceTile, *, backgr
     return PreparedSourceTile(
         tile=source_tile,
         rgba_bytes=source_tile.image.convert("RGBA").tobytes(),
-        features=_tile_features(source_tile.image, background, adaptive=False),
+        features=_tile_features(source_tile.image, background, adaptive=True),
     )
 
 
@@ -999,23 +1461,79 @@ def candidate_matches_for_tile(
     )
 
 
-def _match_metadata(tile: SourceTile | PreparedSourceTile) -> TileMatchMetadata:
+def _match_metadata(
+    tile: SourceTile | PreparedSourceTile,
+    *,
+    recommendation: VariantColorRecommendation | None = None,
+) -> TileMatchMetadata:
     resolved = tile.tile if isinstance(tile, PreparedSourceTile) else tile
-    return {
+    payload: TileMatchMetadata = {
+        "source_id": resolved.source_id,
+        "family_id": resolved.family_id,
+        "variant_id": resolved.variant_id,
+        "colorway": resolved.colorway,
         "sheet_col": resolved.sheet_col,
         "sheet_row": resolved.sheet_row,
         "tile_id": resolved.tile_id,
         "aliases": list(resolved.aliases),
+        "physical_ref": _physical_ref(
+            family_id=resolved.family_id,
+            sheet_col=resolved.sheet_col,
+            sheet_row=resolved.sheet_row,
+        ),
+        "variant_ref": _variant_ref(
+            family_id=resolved.family_id,
+            variant_id=resolved.variant_id,
+            sheet_col=resolved.sheet_col,
+            sheet_row=resolved.sheet_row,
+        ),
+        "semantic_variant_ref": _semantic_variant_ref(
+            family_id=resolved.family_id,
+            variant_id=resolved.variant_id,
+            tile_id=resolved.tile_id,
+        ),
     }
+    if recommendation is not None:
+        payload["recommended_variant_id"] = recommendation.variant_id
+        payload["recommended_colorway"] = recommendation.colorway
+        payload["recommended_variant_ref"] = recommendation.variant_ref
+        payload["recommended_semantic_variant_ref"] = recommendation.semantic_variant_ref
+        payload["recommended_color_score"] = round(recommendation.score, 4)
+    return payload
 
 
-def _candidate_payload(tile: SourceTile | PreparedSourceTile, score: SimilarityScore) -> TileMatchCandidate:
+def _candidate_payload(
+    tile: SourceTile | PreparedSourceTile,
+    score: SimilarityScore,
+    *,
+    recommendation: VariantColorRecommendation | None = None,
+) -> TileMatchCandidate:
     resolved = tile.tile if isinstance(tile, PreparedSourceTile) else tile
-    return {
+    payload: TileMatchCandidate = {
+        "source_id": resolved.source_id,
+        "family_id": resolved.family_id,
+        "variant_id": resolved.variant_id,
+        "colorway": resolved.colorway,
         "sheet_col": resolved.sheet_col,
         "sheet_row": resolved.sheet_row,
         "tile_id": resolved.tile_id,
         "aliases": list(resolved.aliases),
+        "physical_ref": _physical_ref(
+            family_id=resolved.family_id,
+            sheet_col=resolved.sheet_col,
+            sheet_row=resolved.sheet_row,
+        ),
+        "variant_ref": _variant_ref(
+            family_id=resolved.family_id,
+            variant_id=resolved.variant_id,
+            sheet_col=resolved.sheet_col,
+            sheet_row=resolved.sheet_row,
+        ),
+        "semantic_variant_ref": _semantic_variant_ref(
+            family_id=resolved.family_id,
+            variant_id=resolved.variant_id,
+            tile_id=resolved.tile_id,
+        ),
         "score": round(score.score, 4),
         "pixel_match_ratio": round(score.pixel_match_ratio, 4),
         "mask_match_ratio": round(score.mask_match_ratio, 4),
@@ -1028,6 +1546,13 @@ def _candidate_payload(tile: SourceTile | PreparedSourceTile, score: SimilarityS
         "chamfer_similarity": round(score.chamfer_similarity, 4),
         "projection_similarity": round(score.projection_similarity, 4),
     }
+    if recommendation is not None:
+        payload["recommended_variant_id"] = recommendation.variant_id
+        payload["recommended_colorway"] = recommendation.colorway
+        payload["recommended_variant_ref"] = recommendation.variant_ref
+        payload["recommended_semantic_variant_ref"] = recommendation.semantic_variant_ref
+        payload["recommended_color_score"] = round(recommendation.score, 4)
+    return payload
 
 
 def guide_ref(col_index: int, row_index: int) -> GuideRef:
@@ -1043,15 +1568,45 @@ def _selected_candidate_rank(
         return None
     if selection.get("kind") == "blank":
         return None
-    selected_tile_id = selection.get("tile_id")
-    if selected_tile_id is None:
+    if selection.get("kind") == "tile":
+        selected_tile_id = selection.get("tile_id")
+        selected_variant_id = selection.get("variant_id")
+        if selected_tile_id is None:
+            return None
+        for index, exact in enumerate(cell["exact_matches"], start=1):
+            if exact["tile_id"] == selected_tile_id and (
+                selected_variant_id is None or exact["variant_id"] == selected_variant_id
+            ):
+                return index
+        for index, candidate in enumerate(cell["candidates"], start=1):
+            if candidate["tile_id"] == selected_tile_id and (
+                selected_variant_id is None or candidate["variant_id"] == selected_variant_id
+            ):
+                return index
         return None
-    for index, exact in enumerate(cell["exact_matches"], start=1):
-        if exact["tile_id"] == selected_tile_id:
-            return index
-    for index, candidate in enumerate(cell["candidates"], start=1):
-        if candidate["tile_id"] == selected_tile_id:
-            return index
+    if selection.get("kind") == "source_cell":
+        selected_source_id = selection.get("source_id")
+        selected_sheet_col = selection.get("sheet_col")
+        selected_sheet_row = selection.get("sheet_row")
+        selected_variant_id = selection.get("variant_id")
+        if selected_source_id is None or selected_sheet_col is None or selected_sheet_row is None:
+            return None
+        for index, exact in enumerate(cell["exact_matches"], start=1):
+            if (
+                exact["source_id"] == selected_source_id
+                and exact["sheet_col"] == selected_sheet_col
+                and exact["sheet_row"] == selected_sheet_row
+                and (selected_variant_id is None or exact["variant_id"] == selected_variant_id)
+            ):
+                return index
+        for index, candidate in enumerate(cell["candidates"], start=1):
+            if (
+                candidate["source_id"] == selected_source_id
+                and candidate["sheet_col"] == selected_sheet_col
+                and candidate["sheet_row"] == selected_sheet_row
+                and (selected_variant_id is None or candidate["variant_id"] == selected_variant_id)
+            ):
+                return index
     return None
 
 
@@ -1102,6 +1657,7 @@ def _make_cell(
 def _prepare_match_run(
     *,
     prepared_grid: PreparedReferenceGrid,
+    loaded_sources: Sequence[LoadedSourceSpec],
     source_tiles: list[SourceTile],
     background: RGBA,
     normalize_cell_size: int | Literal["auto"] | None,
@@ -1117,11 +1673,48 @@ def _prepare_match_run(
             target_cell_size=resolved_normalized_cell_size,
         )
         active_source_tiles = render_source_tiles(source_tiles, cell_size=resolved_normalized_cell_size)
+    prepared_source_tiles = prepare_source_tiles(active_source_tiles, background=background)
+    source_tiles_by_source_id: dict[str, list[PreparedSourceTile]] = {}
+    for tile in prepared_source_tiles:
+        source_tiles_by_source_id.setdefault(tile.source_id, []).append(tile)
+    global_source_tiles: list[PreparedSourceTile] = []
+    boxed_sources: list[tuple[LoadedSourceSpec, tuple[PreparedSourceTile, ...]]] = []
+    for source in loaded_sources:
+        source_group = tuple(source_tiles_by_source_id.get(source.source_id, ()))
+        if source.reference_boxes:
+            boxed_sources.append((source, source_group))
+        else:
+            global_source_tiles.extend(source_group)
     return PreparedMatchRun(
         prepared_grid=prepared_grid,
-        source_tiles=prepare_source_tiles(active_source_tiles, background=background),
+        loaded_sources=tuple(loaded_sources),
+        global_source_tiles=tuple(global_source_tiles),
+        boxed_sources=tuple(boxed_sources),
         resolved_normalized_cell_size=resolved_normalized_cell_size,
+        color_recommender=SiblingVariantColorRecommender(
+            background=background,
+            loaded_sources=loaded_sources,
+        ),
     )
+
+
+def _eligible_source_tiles_for_cell(
+    prepared_run: PreparedMatchRun,
+    *,
+    col_index: int,
+    row_index: int,
+) -> list[PreparedSourceTile]:
+    extraction = prepared_run.prepared_grid.extraction
+    zone_specific: list[PreparedSourceTile] = []
+    for source, source_tiles in prepared_run.boxed_sources:
+        if cell_intersects_rectangles(
+            col_index,
+            row_index,
+            extraction,
+            source.reference_boxes,
+        ):
+            zone_specific.extend(source_tiles)
+    return zone_specific if zone_specific else list(prepared_run.global_source_tiles)
 
 
 def _match_prepared_reference_tiles(
@@ -1137,7 +1730,6 @@ def _match_prepared_reference_tiles(
         if prepared.normalized_cell_size is not None
         else build_tile_grid(prepared.crop, prepared.extraction, background=background)
     )
-    active_source_tiles = prepared_run.source_tiles
     logical_tile_size = prepared.extraction.transform.tile_size
 
     cells: list[ReferenceCellMatch] = []
@@ -1172,6 +1764,16 @@ def _match_prepared_reference_tiles(
                 cells.append(_make_cell(col_index=col_index, row_index=row_index, status="blank"))
                 continue
 
+            active_source_tiles = _eligible_source_tiles_for_cell(
+                prepared_run,
+                col_index=col_index,
+                row_index=row_index,
+            )
+            if not active_source_tiles:
+                unresolved_cells += 1
+                cells.append(_make_cell(col_index=col_index, row_index=row_index, status="unresolved"))
+                continue
+
             reference_bytes = reference_tile.convert("RGBA").tobytes()
             exact = _exact_matches_for_reference_bytes(reference_bytes, active_source_tiles)
             if exact:
@@ -1181,7 +1783,17 @@ def _match_prepared_reference_tiles(
                         col_index=col_index,
                         row_index=row_index,
                         status="exact",
-                        exact_matches=[_match_metadata(tile) for tile in exact],
+                        exact_matches=[
+                            _match_metadata(
+                                tile,
+                                recommendation=prepared_run.color_recommender.recommend(
+                                    reference_tile=reference_tile,
+                                    reference_features=reference_features,
+                                    matched_tile=tile,
+                                ),
+                            )
+                            for tile in exact
+                        ],
                     )
                 )
                 continue
@@ -1208,7 +1820,18 @@ def _match_prepared_reference_tiles(
                     col_index=col_index,
                     row_index=row_index,
                     status=status,
-                    candidates=[_candidate_payload(tile, score) for tile, score in candidates],
+                    candidates=[
+                        _candidate_payload(
+                            tile,
+                            score,
+                            recommendation=prepared_run.color_recommender.recommend(
+                                reference_tile=reference_tile,
+                                reference_features=reference_features,
+                                matched_tile=tile,
+                            ),
+                        )
+                        for tile, score in candidates
+                    ],
                 )
             )
 
@@ -1228,6 +1851,7 @@ def match_reference_tiles(
     *,
     reference_image: Image.Image,
     source_tiles: list[SourceTile],
+    loaded_sources: Sequence[LoadedSourceSpec],
     background: RGBA,
     transform: GridTransform,
     cols: int | None = None,
@@ -1253,6 +1877,7 @@ def match_reference_tiles(
     )
     prepared_run = _prepare_match_run(
         prepared_grid=prepared,
+        loaded_sources=loaded_sources,
         source_tiles=source_tiles,
         background=background,
         normalize_cell_size=normalize_cell_size,
@@ -1268,8 +1893,7 @@ def match_reference_tiles(
 def build_match_report(
     *,
     image_path: Path,
-    family_path: Path,
-    variant_id: str | None,
+    source_specs: Sequence[MatchSourceSpec],
     transform: GridTransform,
     cols: int | None = None,
     rows: int | None = None,
@@ -1295,9 +1919,10 @@ def build_match_report(
         exclude_partial_edge_cells=exclude_partial_edge_cells,
         background=background,
     )
-    _, resolved_variant_id, source_tiles = load_source_tiles(family_path, variant_id)
+    loaded_sources, source_tiles = load_source_tiles_from_specs(source_specs)
     prepared_run = _prepare_match_run(
         prepared_grid=prepared,
+        loaded_sources=loaded_sources,
         source_tiles=source_tiles,
         background=background,
         normalize_cell_size=normalize_cell_size,
@@ -1309,10 +1934,24 @@ def build_match_report(
         candidate_threshold=candidate_threshold,
     )
     reviewed_cells = apply_review_overrides(cells, review_overrides or {})
+    report_sources: list[MatchReportSource] = [
+        {
+            "source_id": source.source_id,
+            "family_path": str(source.family_path),
+            "family_id": source.family_id,
+            "variant_id": source.variant_id,
+            "colorway": source.colorway,
+            "palette_family": source.palette_family,
+            "background_mode": source.background_mode,
+            "available_variants": list(source.available_variants),
+            "source_region_ids": list(source.source_region_ids),
+            "reference_boxes": [list(box) for box in source.reference_boxes],
+        }
+        for source in loaded_sources
+    ]
     return {
         "reference_image": str(image_path),
-        "family_path": str(family_path),
-        "variant_id": resolved_variant_id,
+        "sources": report_sources,
         "grid": {
             "origin_x": transform.origin_x,
             "origin_y": transform.origin_y,
@@ -1335,8 +1974,7 @@ def main() -> int:
     settings = resolve_match_run_settings(args)
     report = build_match_report(
         image_path=settings.image_path,
-        family_path=settings.family_path,
-        variant_id=settings.variant_id,
+        source_specs=settings.source_specs,
         transform=settings.transform,
         cols=settings.columns,
         rows=settings.rows,

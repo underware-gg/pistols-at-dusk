@@ -1,0 +1,769 @@
+{
+  "template_id": "party_menu_character_stats",
+  "description": "Canonical party-menu reference recreation with text intentionally omitted and a single intentional brown-trunk deviation at C31R17.",
+  "parameters": {},
+  "bindings": {},
+  "ops": [
+    {
+      "kind": "box",
+      "layer": "architecture",
+      "style": "ui_outer_screen_reference",
+      "x": 0,
+      "y": 0,
+      "width": 34,
+      "height": 24
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,29",
+      "x": 4,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,29",
+      "x": 5,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:6,29",
+      "x": 6,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,29",
+      "x": 11,
+      "y": 3
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,29",
+      "x": 12,
+      "y": 3
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:6,29",
+      "x": 13,
+      "y": 3
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,29",
+      "x": 23,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,29",
+      "x": 24,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:6,29",
+      "x": 25,
+      "y": 2
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 2,
+      "y": 6
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 3,
+      "y": 6
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:5,32",
+      "x": 2,
+      "y": 10
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:6,29",
+      "x": 30,
+      "y": 4
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 30,
+      "y": 6
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 30,
+      "y": 7
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,24",
+      "x": 30,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,26",
+      "x": 30,
+      "y": 9
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,26",
+      "x": 30,
+      "y": 10
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,26",
+      "x": 30,
+      "y": 11
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,26",
+      "x": 30,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,26",
+      "x": 30,
+      "y": 13
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 6
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 7
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 9
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 10
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 11
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:19,35",
+      "x": 31,
+      "y": 13
+    },
+    {
+      "kind": "box",
+      "layer": "architecture",
+      "style": "ui_inner_window_reference",
+      "x": 4,
+      "y": 6,
+      "width": 7,
+      "height": 12
+    },
+    {
+      "kind": "box",
+      "layer": "architecture",
+      "style": "ui_inner_window_reference",
+      "x": 10,
+      "y": 4,
+      "width": 20,
+      "height": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 6
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,9",
+      "x": 11,
+      "y": 5
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:4,9",
+      "x": 12,
+      "y": 5
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:5,9",
+      "x": 16,
+      "y": 5
+    },
+    {
+      "kind": "spread_stamps",
+      "layer": "architecture",
+      "ref": "minimal8:derived.ui.party_menu.inner_window.row_6.mid",
+      "count": 12,
+      "start": 17,
+      "span": 12,
+      "inset": 0,
+      "y": 5
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 7
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,10",
+      "x": 11,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 9
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 10
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 11
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,10",
+      "x": 11,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 13
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 14
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,11",
+      "x": 11,
+      "y": 15
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:3,12",
+      "x": 11,
+      "y": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:1,12",
+      "x": 11,
+      "y": 17
+    },
+    {
+      "kind": "stamp",
+      "layer": "ornament",
+      "ref": "minimal8:ui:2,9",
+      "x": 12,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:1,9",
+      "x": 12,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "architecture",
+      "ref": "minimal8:ui:1,9",
+      "x": 12,
+      "y": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "ornament",
+      "ref": "ui.cursor.menu_right",
+      "x": 5,
+      "y": 7
+    },
+    {
+      "kind": "entity",
+      "layer": "actors",
+      "construction": "medieval.row_1.set_01.variant_a",
+      "variant_id": "2bit_red",
+      "x": 13,
+      "y": 7
+    },
+    {
+      "kind": "entity",
+      "layer": "actors",
+      "construction": "medieval.row_1.set_02.variant_a",
+      "variant_id": "2bit_blue",
+      "x": 13,
+      "y": 11
+    },
+    {
+      "kind": "entity",
+      "layer": "actors",
+      "construction": "medieval.row_1.set_04.variant_a",
+      "variant_id": "2bit_yellow",
+      "x": 13,
+      "y": 15
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:10,29",
+      "x": 4,
+      "y": 5
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,7",
+      "x": 2,
+      "y": 7
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,7",
+      "x": 3,
+      "y": 7
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,32",
+      "x": 2,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_red:minimal8:terrain:4,32",
+      "x": 3,
+      "y": 8
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,32",
+      "x": 2,
+      "y": 9
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,32",
+      "x": 3,
+      "y": 9
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:3,32",
+      "x": 3,
+      "y": 10
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,32",
+      "x": 2,
+      "y": 11
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_dark_blue:minimal8:architecture:6,18",
+      "x": 3,
+      "y": 11
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 2,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:4,2",
+      "x": 2,
+      "y": 13
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:terrain:5,2",
+      "x": 3,
+      "y": 13
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:4,2",
+      "x": 2,
+      "y": 14
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:22,24",
+      "x": 31,
+      "y": 14
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:terrain:5,2",
+      "x": 2,
+      "y": 15
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 3,
+      "y": 15
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:2,4",
+      "x": 30,
+      "y": 15
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:4,2",
+      "x": 2,
+      "y": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 3,
+      "y": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,5",
+      "x": 30,
+      "y": 16
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 2,
+      "y": 17
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 3,
+      "y": 17
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:4,2",
+      "x": 2,
+      "y": 18
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:terrain:5,2",
+      "x": 3,
+      "y": 18
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 4,
+      "y": 18
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 5,
+      "y": 18
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:terrain:5,2",
+      "x": 2,
+      "y": 19
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:4,2",
+      "x": 3,
+      "y": 19
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 4,
+      "y": 19
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 30,
+      "y": 19
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,2",
+      "x": 2,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 3,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 4,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,2",
+      "x": 5,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 8,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:0,5",
+      "x": 11,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_orange:minimal8:architecture:6,18",
+      "x": 24,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 2,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green:minimal8:architecture:6,18",
+      "x": 3,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8:terrain:1,2",
+      "x": 4,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#23,5",
+      "x": 5,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_orange:minimal8:architecture:6,18",
+      "x": 24,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green#12,20",
+      "x": 3,
+      "y": 12
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green#12,20",
+      "x": 3,
+      "y": 14
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green#12,20",
+      "x": 17,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green#12,20",
+      "x": 20,
+      "y": 21
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg_green#12,20",
+      "x": 27,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#19,26",
+      "x": 6,
+      "y": 18
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#19,26",
+      "x": 6,
+      "y": 19
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#19,26",
+      "x": 6,
+      "y": 20
+    },
+    {
+      "kind": "stamp",
+      "layer": "background",
+      "ref": "minimal8@2bit_colored_bg#19,26",
+      "x": 6,
+      "y": 21
+    }
+  ]
+}

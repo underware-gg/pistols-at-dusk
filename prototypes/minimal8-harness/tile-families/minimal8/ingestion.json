@@ -438,7 +438,7 @@
       "kind": "kit",
       "label": "Gold frame border kit",
       "source_region_id": "ui.column_4",
-      "source_cluster_id": "ui.column_4.cluster_01",
+      "source_cluster_id": "ui.column_4.cluster_02",
       "bounds": {
         "x": 55,
         "y": 4,
@@ -514,6 +514,241 @@
         }
       ],
       "notes": "Border kit containing three related frame variants: a 3x3 border with open gaps and fancy corners, a 3x3 border with smooth joins and fancy corners, and a 2x2 border with simple corners that can pair with the middle connectors from either 3x3 variant."
+    },
+    {
+      "id": "ui.frame.ornate_gap_3x3",
+      "kind": "kit",
+      "label": "Ornate gap 3x3 frame",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 55,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "members": [
+        {
+          "alias": "ui.frame.ornate_gap.tl"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.t"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.tr"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.l"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.r"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.bl"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.b"
+        },
+        {
+          "alias": "ui.frame.ornate_gap.br"
+        }
+      ],
+      "notes": "Reviewed ornate 3x3 frame family with visible connector gaps. Use as one coherent frame kit rather than mixing its connectors with the smooth family."
+    },
+    {
+      "id": "ui.frame.ornate_smooth_3x3",
+      "kind": "kit",
+      "label": "Ornate smooth 3x3 frame",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 58,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "members": [
+        {
+          "alias": "ui.frame.ornate_smooth.tl"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.t"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.tr"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.l"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.r"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.bl"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.b"
+        },
+        {
+          "alias": "ui.frame.ornate_smooth.br"
+        }
+      ],
+      "notes": "Reviewed ornate 3x3 frame family with smooth joins. Keep it distinct from the gapped ornate frame when authoring boxes."
+    },
+    {
+      "id": "ui.frame.less_ornate_gap_3x3",
+      "kind": "kit",
+      "label": "Less ornate gap 3x3 frame",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 65,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "members": [
+        {
+          "alias": "ui.frame.less_ornate_gap.tl"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.t"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.tr"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.l"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.r"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.bl"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.b"
+        },
+        {
+          "alias": "ui.frame.less_ornate_gap.br"
+        }
+      ],
+      "notes": "Reviewed less-ornate 3x3 frame family with gap joins. This is one of the full-screen / large-panel frame families seen in the party-menu references."
+    },
+    {
+      "id": "ui.frame.less_ornate_smooth_3x3",
+      "kind": "kit",
+      "label": "Less ornate smooth 3x3 frame",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 68,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "members": [
+        {
+          "alias": "ui.frame.less_ornate_smooth.tl"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.t"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.tr"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.l"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.r"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.bl"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.b"
+        },
+        {
+          "alias": "ui.frame.less_ornate_smooth.br"
+        }
+      ],
+      "notes": "Reviewed less-ornate 3x3 frame family with smooth joins. This is the clean large-border family used for the party-menu outer shell."
+    },
+    {
+      "id": "ui.cursor_and_markers",
+      "kind": "widget_set",
+      "label": "Menu cursor and square markers",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_02",
+      "bounds": {
+        "x": 55,
+        "y": 10,
+        "width": 2,
+        "height": 3
+      },
+      "members": [
+        {
+          "alias": "ui.marker.square.large"
+        },
+        {
+          "alias": "ui.marker.square.small"
+        },
+        {
+          "alias": "ui.cursor.menu_right"
+        }
+      ],
+      "notes": "Small UI controls used in party-menu style layouts. Keep the square markers and the right-pointing menu cursor easy to reach as separate runtime-facing aliases."
+    },
+    {
+      "id": "ui.separator_runs",
+      "kind": "widget_set",
+      "label": "Panel separator runs",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_02",
+      "bounds": {
+        "x": 69,
+        "y": 11,
+        "width": 1,
+        "height": 2
+      },
+      "members": [
+        {
+          "alias": "ui.separator.run.v"
+        },
+        {
+          "alias": "ui.separator.run.h"
+        }
+      ],
+      "notes": "Long separator runs used to divide portrait gutters, stat rows, and larger panel interiors. These compose with the frame families rather than standing alone."
+    },
+    {
+      "id": "ui.row_lead_widgets",
+      "kind": "widget_set",
+      "label": "Party-menu row lead widgets",
+      "source_region_id": "ui.column_4",
+      "source_cluster_id": "ui.column_4.cluster_01",
+      "bounds": {
+        "x": 57,
+        "y": 10,
+        "width": 4,
+        "height": 1
+      },
+      "members": [
+        {
+          "alias": "ui.widget.row_lead.stub"
+        },
+        {
+          "alias": "ui.widget.row_lead.bar"
+        },
+        {
+          "alias": "ui.widget.row_lead.bracket_open"
+        },
+        {
+          "alias": "ui.widget.row_lead.dots"
+        }
+      ],
+      "notes": "Short lead-in widgets used ahead of party-menu text rows and list markers inside the larger ornate frame."
     },
     {
       "id": "character.column_1.01",

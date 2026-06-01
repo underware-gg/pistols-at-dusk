@@ -19,8 +19,8 @@ from PIL import Image, ImageDraw, ImageOps
 
 from prototype_output import create_staging_output_path, publish_staged_output
 from scene_rules import (
-    SceneRulesetSpec,
     SceneRulesetLibrary,
+    SceneRulesetSpec,
     SceneRuleSceneCandidate,
     SceneRuleStampCandidate,
     load_scene_ruleset_library,
@@ -47,6 +47,7 @@ from scene_templates import (
     validate_scene_template_input,
 )
 from tile_families import (
+    ConstructionAttachmentSet,
     EntityTemplateRecord,
     LoadedTileLibraryUnit,
     MetatileConstruction,
@@ -71,6 +72,7 @@ from tile_families import (
     detect_source_layout,
 )
 from source_manifest_bridge import load_bridged_tile_family
+from _manifest_utils import GridBounds
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -908,14 +910,9 @@ class LayoutProject:
             plural_specs=self.config.get("tile_families"),
         )
         self.tile_library_registry = self._build_tile_library_registry()
-        self.scene_template_library: SceneTemplateLibrary = load_scene_template_library(
-            self.base_dir,
-            self.config.get("scene_templates_dir"),
-        )
-        self.scene_rules_library: SceneRulesetLibrary = load_scene_ruleset_library(
-            self.base_dir,
-            self.config.get("scene_rules_dir"),
-        )
+        self._scene_template_library: SceneTemplateLibrary | None = None
+        self._scene_rules_library: SceneRulesetLibrary | None = None
+        self._runtime_ready = False
         grid = self.config.get("grid", {})
         self.grid_width, self.grid_height, self.render_step_width, self.render_step_height = self._resolve_grid_dimensions(grid)
         self.aliases: dict[str, TileRefToken] = dict(self.config.get("aliases", {}))
@@ -936,11 +933,41 @@ class LayoutProject:
         self._custom_tile_image_cache: dict[tuple[Path, bool, bool], Image.Image] = {}
         self._resolved_tile_render_spec_cache: dict[ResolvedTile, TileRenderSpec] = {}
         self._tileset_grid_metrics_cache: dict[str, TilesetGridMetrics] = {}
-        self._validate_scene_rules()
-        detect_scene_template_cycles(
-            self.scene_template_library.specs,
-            scene_rules_library=self.scene_rules_library,
+
+    @property
+    def scene_template_library(self) -> SceneTemplateLibrary:
+        self._ensure_runtime_ready()
+        assert self._scene_template_library is not None
+        return self._scene_template_library
+
+    @property
+    def scene_rules_library(self) -> SceneRulesetLibrary:
+        self._ensure_runtime_ready()
+        assert self._scene_rules_library is not None
+        return self._scene_rules_library
+
+    def _ensure_runtime_ready(self) -> None:
+        if self._runtime_ready:
+            return
+        scene_template_library = load_scene_template_library(
+            self.base_dir,
+            self.config.get("scene_templates_dir"),
         )
+        scene_rules_library = load_scene_ruleset_library(
+            self.base_dir,
+            self.config.get("scene_rules_dir"),
+        )
+        self._validate_scene_rules(
+            scene_template_library=scene_template_library,
+            scene_rules_library=scene_rules_library,
+        )
+        detect_scene_template_cycles(
+            scene_template_library.specs,
+            scene_rules_library=scene_rules_library,
+        )
+        self._scene_template_library = scene_template_library
+        self._scene_rules_library = scene_rules_library
+        self._runtime_ready = True
 
     def _resolve_grid_dimensions(self, grid: ProjectGridConfig) -> tuple[int, int, int, int]:
         tile_library_registry = self.tile_library_registry
@@ -1024,10 +1051,15 @@ class LayoutProject:
     def scene_ruleset_spec(self, ruleset_id: str) -> SceneRulesetSpec:
         return self.scene_rules_library.require(ruleset_id)
 
-    def _validate_scene_rules(self) -> None:
+    def _validate_scene_rules(
+        self,
+        *,
+        scene_template_library: SceneTemplateLibrary,
+        scene_rules_library: SceneRulesetLibrary,
+    ) -> None:
         tile_library_registry = self.tile_library_registry
         default_tileset = self.default_tileset_id()
-        for ruleset in self.scene_rules_library.specs.values():
+        for ruleset in scene_rules_library.specs.values():
             for catalogue_id, candidates in ruleset.catalogues.items():
                 for candidate in candidates:
                     context = (
@@ -1044,7 +1076,7 @@ class LayoutProject:
                             raise ValueError(f"{context} references an unknown stamp ref") from exc
                         continue
                     if isinstance(candidate, SceneRuleSceneCandidate):
-                        self.scene_template_library.require(candidate.scene_id)
+                        scene_template_library.require(candidate.scene_id)
                         continue
                     if tile_library_registry is None:
                         raise ValueError(
@@ -1145,6 +1177,12 @@ class LayoutProject:
             default_unit_id = None
             selection = self._family_selection_for_tileset(tileset_id)
             if selection is not None:
+                tile_library = self.tile_library_unit_for_tileset(tileset_id)
+                variant_id = self.variant_id_for_tileset(tileset_id)
+                if tile_library is not None and variant_id is not None:
+                    resolved = tile_library.resolve_ref(ref, variant_id=variant_id)
+                    if resolved is not None:
+                        return resolved
                 default_unit_id = selection.runtime_unit.family_id
             return tile_library_registry.resolve_ref(ref, default_unit_id=default_unit_id)
         tile_library = self.tile_library_unit_for_tileset(tileset_id)
@@ -1572,6 +1610,13 @@ class LayoutProject:
             raise ValueError(f"Unsupported tile reference: {token!r}")
 
         tileset_id = default_tileset or self.default_tileset_id()
+        if ":" in token:
+            maybe_tileset, maybe_raw = token.split(":", 1)
+            if self.has_tileset(maybe_tileset):
+                family_tile = self.family_tile_for_ref(maybe_raw, tileset_id=maybe_tileset)
+                if family_tile is not None:
+                    return family_tile
+                tileset_id = maybe_tileset
         family_tile = self.family_tile_for_ref(token, tileset_id=tileset_id)
         if family_tile is not None:
             return family_tile
@@ -2226,15 +2271,41 @@ def _scene_str(scene: SceneTemplate, key: str, default: str) -> str:
 
 
 def _construction_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
     construction: MetatileConstruction | ParametricRunConstruction,
+    construction_id: str,
     x: int,
     y: int,
     *,
     context: str,
     params: Mapping[str, object] | None = None,
+    variant_id: str | None = None,
 ) -> list[EntityTilePlacement]:
+    def _placement_ref(tile_id: str) -> str:
+        if variant_id is None:
+            return tile_id
+        runtime_tileset_id = tile_library.runtime_tileset_id_for_construction(
+            construction_id,
+            variant_id=variant_id,
+        )
+        if runtime_tileset_id is None:
+            raise ValueError(
+                f"{context} references unknown construction {construction_id!r} "
+                f"for variant {variant_id!r}"
+            )
+        return f"{runtime_tileset_id}:{tile_id}"
+
     if isinstance(construction, ParametricRunConstruction):
-        return _parametric_run_tile_placements(construction, x, y, params=params, context=context)
+        return _parametric_run_tile_placements(
+            tile_library,
+            construction,
+            construction_id,
+            x,
+            y,
+            params=params,
+            context=context,
+            variant_id=variant_id,
+        )
     placements: list[EntityTilePlacement] = []
     for row_index, row in enumerate(construction.cells):
         for col_index, cell in enumerate(row):
@@ -2242,7 +2313,7 @@ def _construction_tile_placements(
                 placements.append(
                     EntityTilePlacement(
                         tile_id=cell.id,
-                        ref=cell.id,
+                        ref=_placement_ref(cell.id),
                         x=x + col_index,
                         y=y + row_index,
                         compose_role=cell.compose_role,
@@ -2254,14 +2325,128 @@ def _construction_tile_placements(
     return placements
 
 
+def _attachment_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
+    construction_id: str,
+    x: int,
+    y: int,
+    *,
+    context: str,
+    params: Mapping[str, object],
+    variant_id: str | None = None,
+) -> list[EntityTilePlacement]:
+    def _resolve_attachment_variant_id(attachment_set: ConstructionAttachmentSet) -> str | None:
+        if attachment_set.param in params:
+            raw_variant_id: object = params[attachment_set.param]
+        elif attachment_set.default_variant_id is not None:
+            raw_variant_id = attachment_set.default_variant_id
+        elif attachment_set.required:
+            raise ValueError(
+                f"{context} requires attachment param {attachment_set.param!r} "
+                f"for construction {construction_id!r}"
+            )
+        else:
+            return None
+        if not isinstance(raw_variant_id, str) or raw_variant_id == "":
+            raise ValueError(
+                f"{context} attachment param {attachment_set.param!r} for construction "
+                f"{construction_id!r} must be a non-empty string"
+            )
+        return raw_variant_id
+
+    placements: list[EntityTilePlacement] = []
+    for attachment_set in tile_library.attachment_sets_for_construction(construction_id):
+        raw_variant_id = _resolve_attachment_variant_id(attachment_set)
+        if raw_variant_id is None:
+            continue
+        variant = attachment_set.variant(raw_variant_id)
+        if variant is None:
+            available = ", ".join(sorted(attachment_set.variants.keys())) or "<none>"
+            raise ValueError(
+                f"{context} attachment param {attachment_set.param!r} for construction {construction_id!r} "
+                f"requested unknown variant {raw_variant_id!r}; available: {available}"
+            )
+        attachment = tile_library.lookup_construction(variant.construction_id)
+        if attachment is None:
+            raise ValueError(
+                f"{context} attachment set {attachment_set.id!r} references unknown construction "
+                f"{variant.construction_id!r}"
+            )
+        placements.extend(
+            _construction_tile_placements(
+                tile_library,
+                attachment,
+                variant.construction_id,
+                x + attachment_set.canvas.x,
+                y + attachment_set.canvas.y,
+                context=f"{context} attachment {attachment_set.id!r} variant {raw_variant_id!r}",
+                params=params,
+                variant_id=variant_id,
+            )
+        )
+    return placements
+
+
+def _entity_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
+    construction: MetatileConstruction | ParametricRunConstruction,
+    x: int,
+    y: int,
+    *,
+    construction_id: str,
+    context: str,
+    params: Mapping[str, object],
+    variant_id: str | None = None,
+) -> list[EntityTilePlacement]:
+    placements = _construction_tile_placements(
+        tile_library,
+        construction,
+        construction_id,
+        x,
+        y,
+        context=context,
+        params=params,
+        variant_id=variant_id,
+    )
+    placements.extend(
+        _attachment_tile_placements(
+            tile_library,
+            construction_id,
+            x,
+            y,
+            context=context,
+            params=params,
+            variant_id=variant_id,
+        )
+    )
+    return placements
+
+
 def _parametric_run_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
     construction: ParametricRunConstruction,
+    construction_id: str,
     x: int,
     y: int,
     *,
     params: Mapping[str, object] | None,
     context: str,
+    variant_id: str | None = None,
 ) -> list[EntityTilePlacement]:
+    def _placement_ref(tile_id: str) -> str:
+        if variant_id is None:
+            return tile_id
+        runtime_tileset_id = tile_library.runtime_tileset_id_for_construction(
+            construction_id,
+            variant_id=variant_id,
+        )
+        if runtime_tileset_id is None:
+            raise ValueError(
+                f"{context} references unknown construction {construction_id!r} "
+                f"for variant {variant_id!r}"
+            )
+        return f"{runtime_tileset_id}:{tile_id}"
+
     length_param = construction.length_param
     if params is None or length_param not in params:
         raise ValueError(
@@ -2288,7 +2473,7 @@ def _parametric_run_tile_placements(
         placements.append(
             EntityTilePlacement(
                 tile_id=tile.id,
-                ref=tile.id,
+                ref=_placement_ref(tile.id),
                 x=cx,
                 y=cy,
                 compose_role=tile.compose_role,
@@ -2349,21 +2534,27 @@ def expand_entity_stamps(
     *,
     context: str,
     params: Mapping[str, object] | None = None,
+    variant_id: str | None = None,
 ) -> list[StampOp]:
     construction = tile_library.lookup_construction(construction_id)
     if construction is None:
         raise ValueError(
             f"Unknown construction {construction_id!r} ({context})"
         )
+    resolved_params = {} if params is None else dict(params)
+    placements = _entity_tile_placements(
+        tile_library,
+        construction,
+        x,
+        y,
+        construction_id=construction_id,
+        context=context,
+        params=resolved_params,
+        variant_id=variant_id,
+    )
     return [
         {"kind": "stamp", "ref": placement.ref, "x": placement.x, "y": placement.y}
-        for placement in _construction_tile_placements(
-            construction,
-            x,
-            y,
-            context=context,
-            params=params,
-        )
+        for placement in placements
     ]
 
 
@@ -2383,12 +2574,15 @@ def _resolve_scene_entity_request(
         )
     params = {} if request.params is None else dict(request.params)
     placements = tuple(
-        _construction_tile_placements(
+        _entity_tile_placements(
+            tile_library,
             construction,
             request.x,
             request.y,
+            construction_id=request.construction_id,
             context=f"scene entity {request.entity_id!r}",
             params=params,
+            variant_id=request.variant_id,
         )
     )
     occupied_cells = _entity_occupancy_cells(
@@ -2540,25 +2734,7 @@ def _entity_instance_payload(entity: EntityInstance) -> dict[str, object]:
     return {
         "id": entity.entity_id,
         "source_template_id": entity.source_template_id,
-        "template": {
-            "id": entity.template.id,
-            "construction_id": entity.template.construction_id,
-            "collection_id": entity.template.collection_id,
-            "kind": entity.template.kind,
-            "placement_anchor": entity.template.placement_anchor,
-            "compose_roles": list(entity.template.compose_roles),
-            "affordances": list(entity.template.affordances),
-            "state_groups": list(entity.template.state_groups),
-            "animation_groups": list(entity.template.animation_groups),
-            "footprint": {
-                "mode": entity.template.footprint.mode,
-                "width": entity.template.footprint.width,
-                "height": entity.template.footprint.height,
-                "axis": entity.template.footprint.axis,
-                "length_param": entity.template.footprint.length_param,
-                "minimum_length": entity.template.footprint.minimum_length,
-            },
-        },
+        "template": entity.template.to_payload(),
         "layer": entity.layer,
         "origin": {"x": entity.x, "y": entity.y},
         "placement_anchor": {
@@ -3406,13 +3582,102 @@ def _draw_bounds(
     tile_height: int,
     colour: tuple[int, int, int, int],
     label: str,
+    origin: tuple[int, int] = (0, 0),
 ) -> None:
-    left = bounds["x"] * scale * tile_width
-    top = bounds["y"] * scale * tile_height
+    origin_x, origin_y = origin
+    left = origin_x + (bounds["x"] * scale * tile_width)
+    top = origin_y + (bounds["y"] * scale * tile_height)
     right = left + bounds["width"] * scale * tile_width
     bottom = top + bounds["height"] * scale * tile_height
     draw.rectangle((left, top, right - 1, bottom - 1), outline=colour, width=2)
     _draw_text_with_backplate(draw, (left + 4, top + 4), label[:32], fill=colour)
+
+
+SOURCE_LAYOUT_REGION_COLOURS: tuple[tuple[int, int, int, int], ...] = (
+    (255, 220, 120, 255),
+    (120, 220, 255, 255),
+    (180, 255, 160, 255),
+    (255, 160, 210, 255),
+)
+SOURCE_LAYOUT_CLUSTER_COLOUR = (246, 195, 124, 255)
+SOURCE_LAYOUT_IGNORE_COLOUR = (255, 100, 100, 255)
+SOURCE_LAYOUT_COLLECTION_COLOUR = (160, 240, 255, 255)
+SOURCE_GUIDE_OUTER_PAD = 8
+SOURCE_GUIDE_LABEL_BAND = 22
+
+
+def _draw_source_layout_features(
+    *,
+    draw: ImageDraw.ImageDraw,
+    layout: SourceLayoutIngestion,
+    scale: int,
+    tile_width: int,
+    tile_height: int,
+    origin: tuple[int, int] = (0, 0),
+    bounds_offset: tuple[int, int] = (0, 0),
+) -> None:
+    offset_x, offset_y = bounds_offset
+
+    def shifted_bounds(bounds: ClusterBoundsPayload) -> ClusterBoundsPayload:
+        return {
+            "x": bounds["x"] + offset_x,
+            "y": bounds["y"] + offset_y,
+            "width": bounds["width"],
+            "height": bounds["height"],
+        }
+
+    def draw_feature(
+        *,
+        raw_bounds: GridRegionBounds | GridBounds,
+        colour: tuple[int, int, int, int],
+        label: str,
+    ) -> None:
+        _draw_bounds(
+            draw=draw,
+            bounds=shifted_bounds(
+                {
+                    "x": raw_bounds.x,
+                    "y": raw_bounds.y,
+                    "width": raw_bounds.width,
+                    "height": raw_bounds.height,
+                }
+            ),
+            scale=scale,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            colour=colour,
+            label=label,
+            origin=origin,
+        )
+
+    for index, region in enumerate(layout.source_regions.values()):
+        region_areas = region.areas or (region.bounds,)
+        for area_index, area in enumerate(region_areas):
+            draw_feature(
+                raw_bounds=area,
+                colour=SOURCE_LAYOUT_REGION_COLOURS[index % len(SOURCE_LAYOUT_REGION_COLOURS)],
+                label=(region.label or region.id) if area_index == 0 else f"{region.id}:area_{area_index + 1}",
+            )
+    for cluster in layout.source_clusters.values():
+        draw_feature(
+            raw_bounds=cluster.bounds,
+            colour=SOURCE_LAYOUT_CLUSTER_COLOUR,
+            label=cluster.label or cluster.id,
+        )
+    for ignore in layout.ignored_regions.values():
+        draw_feature(
+            raw_bounds=ignore.bounds,
+            colour=SOURCE_LAYOUT_IGNORE_COLOUR,
+            label=ignore.label or ignore.id,
+        )
+    for collection in layout.source_collections.values():
+        if collection.bounds is None:
+            continue
+        draw_feature(
+            raw_bounds=collection.bounds,
+            colour=SOURCE_LAYOUT_COLLECTION_COLOUR,
+            label=collection.label or collection.id,
+        )
 
 
 def _draw_text_with_backplate(
@@ -3433,6 +3698,75 @@ def _draw_text_with_backplate(
         fill=background,
     )
     draw.text(position, text, fill=fill)
+
+
+def _render_source_layout_guide(
+    *,
+    image: Image.Image,
+    layout: SourceLayoutIngestion,
+    tile_width: int,
+    tile_height: int,
+    scale: int,
+) -> Image.Image:
+    sheet_bounds: ClusterBoundsPayload = {
+        "x": layout.sheet_bounds.x,
+        "y": layout.sheet_bounds.y,
+        "width": layout.sheet_bounds.width,
+        "height": layout.sheet_bounds.height,
+    }
+    grid_width = sheet_bounds["width"] * scale * tile_width
+    grid_height = sheet_bounds["height"] * scale * tile_height
+    outer_pad = SOURCE_GUIDE_OUTER_PAD
+    label_band = SOURCE_GUIDE_LABEL_BAND
+    margin = outer_pad + label_band
+    canvas = Image.new(
+        "RGBA",
+        (grid_width + margin * 2, grid_height + margin * 2),
+        (28, 28, 36, 255),
+    )
+
+    preview = _resize_nearest(image, (image.width * scale, image.height * scale))
+    canvas.alpha_composite(preview, (margin, margin))
+
+    draw = ImageDraw.Draw(canvas)
+    grid_colour = (230, 220, 200, 132)
+    border_colour = (246, 195, 124, 255)
+    label_colour = (246, 195, 124, 255)
+    for offset in range(sheet_bounds["width"] + 1):
+        x = margin + offset * scale * tile_width
+        draw.line((x, margin, x, margin + grid_height), fill=grid_colour, width=1)
+    for offset in range(sheet_bounds["height"] + 1):
+        y = margin + offset * scale * tile_height
+        draw.line((margin, y, margin + grid_width, y), fill=grid_colour, width=1)
+    draw.rectangle(
+        (margin, margin, margin + grid_width - 1, margin + grid_height - 1),
+        outline=border_colour,
+        width=2,
+    )
+
+    for col in range(sheet_bounds["x"], sheet_bounds["x"] + sheet_bounds["width"]):
+        x = margin + (col - sheet_bounds["x"]) * scale * tile_width + (scale * tile_width) // 2
+        label = str(col)
+        left, top, right, bottom = draw.textbbox((0, 0), label)
+        label_width = right - left
+        draw.text((x - label_width // 2, outer_pad), label, fill=label_colour)
+    for row in range(sheet_bounds["y"], sheet_bounds["y"] + sheet_bounds["height"]):
+        y = margin + (row - sheet_bounds["y"]) * scale * tile_height + (scale * tile_height) // 2
+        label = str(row)
+        left, top, right, bottom = draw.textbbox((0, 0), label)
+        label_height = bottom - top
+        draw.text((outer_pad, y - label_height // 2), label, fill=label_colour)
+
+    _draw_source_layout_features(
+        draw=draw,
+        layout=layout,
+        scale=scale,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        origin=(margin, margin),
+        bounds_offset=(-sheet_bounds["x"], -sheet_bounds["y"]),
+    )
+    return canvas
 
 
 def _source_layout_payload(layout: object) -> dict[str, object]:
@@ -3557,81 +3891,22 @@ def inspect_source_layout(project: LayoutProject, tileset_id: str, output_dir: P
     scale = 4
     preview = _resize_nearest(tileset.image, (tileset.image.width * scale, tileset.image.height * scale))
     draw = ImageDraw.Draw(preview)
-    region_colours = [
-        (255, 220, 120, 255),
-        (120, 220, 255, 255),
-        (180, 255, 160, 255),
-        (255, 160, 210, 255),
-    ]
-    cluster_colour = (246, 195, 124, 255)
-    ignore_colour = (255, 100, 100, 255)
-    collection_colour = (160, 240, 255, 255)
-
-    for index, region in enumerate(layout.source_regions.values()):
-        region_areas = region.areas or (region.bounds,)
-        for area_index, area in enumerate(region_areas):
-            _draw_bounds(
-                draw=draw,
-                bounds={
-                    "x": area.x,
-                    "y": area.y,
-                    "width": area.width,
-                    "height": area.height,
-                },
-                scale=scale,
-                tile_width=tileset.tile_width,
-                tile_height=tileset.tile_height,
-                colour=region_colours[index % len(region_colours)],
-                label=(region.label or region.id) if area_index == 0 else f"{region.id}:area_{area_index + 1}",
-            )
-    for cluster in layout.source_clusters.values():
-        _draw_bounds(
-            draw=draw,
-            bounds={
-                "x": cluster.bounds.x,
-                "y": cluster.bounds.y,
-                "width": cluster.bounds.width,
-                "height": cluster.bounds.height,
-            },
-            scale=scale,
-            tile_width=tileset.tile_width,
-            tile_height=tileset.tile_height,
-            colour=cluster_colour,
-            label=cluster.label or cluster.id,
-        )
-    for ignore in layout.ignored_regions.values():
-        _draw_bounds(
-            draw=draw,
-            bounds={
-                "x": ignore.bounds.x,
-                "y": ignore.bounds.y,
-                "width": ignore.bounds.width,
-                "height": ignore.bounds.height,
-            },
-            scale=scale,
-            tile_width=tileset.tile_width,
-            tile_height=tileset.tile_height,
-            colour=ignore_colour,
-            label=ignore.label or ignore.id,
-        )
-    for collection in layout.source_collections.values():
-        if collection.bounds is None:
-            continue
-        _draw_bounds(
-            draw=draw,
-            bounds={
-                "x": collection.bounds.x,
-                "y": collection.bounds.y,
-                "width": collection.bounds.width,
-                "height": collection.bounds.height,
-            },
-            scale=scale,
-            tile_width=tileset.tile_width,
-            tile_height=tileset.tile_height,
-            colour=collection_colour,
-            label=collection.label or collection.id,
-        )
+    _draw_source_layout_features(
+        draw=draw,
+        layout=layout,
+        scale=scale,
+        tile_width=tileset.tile_width,
+        tile_height=tileset.tile_height,
+    )
     preview.save(output_dir / "source_layout.png")
+    source_layout_guide = _render_source_layout_guide(
+        image=tileset.image,
+        layout=layout,
+        tile_width=tileset.tile_width,
+        tile_height=tileset.tile_height,
+        scale=scale,
+    )
+    source_layout_guide.save(output_dir / "source_layout.guide.png")
 
     detected = detect_source_layout(image=tileset.image, tile_width=project.grid_width, tile_height=project.grid_height)
     (output_dir / "source_layout.detected.json").write_text(json.dumps(detected, indent=2) + "\n", encoding="utf-8")
@@ -4049,8 +4324,9 @@ def export_collection_review_pack(
     *,
     scale: int = 8,
     scratch_output_root: Path | None = None,
+    project: LayoutProject | None = None,
 ) -> Path:
-    project = LayoutProject(project_path)
+    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None or family.source_layout is None:
         raise ValueError(f"Tileset {tileset_id!r} does not expose a source-layout ingestion model")
@@ -4434,6 +4710,7 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
             "id": construction.id,
             "collection_id": construction.collection_id,
             "kind": construction.kind,
+            "expose_as_entity": construction.expose_as_entity,
             "axis": construction.axis,
             "length_param": construction.length_param,
             "start": {
@@ -4455,6 +4732,7 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
         "id": metatile.id,
         "collection_id": metatile.collection_id,
         "kind": metatile.kind,
+        "expose_as_entity": metatile.expose_as_entity,
         "shape": {
             "width": len(metatile.cells[0]) if metatile.cells else 0,
             "height": len(metatile.cells),
@@ -4475,25 +4753,7 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
 
 
 def _public_entity_template_entry(template: EntityTemplateRecord) -> dict[str, object]:
-    return {
-        "id": template.id,
-        "construction_id": template.construction_id,
-        "collection_id": template.collection_id,
-        "kind": template.kind,
-        "placement_anchor": template.placement_anchor,
-        "compose_roles": list(template.compose_roles),
-        "affordances": list(template.affordances),
-        "state_groups": list(template.state_groups),
-        "animation_groups": list(template.animation_groups),
-        "footprint": {
-            "mode": template.footprint.mode,
-            "width": template.footprint.width,
-            "height": template.footprint.height,
-            "axis": template.footprint.axis,
-            "length_param": template.footprint.length_param,
-            "minimum_length": template.footprint.minimum_length,
-        },
-    }
+    return template.to_payload()
 
 
 def _write_public_tiles_csv(entries: Sequence[dict[str, object]], output_path: Path) -> None:
@@ -5234,8 +5494,9 @@ def export_semantic_review_pack(
     categories: list[str] | None = None,
     alias_prefix: str | None = None,
     scale: int = 8,
+    project: LayoutProject | None = None,
 ) -> Path:
-    project = LayoutProject(project_path)
+    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     entries = build_semantic_catalog_entries(project, tileset_id, include_empty=True)
 
@@ -5465,8 +5726,15 @@ def query_semantic_catalog(
     return results
 
 
-def inspect_source_cell(project_path: Path, tileset_id: str, *, sheet_col: int, sheet_row: int) -> dict[str, object]:
-    project = LayoutProject(project_path)
+def inspect_source_cell(
+    project_path: Path,
+    tileset_id: str,
+    *,
+    sheet_col: int,
+    sheet_row: int,
+    project: LayoutProject | None = None,
+) -> dict[str, object]:
+    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
@@ -5542,8 +5810,14 @@ def inspect_source_cell(project_path: Path, tileset_id: str, *, sheet_col: int, 
     }
 
 
-def inspect_family(project_path: Path, tileset_id: str, output_dir: Path) -> Path:
-    project = LayoutProject(project_path)
+def inspect_family(
+    project_path: Path,
+    tileset_id: str,
+    output_dir: Path,
+    *,
+    project: LayoutProject | None = None,
+) -> Path:
+    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     family = project.source_family_for_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -5620,8 +5894,14 @@ def inspect_family(project_path: Path, tileset_id: str, output_dir: Path) -> Pat
     return output_dir
 
 
-def detect_family_source_layout(project_path: Path, tileset_id: str, output_dir: Path) -> Path:
-    project = LayoutProject(project_path)
+def detect_family_source_layout(
+    project_path: Path,
+    tileset_id: str,
+    output_dir: Path,
+    *,
+    project: LayoutProject | None = None,
+) -> Path:
+    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     detected = detect_source_layout(image=tileset.image, tile_width=project.grid_width, tile_height=project.grid_height)
@@ -5629,8 +5909,13 @@ def detect_family_source_layout(project_path: Path, tileset_id: str, output_dir:
     return output_dir
 
 
-def validate_family_ingest(project_path: Path, tileset_id: str) -> TileFamilyIngestReport:
-    project = LayoutProject(project_path)
+def validate_family_ingest(
+    project_path: Path,
+    tileset_id: str,
+    *,
+    project: LayoutProject | None = None,
+) -> TileFamilyIngestReport:
+    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
@@ -5708,8 +5993,9 @@ def audit_family_semantic_usage(
     tileset_id: str,
     *,
     layouts_dir: Path | None = None,
+    project: LayoutProject | None = None,
 ) -> SemanticUsageAuditReport:
-    project = LayoutProject(project_path)
+    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")

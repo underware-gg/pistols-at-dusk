@@ -1,0 +1,25 @@
+{
+  "project": "../project.minimal8.json",
+  "default_tileset": "minimal8@2bit_colored_bg",
+  "map": {
+    "width": 34,
+    "height": 24,
+    "background": "#24192A"
+  },
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "width": 34,
+    "height": 24,
+    "units": "tiles",
+    "scale": 6
+  },
+  "scenes": [
+    {
+      "template": "party_menu_character_stats",
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "output": "../generated/party_menu_character_stats.png"
+}

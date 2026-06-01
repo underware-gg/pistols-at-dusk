@@ -1,0 +1,142 @@
+{
+  "tilesheet_id": "characters",
+  "title": "Minimal 8 Characters",
+  "bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 32,
+    "height": 48
+  },
+  "source_layout": "../../../tile-families/minimal8-characters/ingestion.json",
+  "default_variant_id": "2bit_colored",
+  "render_traits": {
+    "alignment_origin": "bottom_left"
+  },
+  "notes": [
+    "The Characters sheet stays on the same authoritative 8x8 source grid as Minimal 8, but it is dominated by multi-cell figures, busts, and small accessory fragments rather than one-cell environment tiles.",
+    "Large actors from this sheet should normally reach runtime through reviewed constructions or another explicit multi-cell composition surface, not by pretending the whole figure is a single tile.",
+    "The approved source-layout ingestion map captures the sheet's coarse reviewed structure only: head study, medieval sets, sci-fi sets, monsters, and the excluded palette/byline strip.",
+    "The first promoted runtime surface is the top-row head study: one shared 2x3 body target, one unique full figure, and 2x2 interchangeable head attachments derived from the reviewed source canvases.",
+    "The broader sheet is still intentionally conservative. Outside the head study, it does not yet settle fine-grained swap metadata or the runtime representation of the large figures."
+  ],
+  "compatibility_family": {
+    "root": "../../../tile-families/minimal8-characters",
+    "family_id": "minimal8.characters",
+    "tiles": "tiles.json",
+    "aliases": "aliases.json",
+    "clusters": "clusters.json",
+    "constructions": "constructions.json",
+    "attachments": "attachments.json",
+    "render_step_width": 8,
+    "render_step_height": 8,
+    "siblings_share_semantics": true,
+    "notes": [
+      "The Characters sheet stays on the same authoritative 8x8 source grid as Minimal 8, but it is dominated by multi-cell figures, busts, and small accessory fragments rather than one-cell environment tiles.",
+      "Large actors from this sheet should normally reach runtime through reviewed constructions or another explicit multi-cell composition surface, not by pretending the whole figure is a single tile.",
+      "The approved source-layout ingestion map captures the sheet's coarse reviewed structure only: head study, medieval sets, sci-fi sets, monsters, and the excluded palette/byline strip.",
+      "The first promoted runtime surface is the top-row head study: one shared 2x3 body target, one unique full figure, and 2x2 interchangeable head attachments derived from the reviewed source canvases.",
+      "The broader sheet is still intentionally conservative. Outside the head study, it does not yet settle fine-grained swap metadata or the runtime representation of the large figures."
+    ]
+  },
+  "render_variants": [
+    {
+      "variant_id": "1bit",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_1-bit.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-1bit",
+      "colorway": "mono",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_blue",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - blue.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "blue",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_colored",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "colored",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_cyan",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - cyan.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "cyan",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_green",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - green.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "green",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_orange",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - orange.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "orange",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_purple",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - purple.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "purple",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_red",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - red.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "red",
+      "background_mode": "plain"
+    },
+    {
+      "variant_id": "2bit_yellow",
+      "sheet": "../../../../../resources/Super Assets 3000/Minimal 8/Characters/minimal_8_characters_v2_2 bit - colors/minimal_8_characters_v2_2-bit - yellow.png",
+      "coverage": {
+        "mode": "full"
+      },
+      "transparent": "top_left",
+      "palette_family": "minimal8-2bit",
+      "colorway": "yellow",
+      "background_mode": "plain"
+    }
+  ]
+}

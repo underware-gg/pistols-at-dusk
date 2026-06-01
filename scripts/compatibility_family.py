@@ -13,14 +13,17 @@ class CompatibilityFamilyPaths:
     aliases_path: Path
     clusters_path: Path
     constructions_path: Path | None = None
+    attachments_path: Path | None = None
 
     @classmethod
     def for_legacy_root(cls, root: Path) -> CompatibilityFamilyPaths:
         constructions_path = root / "constructions.json"
+        attachments_path = root / "attachments.json"
         return cls(
             root=root,
             tiles_path=root / "tiles.json",
             aliases_path=root / "aliases.json",
             clusters_path=root / "clusters.json",
             constructions_path=constructions_path if constructions_path.exists() else None,
+            attachments_path=attachments_path if attachments_path.exists() else None,
         )

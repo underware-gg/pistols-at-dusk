@@ -12,6 +12,10 @@
     {
       "tileset_id": "minimal8",
       "manifest": "tilesets/minimal8.json"
+    },
+    {
+      "tileset_id": "characters",
+      "manifest": "tilesets/characters.json"
     }
   ]
 }

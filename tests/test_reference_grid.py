@@ -200,18 +200,37 @@ class ReferenceGridTests(unittest.TestCase):
             tile.putpixel((0, y), (255, 0, 0, 255))
         crop = reference_grid.resize_nearest(tile, (32, 32))
         extraction = self._single_cell_extraction(cell_size=32)
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
 
         overlay = reference_grid.render_gutter_overlay(crop, extraction, background)
 
         # The content starts after the outer margin; bottom-left art should stay intact.
         self.assertEqual(
-            overlay.getpixel((reference_grid.GUIDE_MARGIN + 1, reference_grid.GUIDE_MARGIN + 31)),
+            overlay.getpixel((guide_margin + 1, guide_margin + 31)),
             (255, 0, 0, 255),
         )
         self.assertNotEqual(
-            overlay.getpixel((reference_grid.GUIDE_MARGIN + 31, reference_grid.GUIDE_MARGIN)),
+            overlay.getpixel((guide_margin + 31, guide_margin)),
             background,
         )
+
+    def test_render_exact_boundary_overlay_upscales_content_with_nearest_neighbour(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (8, 8), background)
+        crop.putpixel((1, 2), (255, 0, 0, 255))
+        extraction = self._single_cell_extraction(cell_size=8)
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction, render_scale=4)
+
+        overlay = reference_grid.render_exact_boundary_overlay(
+            crop,
+            extraction,
+            background,
+            guide_render_scale=4,
+        )
+
+        for x in range(guide_margin + 4, guide_margin + 8):
+            for y in range(guide_margin + 8, guide_margin + 12):
+                self.assertEqual(overlay.getpixel((x, y)), (255, 0, 0, 255))
 
     def test_render_gutter_overlay_uses_explicit_content_box_boundaries(self) -> None:
         background = (36, 25, 42, 255)
@@ -222,16 +241,17 @@ class ReferenceGridTests(unittest.TestCase):
             tile.putpixel((0, y), (255, 0, 0, 255))
         crop = reference_grid.resize_nearest(tile, (39, 39))
         extraction = self._single_cell_extraction(cell_size=39, content_box=(0, 1, 7, 8))
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
 
         overlay = reference_grid.render_gutter_overlay(crop, extraction, background)
 
         # The first solid art row/column should remain untouched by the explicit guides.
         self.assertEqual(
-            overlay.getpixel((reference_grid.GUIDE_MARGIN + 1, reference_grid.GUIDE_MARGIN + 1 + 5)),
+            overlay.getpixel((guide_margin + 1, guide_margin + 1 + 5)),
             (255, 0, 0, 255),
         )
         self.assertEqual(
-            overlay.getpixel((reference_grid.GUIDE_MARGIN + 1 + 33, reference_grid.GUIDE_MARGIN + 1 + 38)),
+            overlay.getpixel((guide_margin + 1 + 33, guide_margin + 1 + 38)),
             (255, 0, 0, 255),
         )
 
@@ -326,19 +346,76 @@ class ReferenceGridTests(unittest.TestCase):
         self.assertEqual(crop.getpixel((90, 31)), (255, 0, 0, 255))
         self.assertEqual(crop.getpixel((95, 31)), background)
 
+    def test_resolve_background_falls_back_to_opaque_guide_background_for_transparent_image(self) -> None:
+        image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+
+        resolved = reference_grid.resolve_background(image, None)
+
+        self.assertEqual(resolved, reference_grid.DEFAULT_GUIDE_BACKGROUND)
+
     def test_render_gutter_overlay_adds_border_space_on_all_sides(self) -> None:
         background = (36, 25, 42, 255)
         crop = Image.new("RGBA", (32, 32), background)
         extraction = self._single_cell_extraction(cell_size=32, content_box=(0, 1, 7, 8))
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
 
         overlay = reference_grid.render_gutter_overlay(crop, extraction, background)
 
-        self.assertGreater(overlay.width, crop.width + reference_grid.GUIDE_MARGIN)
-        self.assertGreater(overlay.height, crop.height + reference_grid.GUIDE_MARGIN)
-        right_border_x = reference_grid.GUIDE_MARGIN + crop.width + 1
-        bottom_border_y = reference_grid.GUIDE_MARGIN + crop.height + 1
-        self.assertNotEqual(overlay.getpixel((right_border_x, reference_grid.GUIDE_MARGIN + 8)), background)
-        self.assertNotEqual(overlay.getpixel((reference_grid.GUIDE_MARGIN + 8, bottom_border_y)), background)
+        self.assertGreater(overlay.width, crop.width + guide_margin)
+        self.assertGreater(overlay.height, crop.height + guide_margin)
+        right_border_x = guide_margin + crop.width + 1
+        bottom_border_y = guide_margin + crop.height + 1
+        self.assertNotEqual(overlay.getpixel((right_border_x, guide_margin + 8)), background)
+        self.assertNotEqual(overlay.getpixel((guide_margin + 8, bottom_border_y)), background)
+
+    def test_render_gutter_overlay_can_make_only_grid_surface_transparent(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        extraction = self._single_cell_extraction(cell_size=32, content_box=(0, 1, 7, 8))
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+
+        overlay = reference_grid.render_gutter_overlay(
+            crop,
+            extraction,
+            background,
+            transparent_grid_surface=True,
+        )
+
+        self.assertEqual(overlay.getpixel((0, 0)), background)
+        self.assertEqual(overlay.getpixel((guide_margin + 8, guide_margin + 8)), (0, 0, 0, 0))
+
+    def test_render_gutter_overlay_overlay_mode_can_make_only_grid_surface_transparent(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        extraction = self._single_cell_extraction(cell_size=32, content_box=(0, 1, 7, 8))
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+
+        overlay = reference_grid.render_gutter_overlay(
+            crop,
+            extraction,
+            background,
+            transparent_grid_surface=True,
+            guide_line_mode="overlay",
+        )
+
+        self.assertEqual(overlay.getpixel((0, 0)), background)
+        self.assertEqual(overlay.getpixel((guide_margin + 8, guide_margin + 8)), (0, 0, 0, 0))
+
+    def test_render_exact_boundary_overlay_can_make_only_grid_surface_transparent(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        extraction = self._single_cell_extraction(cell_size=32, content_box=(0, 1, 7, 8))
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+
+        overlay = reference_grid.render_exact_boundary_overlay(
+            crop,
+            extraction,
+            background,
+            transparent_grid_surface=True,
+        )
+
+        self.assertEqual(overlay.getpixel((0, 0)), background)
+        self.assertEqual(overlay.getpixel((guide_margin + 8, guide_margin + 8)), (0, 0, 0, 0))
 
     def test_render_gutter_overlay_keeps_grid_lines_visible_through_excluded_fill(self) -> None:
         background = (36, 25, 42, 255)
@@ -359,11 +436,139 @@ class ReferenceGridTests(unittest.TestCase):
             excluded_boxes=((0, 0, 64, 32),),
         )
 
-        separator_x = reference_grid.GUIDE_MARGIN + extraction.x_edges[1] + 1
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+        separator_x = guide_margin + extraction.x_edges[1] + 1
         self.assertEqual(
-            overlay.getpixel((separator_x, reference_grid.GUIDE_MARGIN + 12)),
+            overlay.getpixel((separator_x, guide_margin + 12)),
             (218, 206, 185, 70),
         )
+
+    def test_render_gutter_overlay_draws_excluded_outline_on_grid_boundaries(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (64, 32), background)
+        extraction = reference_grid.GridExtraction(
+            transform=reference_grid.GridTransform(origin_x=0, origin_y=0, cell_size=32, content_box=(0, 1, 7, 8)),
+            columns=2,
+            rows=1,
+            crop_box=(0, 0, 64, 32),
+            x_edges=(0, 32, 64),
+            y_edges=(0, 32),
+        )
+
+        overlay = reference_grid.render_gutter_overlay(
+            crop,
+            extraction,
+            background,
+            excluded_boxes=((0, 0, 32, 32),),
+        )
+
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+        separator_x = guide_margin + extraction.x_edges[1] + 1
+
+        self.assertEqual(
+            overlay.getpixel((separator_x, guide_margin + 12)),
+            reference_grid.EXCLUDED_OUTLINE_COLOUR,
+        )
+        self.assertNotEqual(
+            overlay.getpixel((separator_x - 1, guide_margin + 12)),
+            reference_grid.EXCLUDED_OUTLINE_COLOUR,
+        )
+
+    def test_render_gutter_overlay_uses_same_colour_for_border_and_internal_grid(self) -> None:
+        background = (36, 25, 42, 255)
+        crop = Image.new("RGBA", (64, 32), background)
+        extraction = reference_grid.GridExtraction(
+            transform=reference_grid.GridTransform(origin_x=0, origin_y=0, cell_size=32, content_box=(0, 1, 7, 8)),
+            columns=2,
+            rows=1,
+            crop_box=(0, 0, 64, 32),
+            x_edges=(0, 32, 64),
+            y_edges=(0, 32),
+        )
+
+        overlay = reference_grid.render_gutter_overlay(crop, extraction, background)
+
+        guide_margin = reference_grid.guide_margin_for_extraction(extraction)
+        separator_x = guide_margin + extraction.x_edges[1] + 1
+        top_border_y = guide_margin
+
+        self.assertEqual(
+            overlay.getpixel((separator_x, guide_margin + 12)),
+            overlay.getpixel((guide_margin + 12, top_border_y)),
+        )
+
+    def test_guide_chrome_scales_with_large_cells(self) -> None:
+        small = self._single_cell_extraction(cell_size=32)
+        large = self._single_cell_extraction(cell_size=80)
+
+        build_guide_chrome = getattr(reference_grid, "_build_guide_chrome")
+        small_chrome = build_guide_chrome(small)
+        large_chrome = build_guide_chrome(large)
+
+        self.assertGreater(large_chrome.actual_label_height, small_chrome.actual_label_height)
+        self.assertGreater(large_chrome.margin, small_chrome.margin)
+        self.assertGreaterEqual(
+            large_chrome.label_band,
+            large_chrome.actual_label_width + (large_chrome.label_inner_pad * 2),
+        )
+        self.assertGreaterEqual(
+            large_chrome.label_band,
+            large_chrome.actual_label_height + (large_chrome.label_inner_pad * 2),
+        )
+
+    def test_guide_chrome_scales_down_for_native_eight_pixel_cells(self) -> None:
+        tiny = self._single_cell_extraction(cell_size=8)
+
+        build_guide_chrome = getattr(reference_grid, "_build_guide_chrome")
+        tiny_chrome = build_guide_chrome(tiny)
+
+        self.assertEqual(tiny_chrome.actual_label_height, 4)
+        self.assertLessEqual(tiny_chrome.actual_label_height, round(8 * 0.5))
+        self.assertLessEqual(tiny_chrome.label_band, 10)
+        self.assertEqual(tiny_chrome.margin, 12)
+
+    def test_default_guide_line_colour_scales_alpha_with_cell_size(self) -> None:
+        tiny = self._single_cell_extraction(cell_size=8)
+        large = self._single_cell_extraction(cell_size=80)
+
+        resolve_default_guide_line_colour = getattr(reference_grid, "_resolve_default_guide_line_colour")
+        tiny_colour = resolve_default_guide_line_colour(tiny)
+        large_colour = resolve_default_guide_line_colour(large)
+
+        self.assertLess(tiny_colour[3], large_colour[3])
+        self.assertEqual(large_colour[3], reference_grid.GUIDE_LINE_ALPHA_MAX)
+
+    def test_guide_canvas_layout_places_label_bands_symmetrically(self) -> None:
+        extraction = self._single_cell_extraction(cell_size=80)
+        build_guide_chrome = getattr(reference_grid, "_build_guide_chrome")
+        build_guide_canvas_layout = getattr(reference_grid, "_build_guide_canvas_layout")
+        chrome = build_guide_chrome(extraction)
+        layout = build_guide_canvas_layout(
+            content_width=80,
+            content_height=80,
+            chrome=chrome,
+        )
+
+        top_gap = layout.top_margin - layout.top_label_center_y
+        bottom_gap = layout.bottom_label_center_y - (layout.top_margin + layout.content_height)
+        left_gap = layout.left_margin - layout.left_label_center_x
+        right_gap = layout.right_label_center_x - (layout.left_margin + layout.content_width)
+
+        self.assertEqual(top_gap, bottom_gap)
+        self.assertEqual(left_gap, right_gap)
+
+    def test_text_origin_for_centered_bbox_accounts_for_bbox_offsets(self) -> None:
+        text_origin_for_centered_bbox = getattr(reference_grid, "_text_origin_for_centered_bbox")
+        origin = text_origin_for_centered_bbox(
+            left=2,
+            top=6,
+            right=18,
+            bottom=26,
+            center_x=100,
+            center_y=200,
+        )
+
+        self.assertEqual(origin, (90, 184))
 
     def test_resolve_grid_run_settings_loads_relative_config_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -414,8 +619,11 @@ class ReferenceGridTests(unittest.TestCase):
                     background=None,
                     exclude_partial_edge_cells=False,
                     guide_line_mode=None,
+                    guide_render_scale=None,
+                    transparent_grid_surface=False,
+                    emit_recovered_tile_sheet=False,
                     zoom_cell=None,
-                    scale=4,
+                    recovered_tile_scale=4,
                 )
             )
 
@@ -431,7 +639,69 @@ class ReferenceGridTests(unittest.TestCase):
             self.assertTrue(settings.exclude_partial_edge_cells)
             self.assertEqual(settings.normalize_cell_size, "auto")
             self.assertEqual(settings.guide_line_mode, "overlay")
+            self.assertEqual(settings.guide_render_scale, 1)
+            self.assertFalse(settings.transparent_grid_surface)
+            self.assertFalse(settings.emit_recovered_tile_sheet)
             self.assertEqual(settings.zoom_cell, (19, 13))
+
+    def test_resolve_grid_run_settings_loads_transparent_grid_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_path = root / "reference.png"
+            image_path.write_bytes(b"png")
+            config_path = root / "solve.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "image": "reference.png",
+                        "prefix": "characters_sheet",
+                        "grid": {
+                            "tile_size": 8,
+                            "cols": 32,
+                            "rows": 48,
+                            "origin_x": 0,
+                            "origin_y": 0,
+                            "cell_size": 8,
+                            "content_box": [0, 1, 7, 8],
+                        },
+                        "transparent_grid_surface": True,
+                        "guide_render_scale": 4,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            settings = reference_grid.resolve_grid_run_settings(
+                argparse.Namespace(
+                    config=config_path,
+                    image=None,
+                    output_dir=root / "out",
+                    prefix=None,
+                    origin_x=None,
+                    origin_y=None,
+                    cell_size=None,
+                    span_box=None,
+                    tile_size=8,
+                    cols=None,
+                    rows=None,
+                    normalize_cell_size=None,
+                    relevant_box=None,
+                    exclude_box=None,
+                    exclude_partial_edge_cells=False,
+                    guide_line_mode=None,
+                    guide_render_scale=None,
+                    transparent_grid_surface=False,
+                    emit_recovered_tile_sheet=False,
+                    content_box=None,
+                    background=None,
+                    zoom_cell=None,
+                    recovered_tile_scale=4,
+                )
+            )
+
+            self.assertEqual(settings.guide_render_scale, 4)
+            self.assertTrue(settings.transparent_grid_surface)
+            self.assertFalse(settings.emit_recovered_tile_sheet)
 
     def test_save_outputs_writes_guide_beside_reference_image(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -460,14 +730,58 @@ class ReferenceGridTests(unittest.TestCase):
                     background=None,
                     exclude_partial_edge_cells=False,
                     guide_line_mode=None,
+                    guide_render_scale=None,
+                    transparent_grid_surface=False,
+                    emit_recovered_tile_sheet=False,
                     zoom_cell=None,
-                    scale=4,
+                    recovered_tile_scale=4,
                 )
             )
 
             sibling_guide = image_path.with_name("reference--guide.png")
             self.assertIn(sibling_guide, outputs)
             self.assertTrue(sibling_guide.exists())
+            self.assertNotIn(root / "out" / "reference_recovered_tile_sheet.png", outputs)
+
+    def test_save_outputs_uses_opaque_guide_background_for_transparent_reference_image(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_path = root / "reference.png"
+            image = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            image.save(image_path)
+
+            outputs = reference_grid.save_outputs(
+                argparse.Namespace(
+                    config=None,
+                    image=image_path,
+                    output_dir=root / "out",
+                    prefix="reference",
+                    origin_x=0,
+                    origin_y=0,
+                    cell_size=32,
+                    span_box=None,
+                    tile_size=8,
+                    cols=1,
+                    rows=1,
+                    normalize_cell_size=None,
+                    relevant_box=None,
+                    exclude_box=None,
+                    content_box="0,1,7,8",
+                    background=None,
+                    exclude_partial_edge_cells=False,
+                    guide_line_mode=None,
+                    guide_render_scale=None,
+                    transparent_grid_surface=False,
+                    emit_recovered_tile_sheet=False,
+                    zoom_cell=None,
+                    recovered_tile_scale=4,
+                )
+            )
+
+            sibling_guide = image_path.with_name("reference--guide.png")
+            self.assertIn(sibling_guide, outputs)
+            rendered_guide = Image.open(sibling_guide).convert("RGBA")
+            self.assertEqual(rendered_guide.getpixel((0, 0)), reference_grid.DEFAULT_GUIDE_BACKGROUND)
 
     def test_save_outputs_writes_normalized_body_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -496,14 +810,84 @@ class ReferenceGridTests(unittest.TestCase):
                     background=None,
                     exclude_partial_edge_cells=False,
                     guide_line_mode=None,
+                    guide_render_scale=None,
+                    transparent_grid_surface=False,
+                    emit_recovered_tile_sheet=False,
                     zoom_cell=None,
-                    scale=4,
+                    recovered_tile_scale=4,
                 )
             )
 
             normalized_body = root / "out" / "reference_normalized_body.png"
             self.assertIn(normalized_body, outputs)
             self.assertTrue(normalized_body.exists())
+
+    def test_save_outputs_emits_recovered_tile_sheet_only_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_path = root / "reference.png"
+            background = (36, 25, 42, 255)
+            image = Image.new("RGBA", (16, 8), background)
+            for x in range(8):
+                image.putpixel((x, 7), (255, 0, 0, 255))
+                image.putpixel((8 + x, 0), (0, 255, 0, 255))
+            image.save(image_path)
+
+            args = argparse.Namespace(
+                config=None,
+                image=image_path,
+                output_dir=root / "out",
+                prefix="reference",
+                origin_x=0,
+                origin_y=0,
+                cell_size=8,
+                span_box=None,
+                tile_size=8,
+                cols=2,
+                rows=1,
+                normalize_cell_size=None,
+                relevant_box=None,
+                exclude_box=None,
+                content_box=None,
+                background=None,
+                exclude_partial_edge_cells=False,
+                guide_line_mode=None,
+                guide_render_scale=None,
+                transparent_grid_surface=False,
+                emit_recovered_tile_sheet=True,
+                zoom_cell=None,
+                recovered_tile_scale=4,
+            )
+
+            outputs = reference_grid.save_outputs(args)
+
+            recovered_tile_path = root / "out" / "reference_recovered_tile_sheet.png"
+            self.assertIn(recovered_tile_path, outputs)
+            recovered_tile_sheet = Image.open(recovered_tile_path).convert("RGBA")
+
+            prepared = reference_grid.prepare_reference_grid(
+                image,
+                transform=reference_grid.GridTransform(origin_x=0, origin_y=0, cell_size=8, tile_size=8),
+                cols=2,
+                rows=1,
+                background=background,
+            )
+            tile_grid = reference_grid.build_tile_grid(prepared.crop, prepared.extraction, background=background)
+            crop_and_extraction = getattr(reference_grid, "_crop_and_extraction_for_recovered_tile_grid")
+            contact_crop, contact_extraction = crop_and_extraction(
+                tile_grid,
+                background=background,
+            )
+            expected = reference_grid.render_gutter_overlay(
+                contact_crop,
+                contact_extraction,
+                background,
+                guide_render_scale=4,
+                guide_line_mode="separated",
+            )
+
+            self.assertEqual(recovered_tile_sheet.size, expected.size)
+            self.assertEqual(recovered_tile_sheet.tobytes(), expected.tobytes())
 
 
 if __name__ == "__main__":

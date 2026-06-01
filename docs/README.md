@@ -33,4 +33,6 @@ while
 [prototypes/minimal8-harness/tile-families/minimal8](../prototypes/minimal8-harness/tile-families/minimal8)
 remains the transitional compatibility bundle consumed through the current
 family-backed runtime path. Related decisions are in the
-[decisions router](architecture/decisions/README.md).
+[decisions router](architecture/decisions/README.md). Runtime-side provenance
+and exact-reference reconstruction follow-up now live in
+[architecture/runtime-tile-genesis-and-provenance.md](architecture/runtime-tile-genesis-and-provenance.md).

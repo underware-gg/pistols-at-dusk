@@ -289,6 +289,7 @@ class MetatileConstructionConfig(TypedDict):
     collection_id: str
     kind: Literal["metatile"]
     cells: list[list[ConstructionCellConfig | str]]
+    expose_as_entity: NotRequired[bool]
 
 
 class ParametricRunConstructionConfig(TypedDict):
@@ -300,6 +301,33 @@ class ParametricRunConstructionConfig(TypedDict):
     start_role: str
     repeat_role: str
     end_role: str
+    expose_as_entity: NotRequired[bool]
+
+
+class AttachmentCanvasConfig(TypedDict):
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class ConstructionAttachmentVariantConfig(TypedDict):
+    id: str
+    construction_id: str
+    label: NotRequired[str]
+    notes: NotRequired[str]
+
+
+class ConstructionAttachmentSetConfig(TypedDict):
+    id: str
+    param: str
+    target_construction_ids: list[str]
+    canvas: AttachmentCanvasConfig
+    variants: list[ConstructionAttachmentVariantConfig]
+    required: NotRequired[bool]
+    default_variant_id: NotRequired[str]
+    label: NotRequired[str]
+    notes: NotRequired[str]
 
 
 ConstructionConfig = Union[MetatileConstructionConfig, ParametricRunConstructionConfig]
@@ -314,6 +342,7 @@ class MetatileConstruction:
     id: str
     collection_id: str
     cells: tuple[tuple[TileRecord | None, ...], ...]
+    expose_as_entity: bool = True
     kind: Literal["metatile"] = "metatile"
 
 
@@ -326,10 +355,76 @@ class ParametricRunConstruction:
     start_tile: TileRecord
     repeat_tile: TileRecord
     end_tile: TileRecord
+    expose_as_entity: bool = True
     kind: Literal["parametric_run"] = "parametric_run"
 
 
 Construction: TypeAlias = Union[MetatileConstruction, ParametricRunConstruction]
+
+
+@dataclass(frozen=True)
+class ConstructionAttachmentVariant:
+    id: str
+    construction_id: str
+    label: str | None = None
+    notes: str | None = None
+
+
+@dataclass(frozen=True)
+class ConstructionAttachmentSet:
+    id: str
+    param: str
+    target_construction_ids: tuple[str, ...]
+    canvas: GridBounds
+    variants: Mapping[str, ConstructionAttachmentVariant] = field(repr=False)
+    required: bool = False
+    default_variant_id: str | None = None
+    label: str | None = None
+    notes: str | None = None
+
+    def variant(self, variant_id: str) -> ConstructionAttachmentVariant | None:
+        return self.variants.get(variant_id)
+
+    def to_entity_record(self) -> EntityAttachmentSetRecord:
+        return EntityAttachmentSetRecord(
+            id=self.id,
+            param=self.param,
+            canvas=self.canvas,
+            variant_ids=tuple(self.variants.keys()),
+            required=self.required,
+            default_variant_id=self.default_variant_id,
+            label=self.label,
+            notes=self.notes,
+        )
+
+
+@dataclass(frozen=True)
+class EntityAttachmentSetRecord:
+    id: str
+    param: str
+    canvas: GridBounds
+    variant_ids: tuple[str, ...]
+    required: bool = False
+    default_variant_id: str | None = None
+    label: str | None = None
+    notes: str | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "param": self.param,
+            "required": self.required,
+            "default_variant_id": self.default_variant_id,
+            "label": self.label,
+            "notes": self.notes,
+            "canvas": {
+                "x": self.canvas.x,
+                "y": self.canvas.y,
+                "width": self.canvas.width,
+                "height": self.canvas.height,
+            },
+            "variant_ids": list(self.variant_ids),
+        }
 
 
 @dataclass(frozen=True)
@@ -340,6 +435,16 @@ class EntityFootprintSpec:
     axis: Literal["x", "y"] | None = None
     length_param: str | None = None
     minimum_length: int | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "mode": self.mode,
+            "width": self.width,
+            "height": self.height,
+            "axis": self.axis,
+            "length_param": self.length_param,
+            "minimum_length": self.minimum_length,
+        }
 
 
 @dataclass(frozen=True)
@@ -354,6 +459,22 @@ class EntityTemplateRecord:
     state_groups: tuple[str, ...]
     animation_groups: tuple[str, ...]
     footprint: EntityFootprintSpec
+    attachment_sets: tuple[EntityAttachmentSetRecord, ...] = ()
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "construction_id": self.construction_id,
+            "collection_id": self.collection_id,
+            "kind": self.kind,
+            "placement_anchor": self.placement_anchor,
+            "compose_roles": list(self.compose_roles),
+            "affordances": list(self.affordances),
+            "state_groups": list(self.state_groups),
+            "animation_groups": list(self.animation_groups),
+            "footprint": self.footprint.to_payload(),
+            "attachment_sets": [attachment_set.to_payload() for attachment_set in self.attachment_sets],
+        }
 
 
 def load_family_manifest(path: Path) -> FamilyManifest:
@@ -547,18 +668,44 @@ def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
     return tuple(loaded)
 
 
+def load_attachment_manifest(path: Path) -> tuple[ConstructionAttachmentSetConfig, ...]:
+    raw_file = require_mapping(load_json(path), context=str(path))
+    check_required_keys(raw_file, ("attachment_sets",), context=str(path))
+    raw_list = require_list(raw_file["attachment_sets"], context=f"{path}: attachment_sets")
+    loaded: list[ConstructionAttachmentSetConfig] = []
+    seen_ids: set[str] = set()
+    for index, raw_item in enumerate(raw_list):
+        item_context = f"{path}: attachment_sets[{index}]"
+        item_mapping = require_mapping(raw_item, context=item_context)
+        check_required_keys(
+            item_mapping,
+            ("id", "param", "target_construction_ids", "canvas", "variants"),
+            context=item_context,
+        )
+        attachment_id = str(item_mapping["id"])
+        if attachment_id in seen_ids:
+            raise ValueError(f"Duplicate attachment set id in {path}: {attachment_id!r}")
+        seen_ids.add(attachment_id)
+        loaded.append(cast(ConstructionAttachmentSetConfig, item_mapping))
+    return tuple(loaded)
+
+
 def load_family_catalog_sources(
     paths: CompatibilityFamilyPaths,
 ) -> FamilyCatalogSources:
     constructions_data: tuple[ConstructionConfig, ...] = ()
     if paths.constructions_path is not None:
         constructions_data = load_construction_manifest(paths.constructions_path)
+    attachments_data: tuple[ConstructionAttachmentSetConfig, ...] = ()
+    if paths.attachments_path is not None:
+        attachments_data = load_attachment_manifest(paths.attachments_path)
     return FamilyCatalogSources(
         paths=paths,
         clusters_data=tuple(load_cluster_manifest(paths.clusters_path)),
         tiles_data=tuple(load_tile_manifest(paths.tiles_path)),
         aliases_data=MappingProxyType(dict(load_alias_manifest(paths.aliases_path))),
         constructions_data=constructions_data,
+        attachments_data=attachments_data,
     )
 
 
@@ -629,6 +776,7 @@ class FamilyCatalogSources:
     tiles_data: tuple[TileConfig, ...]
     aliases_data: Mapping[str, str]
     constructions_data: tuple[ConstructionConfig, ...]
+    attachments_data: tuple[ConstructionAttachmentSetConfig, ...]
 
 
 @dataclass(frozen=True)
@@ -858,6 +1006,39 @@ class RuntimeConstructionCatalog(Protocol):
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         ...
 
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        ...
+
+    def runtime_tileset_id_for_construction(
+        self,
+        construction_id: str,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        ...
+
+
+def attachment_sets_by_target(
+    attachment_sets: Mapping[str, ConstructionAttachmentSet],
+) -> Mapping[str, tuple[ConstructionAttachmentSet, ...]]:
+    indexed: dict[str, list[ConstructionAttachmentSet]] = defaultdict(list)
+    for attachment_set in attachment_sets.values():
+        for target_id in attachment_set.target_construction_ids:
+            indexed[target_id].append(attachment_set)
+    return MappingProxyType({target_id: tuple(values) for target_id, values in indexed.items()})
+
+
+def entity_template_for_construction(
+    constructions: Mapping[str, Construction],
+    construction_id: str,
+    *,
+    attachment_sets: Iterable[ConstructionAttachmentSet] = (),
+) -> EntityTemplateRecord | None:
+    construction = constructions.get(construction_id)
+    if construction is None or not construction.expose_as_entity:
+        return None
+    return entity_template_from_construction(construction, attachment_sets=attachment_sets)
+
 
 @dataclass(frozen=True, slots=True)
 class TileLibraryUnit(RuntimeConstructionCatalog):
@@ -874,6 +1055,8 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     aliases: Mapping[str, str] = field(repr=False)
     tiles_by_sheet_cell_index: Mapping[tuple[int, int], TileRecord] = field(repr=False)
     constructions: Mapping[str, Construction] = field(repr=False)
+    attachment_sets: Mapping[str, ConstructionAttachmentSet] = field(repr=False)
+    attachment_sets_by_target: Mapping[str, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
 
     @classmethod
     def from_family(cls, family: TileFamily) -> TileLibraryUnit:
@@ -891,6 +1074,8 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             aliases=family.aliases,
             tiles_by_sheet_cell_index=family.tiles_by_sheet_cell,
             constructions=family.constructions,
+            attachment_sets=family.attachment_sets,
+            attachment_sets_by_target=attachment_sets_by_target(family.attachment_sets),
         )
 
     @property
@@ -915,10 +1100,33 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
         return self.constructions.get(construction_id)
 
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
-        construction = self.lookup_construction(construction_id)
-        if construction is None:
+        return entity_template_for_construction(
+            self.constructions,
+            construction_id,
+            attachment_sets=self.attachment_sets_for_construction(construction_id),
+        )
+
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        return self.attachment_sets_by_target.get(construction_id, ())
+
+    def runtime_tileset_id_for_construction(
+        self,
+        construction_id: str,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        if construction_id not in self.constructions:
             return None
-        return entity_template_from_construction(construction)
+        self.variant(variant_id)
+        return self.runtime_tileset_id(variant_id)
+
+    def entity_templates(self) -> list[EntityTemplateRecord]:
+        templates: list[EntityTemplateRecord] = []
+        for construction in self.constructions.values():
+            template = self.entity_template(construction.id)
+            if template is not None:
+                templates.append(template)
+        return templates
 
     def resolve_ref(self, ref: str, *, variant_id: str | None = None) -> ResolvedFamilyTile | None:
         return _resolve_family_ref(
@@ -1141,6 +1349,24 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
         if unit is None:
             return None
         return unit.entity_template(construction_id)
+
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        unit = self.unit_for_construction(construction_id)
+        if unit is None:
+            return ()
+        return unit.attachment_sets_for_construction(construction_id)
+
+    def runtime_tileset_id_for_construction(
+        self,
+        construction_id: str,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        unit = self.unit_for_construction(construction_id)
+        if unit is None:
+            return None
+        unit.variant(variant_id)
+        return unit.runtime_tileset_id(variant_id)
 
 
 def tile_record_to_dict(tile: TileRecord) -> TileRecordData:
@@ -1576,6 +1802,13 @@ def _resolve_role(
     return matches[0]
 
 
+def _parse_expose_as_entity(raw: Mapping[str, object], construction_id: str) -> bool:
+    expose_as_entity = raw.get("expose_as_entity", True)
+    if not isinstance(expose_as_entity, bool):
+        raise ValueError(f"construction {construction_id!r} expose_as_entity must be a boolean")
+    return expose_as_entity
+
+
 def _build_metatile_construction(
     raw: MetatileConstructionConfig,
     *,
@@ -1615,6 +1848,7 @@ def _build_metatile_construction(
         id=construction_id,
         collection_id=collection_id,
         cells=tuple(resolved_rows),
+        expose_as_entity=_parse_expose_as_entity(raw, construction_id),
     )
     validate_construction(construction)
     return construction
@@ -1646,6 +1880,7 @@ def _build_parametric_run_construction(
         start_tile=start_tile,
         repeat_tile=repeat_tile,
         end_tile=end_tile,
+        expose_as_entity=_parse_expose_as_entity(raw, construction_id),
     )
     validate_construction(construction)
     return construction
@@ -1700,7 +1935,11 @@ def _construction_footprint_spec(construction: Construction) -> EntityFootprintS
     )
 
 
-def entity_template_from_construction(construction: Construction) -> EntityTemplateRecord:
+def entity_template_from_construction(
+    construction: Construction,
+    *,
+    attachment_sets: Iterable[ConstructionAttachmentSet] = (),
+) -> EntityTemplateRecord:
     tiles = _construction_tiles(construction)
 
     def _sorted_unique(values: Iterable[str | None]) -> tuple[str, ...]:
@@ -1717,6 +1956,7 @@ def entity_template_from_construction(construction: Construction) -> EntityTempl
         state_groups=_sorted_unique(tile.state_group for tile in tiles),
         animation_groups=_sorted_unique(tile.animation_group for tile in tiles),
         footprint=_construction_footprint_spec(construction),
+        attachment_sets=tuple(attachment_set.to_entity_record() for attachment_set in attachment_sets),
     )
 
 
@@ -2233,6 +2473,215 @@ def load_constructions_from_data(
     return constructions
 
 
+def _fixed_construction_bounds(construction: Construction, *, context: str) -> GridBounds:
+    if isinstance(construction, ParametricRunConstruction):
+        raise ValueError(f"{context} must reference a fixed metatile construction, not parametric_run {construction.id!r}")
+    width = len(construction.cells[0]) if construction.cells else 0
+    height = len(construction.cells)
+    return GridBounds(x=0, y=0, width=width, height=height)
+
+
+def _parse_attachment_param(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+) -> str:
+    param_raw = raw["param"]
+    if not isinstance(param_raw, str) or param_raw == "":
+        raise ValueError(f"attachment set {attachment_id!r} param must be a non-empty string")
+    return param_raw
+
+
+def _parse_attachment_target_ids(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+    attachments_path: Path | None,
+) -> tuple[str, ...]:
+    target_ids_raw = require_list(
+        raw["target_construction_ids"],
+        context=f"{attachments_path or '<attachments>'}: attachment set {attachment_id} target_construction_ids",
+    )
+    if not target_ids_raw:
+        raise ValueError(f"attachment set {attachment_id!r} target_construction_ids must be a non-empty list")
+    return tuple(str(value) for value in target_ids_raw)
+
+
+def _parse_attachment_canvas(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+    attachments_path: Path | None,
+) -> GridBounds:
+    canvas_raw = require_mapping(
+        raw["canvas"],
+        context=f"{attachments_path or '<attachments>'}: attachment set {attachment_id} canvas",
+    )
+    check_required_keys(canvas_raw, ("x", "y", "width", "height"), context=f"attachment set {attachment_id!r} canvas")
+    canvas = GridBounds(
+        x=int(cast(Union[int, str], canvas_raw["x"])),
+        y=int(cast(Union[int, str], canvas_raw["y"])),
+        width=int(cast(Union[int, str], canvas_raw["width"])),
+        height=int(cast(Union[int, str], canvas_raw["height"])),
+    )
+    if canvas.x < 0 or canvas.y < 0 or canvas.width <= 0 or canvas.height <= 0:
+        raise ValueError(f"attachment set {attachment_id!r} canvas must have non-negative origin and positive size")
+    return canvas
+
+
+def _validate_attachment_targets(
+    *,
+    attachment_id: str,
+    target_ids: tuple[str, ...],
+    canvas: GridBounds,
+    constructions: Mapping[str, Construction],
+) -> None:
+    for target_id in target_ids:
+        target_construction = constructions.get(target_id)
+        if target_construction is None:
+            raise ValueError(f"attachment set {attachment_id!r} references unknown target construction {target_id!r}")
+        target_bounds = _fixed_construction_bounds(
+            target_construction,
+            context=f"attachment set {attachment_id!r} target {target_id!r}",
+        )
+        if not _bounds_inside(target_bounds, canvas):
+            raise ValueError(
+                f"attachment set {attachment_id!r} canvas {canvas} must stay inside target construction "
+                f"{target_id!r} bounds {target_bounds}"
+            )
+
+
+def _parse_attachment_variants(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+    attachments_path: Path | None,
+    constructions: Mapping[str, Construction],
+    canvas: GridBounds,
+) -> Mapping[str, ConstructionAttachmentVariant]:
+    raw_variants = require_list(
+        raw["variants"],
+        context=f"{attachments_path or '<attachments>'}: attachment set {attachment_id} variants",
+    )
+    if not raw_variants:
+        raise ValueError(f"attachment set {attachment_id!r} must define at least one variant")
+    variants: dict[str, ConstructionAttachmentVariant] = {}
+    for index, raw_variant in enumerate(raw_variants):
+        variant_context = f"attachment set {attachment_id!r} variants[{index}]"
+        mapping = require_mapping(raw_variant, context=variant_context)
+        check_required_keys(mapping, ("id", "construction_id"), context=variant_context)
+        variant_id = str(mapping["id"])
+        if variant_id in variants:
+            raise ValueError(f"attachment set {attachment_id!r} declares duplicate variant id {variant_id!r}")
+        construction_id = str(mapping["construction_id"])
+        variant_construction = constructions.get(construction_id)
+        if variant_construction is None:
+            raise ValueError(
+                f"attachment set {attachment_id!r} variant {variant_id!r} references unknown construction {construction_id!r}"
+            )
+        attachment_bounds = _fixed_construction_bounds(
+            variant_construction,
+            context=f"attachment set {attachment_id!r} variant {variant_id!r}",
+        )
+        if attachment_bounds.width > canvas.width or attachment_bounds.height > canvas.height:
+            raise ValueError(
+                f"attachment set {attachment_id!r} variant {variant_id!r} construction {construction_id!r} "
+                f"size {attachment_bounds.width}x{attachment_bounds.height} exceeds canvas "
+                f"{canvas.width}x{canvas.height}"
+            )
+        variants[variant_id] = ConstructionAttachmentVariant(
+            id=variant_id,
+            construction_id=construction_id,
+            label=cast(str | None, mapping.get("label")),
+            notes=cast(str | None, mapping.get("notes")),
+        )
+    return MappingProxyType(variants)
+
+
+def _parse_attachment_default_variant_id(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+    variants: Mapping[str, ConstructionAttachmentVariant],
+) -> str | None:
+    default_variant_id_raw = raw.get("default_variant_id")
+    if default_variant_id_raw is None:
+        return None
+    default_variant_id = str(default_variant_id_raw)
+    if default_variant_id == "":
+        raise ValueError(f"attachment set {attachment_id!r} default_variant_id must be a non-empty string")
+    if default_variant_id not in variants:
+        raise ValueError(
+            f"attachment set {attachment_id!r} default_variant_id {default_variant_id!r} "
+            "must match a declared variant id"
+        )
+    return default_variant_id
+
+
+def _parse_attachment_required(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+) -> bool:
+    required = raw.get("required", False)
+    if not isinstance(required, bool):
+        raise ValueError(f"attachment set {attachment_id!r} required must be a boolean")
+    return required
+
+
+def load_attachment_sets_from_data(
+    attachments_data: tuple[ConstructionAttachmentSetConfig, ...],
+    *,
+    attachments_path: Path | None,
+    constructions: Mapping[str, Construction],
+) -> dict[str, ConstructionAttachmentSet]:
+    attachment_sets: dict[str, ConstructionAttachmentSet] = {}
+    for raw in attachments_data:
+        attachment_id = str(raw["id"])
+        param = _parse_attachment_param(raw, attachment_id=attachment_id)
+        target_ids = _parse_attachment_target_ids(
+            raw,
+            attachment_id=attachment_id,
+            attachments_path=attachments_path,
+        )
+        canvas = _parse_attachment_canvas(
+            raw,
+            attachment_id=attachment_id,
+            attachments_path=attachments_path,
+        )
+        _validate_attachment_targets(
+            attachment_id=attachment_id,
+            target_ids=target_ids,
+            canvas=canvas,
+            constructions=constructions,
+        )
+        variants = _parse_attachment_variants(
+            raw,
+            attachment_id=attachment_id,
+            attachments_path=attachments_path,
+            constructions=constructions,
+            canvas=canvas,
+        )
+        default_variant_id = _parse_attachment_default_variant_id(
+            raw,
+            attachment_id=attachment_id,
+            variants=variants,
+        )
+
+        attachment_sets[attachment_id] = ConstructionAttachmentSet(
+            id=attachment_id,
+            param=param,
+            target_construction_ids=target_ids,
+            canvas=canvas,
+            variants=variants,
+            required=_parse_attachment_required(raw, attachment_id=attachment_id),
+            default_variant_id=default_variant_id,
+            label=raw.get("label"),
+            notes=raw.get("notes"),
+        )
+    return attachment_sets
+
+
 class TileFamily:
     def __init__(
         self,
@@ -2246,6 +2695,7 @@ class TileFamily:
         aliases: dict[str, str],
         tiles_by_sheet_cell: Mapping[tuple[int, int], TileRecord] | None = None,
         constructions: Mapping[str, Construction] | None = None,
+        attachment_sets: Mapping[str, ConstructionAttachmentSet] | None = None,
     ) -> None:
         self.header = header
         self.promoted_metadata = promoted_metadata
@@ -2262,6 +2712,12 @@ class TileFamily:
         )
         self.constructions: Mapping[str, Construction] = (
             MappingProxyType(dict(constructions)) if constructions is not None else MappingProxyType({})
+        )
+        self.attachment_sets: Mapping[str, ConstructionAttachmentSet] = (
+            MappingProxyType(dict(attachment_sets)) if attachment_sets is not None else MappingProxyType({})
+        )
+        self.attachment_sets_by_target: Mapping[str, tuple[ConstructionAttachmentSet, ...]] = (
+            attachment_sets_by_target(self.attachment_sets)
         )
 
     @property
@@ -2312,13 +2768,13 @@ class TileFamily:
         return self.constructions.get(construction_id)
 
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
-        construction = self.lookup_construction(construction_id)
-        if construction is None:
-            return None
-        return entity_template_from_construction(construction)
+        return self.runtime_unit.entity_template(construction_id)
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
-        return [entity_template_from_construction(construction) for construction in self.constructions.values()]
+        return self.runtime_unit.entity_templates()
+
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        return self.runtime_unit.attachment_sets_for_construction(construction_id)
 
     @classmethod
     def from_catalog_sources(
@@ -2398,6 +2854,11 @@ class TileFamily:
             tiles=tiles,
             source_layout=source_layout,
         )
+        attachment_sets = load_attachment_sets_from_data(
+            catalog.attachments_data,
+            attachments_path=catalog.paths.attachments_path,
+            constructions=constructions,
+        )
 
         return cls(
             header=header,
@@ -2409,6 +2870,7 @@ class TileFamily:
             aliases=alias_map,
             tiles_by_sheet_cell=tiles_by_sheet_cell,
             constructions=constructions,
+            attachment_sets=attachment_sets,
         )
 
     @classmethod

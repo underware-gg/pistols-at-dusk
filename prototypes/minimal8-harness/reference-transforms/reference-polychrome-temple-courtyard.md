@@ -32,6 +32,10 @@ tile render.
   variant
 - at least some cells appear to reflect an older or phase-shifted tile
   revision rather than a slicing bug in the current tooling
+- the current `polychrome_temple_courtyard` layout/render is now a direct tile
+  reconstruction built from this committed reference solve; treat it as a
+  trusted visual anchor for this reference, but not as evidence that a richer
+  semantic temple-courtyard composition workflow has already been recovered
 
 ## Manual Review State
 

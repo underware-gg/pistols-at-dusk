@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -97,7 +98,36 @@ class SourceIngestCliTests(unittest.TestCase):
 
         payload = json.loads(stdout.getvalue())
         self.assertTrue(payload["complete"])
-        self.assertEqual(payload["tile_count"], 1376)
+        self.assertEqual(payload["tile_count"], 1408)
+
+    def test_main_inspect_family_exports_characters_source_layout(self) -> None:
+        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.characters.json"
+        stdout = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "family-inspection"
+
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "source_ingest.py",
+                    "inspect-family",
+                    str(project_path),
+                    "--tileset",
+                    "minimal8.characters@2bit_colored",
+                    "--output-dir",
+                    str(output_dir),
+                ],
+            ), redirect_stdout(stdout):
+                source_ingest.main()
+
+            reported_path = Path(stdout.getvalue().strip()).resolve()
+            self.assertEqual(reported_path, output_dir.resolve())
+            self.assertTrue((reported_path / "catalog.json").exists())
+            self.assertTrue((reported_path / "sheet_grid.png").exists())
+            self.assertTrue((reported_path / "source_layout.json").exists())
+            self.assertTrue((reported_path / "source_layout.guide.png").exists())
 
 
 if __name__ == "__main__":

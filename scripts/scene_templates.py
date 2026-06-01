@@ -118,9 +118,8 @@ class SpreadStampsFields(TypedDict):
     y: object
 
 
-# entity has no runtime SceneOp variant. It expands to StampOps during scene
-# expansion. params is accepted but currently ignored during entity -> stamp
-# expansion.
+# entity has no runtime SceneOp variant. It expands to scene-entity requests
+# during template expansion, which the harness later resolves into stamps.
 class _EntityFieldsRequired(TypedDict):
     construction: object
     x: object
@@ -130,6 +129,7 @@ class _EntityFieldsRequired(TypedDict):
 class EntityFields(_EntityFieldsRequired, total=False):
     entity_id: object
     params: object
+    variant_id: object
 
 
 # scatter has a runtime SceneOp variant; this TypedDict captures the data-mode
@@ -326,6 +326,7 @@ class SceneEntityRequest:
     x: int
     y: int
     params: dict[str, object] | None = None
+    variant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1217,6 +1218,7 @@ def _shift_scene_entity(entity: SceneEntityRequest, *, dx: int, dy: int) -> Scen
         x=entity.x + dx,
         y=entity.y + dy,
         params=None if entity.params is None else dict(entity.params),
+        variant_id=entity.variant_id,
     )
 
 
@@ -1566,6 +1568,13 @@ def expand_data_scene(
                     raw_params,
                     context=f"scene template {template_spec.template_id!r} entity params",
                 )
+            entity_variant_id: str | None = None
+            raw_variant_id = op_spec.fields.get("variant_id")
+            if raw_variant_id is not None:
+                entity_variant_id = _scene_expr_str_value(
+                    evaluate_scene_expr(raw_variant_id, scene=scene, bindings=bindings, runtime=runtime),
+                    context=f"scene template {template_spec.template_id!r} entity variant_id",
+                )
             raw_entity_id = op_spec.fields.get("entity_id")
             entity_id = (
                 _scene_expr_str_value(
@@ -1584,6 +1593,7 @@ def expand_data_scene(
                     x=x,
                     y=y,
                     params=None if entity_params is None else dict(entity_params),
+                    variant_id=entity_variant_id,
                 )
             )
             continue

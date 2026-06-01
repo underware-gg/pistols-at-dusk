@@ -1608,6 +1608,85 @@
     "source_notes": "Column 2 broad terrain semantics. Cluster 3 of 7: middle water / checker / hazard band."
   },
   {
+    "id": "minimal8:cluster:source.tileset.column_1.cluster_04",
+    "scope": "region",
+    "members": [
+      "minimal8:terrain:2,29",
+      "minimal8:terrain:3,29",
+      "minimal8:terrain:4,29",
+      "minimal8:terrain:5,29",
+      "minimal8:terrain:6,29",
+      "minimal8:terrain:10,29",
+      "minimal8:terrain:11,29",
+      "minimal8:terrain:12,29",
+      "minimal8:terrain:15,29",
+      "minimal8:terrain:15,30",
+      "minimal8:terrain:16,30"
+    ],
+    "kind_guess": "source_reference_exact_promotions",
+    "evidence": [
+      "source_sheet_proximity",
+      "reference_scene_reconstruction"
+    ],
+    "source_label": "tileset.column_1.cluster_04",
+    "source_notes": "Exact source-cell promotions from the wind and spiral floor motifs ingest cluster, added to support reference-backed scene reconstruction without over-semanticising the source band first."
+  },
+  {
+    "id": "minimal8:cluster:source.tileset.column_1.cluster_05",
+    "scope": "region",
+    "members": [
+      "minimal8:terrain:2,32",
+      "minimal8:terrain:3,32",
+      "minimal8:terrain:4,32",
+      "minimal8:terrain:5,32",
+      "minimal8:terrain:7,32",
+      "minimal8:terrain:2,35",
+      "minimal8:terrain:3,35",
+      "minimal8:terrain:4,35"
+    ],
+    "kind_guess": "source_reference_exact_promotions",
+    "evidence": [
+      "source_sheet_proximity",
+      "reference_scene_reconstruction"
+    ],
+    "source_label": "tileset.column_1.cluster_05",
+    "source_notes": "Exact source-cell promotions from the outdoor motifs ingest cluster, added to support reference-backed scene reconstruction while the broader semantic terrain metadata catches up."
+  },
+  {
+    "id": "minimal8:cluster:source.tileset.column_2.cluster_04",
+    "scope": "region",
+    "members": [
+      "minimal8:terrain:22,24",
+      "minimal8:terrain:22,25",
+      "minimal8:terrain:22,26",
+      "minimal8:terrain:22,27"
+    ],
+    "kind_guess": "source_reference_exact_promotions",
+    "evidence": [
+      "source_sheet_proximity",
+      "reference_scene_reconstruction"
+    ],
+    "source_label": "tileset.column_2.cluster_04",
+    "source_notes": "Exact source-cell promotions from the nature boundary sections ingest cluster, used to rebuild the party-menu reference scenery from data."
+  },
+  {
+    "id": "minimal8:cluster:source.tileset.column_2.cluster_06",
+    "scope": "region",
+    "members": [
+      "minimal8:terrain:19,35",
+      "minimal8:terrain:20,35",
+      "minimal8:terrain:19,36",
+      "minimal8:terrain:20,36"
+    ],
+    "kind_guess": "source_reference_exact_promotions",
+    "evidence": [
+      "source_sheet_proximity",
+      "reference_scene_reconstruction"
+    ],
+    "source_label": "tileset.column_2.cluster_06",
+    "source_notes": "Exact source-cell promotions from the water line and ripple strips ingest cluster, used to rebuild the party-menu reference scenery from data."
+  },
+  {
     "id": "minimal8:cluster:source.ui.logo_wordmark",
     "scope": "region",
     "members": [

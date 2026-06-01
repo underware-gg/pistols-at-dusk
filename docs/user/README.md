@@ -45,6 +45,12 @@ This exports:
 - `semantic_catalog.json`
 - `semantic_catalog.png`
 
+For the committed Minimal 8 family, the current checked-in human reference
+copies live beside the family metadata at:
+
+- `prototypes/minimal8-harness/tile-families/minimal8/sheet_grid.png`
+- `prototypes/minimal8-harness/tile-families/minimal8/source_layout.guide.png`
+
 ### Export a human review pack
 
 Run:
@@ -102,6 +108,16 @@ You can still explicitly reference another loaded variant using direct sheet add
 
 - `minimal8@1bit_red:44,12`
 - `minimal8@2bit_colored_bg:68,9`
+
+When the tile is already catalogued, prefer a variant-qualified semantic ref
+instead of dropping to raw source coordinates:
+
+- `minimal8@2bit_colored_bg_green:indoors.table.long.left`
+- `minimal8@2bit_colored_bg_green:minimal8:terrain:4,32`
+
+That keeps the tile identity stable while making the colourway choice explicit.
+It is the preferred way to say “use the same tile, but from the green/orange/red
+sibling sheet”.
 
 If you need a raw tileset cell that is not catalogued as a family tile, use `tileset_id#col,row`:
 

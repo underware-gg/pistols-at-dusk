@@ -37,6 +37,56 @@
       182
     ]
   ],
+  "reviews": {
+    "C11R15": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    },
+    "C5R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    },
+    "C13R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    },
+    "C2R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    },
+    "C9R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    },
+    "C4R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,3"
+      },
+      "note": "Visually confirmed from the reference; local matching overfit a sparse icon-like silhouette, but surrounding terrain context and source-sheet inspection confirm this grass tile."
+    }
+  },
   "zoom_cell": [
     19,
     13

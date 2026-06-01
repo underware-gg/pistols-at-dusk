@@ -50,6 +50,26 @@ def read_string(cli_value: str | None, config: Mapping[str, object], key: str) -
     return raw
 
 
+def read_string_list(
+    cli_value: list[str] | None,
+    config: Mapping[str, object],
+    key: str,
+) -> tuple[str, ...]:
+    if cli_value is not None:
+        return tuple(cli_value)
+    raw = config.get(key)
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise ValueError(f"{key} must be a list of strings")
+    values: list[str] = []
+    for index, item in enumerate(cast(list[object], raw)):
+        if not isinstance(item, str):
+            raise ValueError(f"{key}[{index}] must be a string")
+        values.append(item)
+    return tuple(values)
+
+
 def read_guide_line_mode(
     cli_value: str | None,
     config: Mapping[str, object],

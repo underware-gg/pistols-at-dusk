@@ -1,0 +1,1139 @@
+{
+  "image": "../../../resources/Super Assets 3000/references/reference-party-menu-character-stats.png",
+  "family_path": "../tile-families/minimal8",
+  "variant_id": "2bit_colored_bg",
+  "prefix": "reference_party_menu_character_stats",
+  "guide_line_mode": "separated",
+  "grid": {
+    "tile_size": 8,
+    "cols": 34,
+    "rows": 24,
+    "span_box": [
+      0,
+      0,
+      2720,
+      1920
+    ],
+    "content_box": [
+      0,
+      1,
+      7,
+      8
+    ]
+  },
+  "relevant_boxes": [
+    [
+      0,
+      0,
+      2720,
+      1920
+    ]
+  ],
+  "excluded_boxes": [],
+  "reviews": {
+    "C3R7": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C3R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,7"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:1,7."
+    },
+    "C3R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,32."
+    },
+    "C3R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,32."
+    },
+    "C3R11": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:5,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:5,32."
+    },
+    "C3R12": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,32."
+    },
+    "C3R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C3R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,2."
+    },
+    "C3R15": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,2."
+    },
+    "C3R16": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:5,2",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:5,2 using the 2bit_colored_bg_green colourway."
+    },
+    "C3R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,2."
+    },
+    "C3R18": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C3R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,2."
+    },
+    "C3R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:5,2",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:5,2 using the 2bit_colored_bg_green colourway."
+    },
+    "C3R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:1,2."
+    },
+    "C3R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C4R7": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C4R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,7"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:1,7."
+    },
+    "C4R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,32",
+        "variant_id": "2bit_colored_bg_red"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,32 using the 2bit_colored_bg_red colourway."
+    },
+    "C4R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,32."
+    },
+    "C4R11": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,32"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,32."
+    },
+    "C4R12": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_dark_blue"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_dark_blue colourway."
+    },
+    "C4R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 12,
+        "sheet_row": 20,
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 12,20 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:5,2",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:5,2 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R15": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 12,
+        "sheet_row": 20,
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 12,20 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R16": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R18": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:5,2",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:5,2 using the 2bit_colored_bg_green colourway."
+    },
+    "C4R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:4,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:4,2."
+    },
+    "C4R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C4R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C5R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,29."
+    },
+    "C5R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:10,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:10,29."
+    },
+    "C5R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C5R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C5R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C5R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:1,2."
+    },
+    "C6R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,29."
+    },
+    "C6R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C6R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,2"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:1,2."
+    },
+    "C6R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 23,
+        "sheet_row": 5,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 23,5 using the 2bit_colored_bg colourway."
+    },
+    "C7R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:6,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:6,29."
+    },
+    "C7R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 19,
+        "sheet_row": 26,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 19,26 using the 2bit_colored_bg colourway."
+    },
+    "C7R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 19,
+        "sheet_row": 26,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 19,26 using the 2bit_colored_bg colourway."
+    },
+    "C7R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 19,
+        "sheet_row": 26,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 19,26 using the 2bit_colored_bg colourway."
+    },
+    "C7R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 19,
+        "sheet_row": 26,
+        "variant_id": "2bit_colored_bg"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 19,26 using the 2bit_colored_bg colourway."
+    },
+    "C9R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C12R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,29."
+    },
+    "C12R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,9"
+      },
+      "note": "Manually confirmed from the right inner-window top separator run; source tile C57R10."
+    },
+    "C12R7": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,10"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R11."
+    },
+    "C12R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R11": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R12": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,10"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R11."
+    },
+    "C12R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R15": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R16": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,11"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R12."
+    },
+    "C12R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:3,12"
+      },
+      "note": "Manually confirmed interior lead-in cell in the right inner window; source tile C57R13."
+    },
+    "C12R18": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank spacer below the yellow party character entry."
+    },
+    "C12R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C12R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:0,5"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:0,5."
+    },
+    "C13R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,29."
+    },
+    "C13R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:4,9"
+      },
+      "note": "Manually confirmed from the right inner-window top separator run; source tile C58R10."
+    },
+    "C13R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:2,9"
+      },
+      "note": "Manually confirmed right-facing arrow in the right inner window; same tile used at C6R8."
+    },
+    "C13R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:1,9"
+      },
+      "note": "Manually confirmed secondary marker in the right inner window; source tile C55R10."
+    },
+    "C13R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Manually confirmed liminal scenery cell is blank in the reviewed reference."
+    },
+    "C13R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:1,9"
+      },
+      "note": "Manually confirmed secondary marker in the right inner window; source tile C55R10."
+    },
+    "C13R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C14R4": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:6,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:6,29."
+    },
+    "C14R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank gap in the right inner-window top separator run."
+    },
+    "C14R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C15R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank gap in the right inner-window top separator run."
+    },
+    "C15R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C16R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank gap in the right inner-window top separator run."
+    },
+    "C16R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C17R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:ui:5,9"
+      },
+      "note": "Manually confirmed from the right inner-window top separator run; source tile C59R10."
+    },
+    "C17R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C18R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C18R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C18R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 12,
+        "sheet_row": 20,
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 12,20 using the 2bit_colored_bg_green colourway."
+    },
+    "C19R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C19R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C20R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C20R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C21R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C21R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C21R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 12,
+        "sheet_row": 20,
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 12,20 using the 2bit_colored_bg_green colourway."
+    },
+    "C22R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C22R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C23R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C23R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C24R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,29."
+    },
+    "C24R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C24R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C25R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:3,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:3,29."
+    },
+    "C25R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C25R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C25R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_orange"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_orange colourway."
+    },
+    "C25R22": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_orange"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_orange colourway."
+    },
+    "C26R3": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:6,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:6,29."
+    },
+    "C26R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C26R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C27R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C27R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C28R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C28R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C28R21": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "source_cell",
+        "source_id": "minimal8@2bit_colored_bg",
+        "sheet_col": 12,
+        "sheet_row": 20,
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact source-layout cell 12,20 using the 2bit_colored_bg_green colourway."
+    },
+    "C29R6": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:derived.ui.party_menu.inner_window.row_6.mid"
+      },
+      "note": "Manually confirmed repeated middle dash cell on the right inner-window top separator run."
+    },
+    "C29R19": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "blank"
+      },
+      "note": "Visually confirmed blank cell on the cleared right inner-window row 19 run."
+    },
+    "C31R5": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:6,29"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:6,29."
+    },
+    "C31R7": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C31R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C31R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,24"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,24."
+    },
+    "C31R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,26"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,26."
+    },
+    "C31R11": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,26"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,26."
+    },
+    "C31R12": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,26"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,26."
+    },
+    "C31R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,26"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,26."
+    },
+    "C31R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,26"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,26."
+    },
+    "C31R16": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:2,4"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:2,4."
+    },
+    "C31R17": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:1,5",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "The reference uses the green sibling of this tree-trunk tile. The tracked reconstruction intentionally keeps the brown sibling at this cell for readability."
+    },
+    "C31R20": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:architecture:6,18",
+        "variant_id": "2bit_colored_bg_green"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:architecture:6,18 using the 2bit_colored_bg_green colourway."
+    },
+    "C32R7": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R8": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R9": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R10": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R11": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R12": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R13": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R14": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:19,35"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:19,35."
+    },
+    "C32R15": {
+      "status": "confirmed",
+      "selection": {
+        "kind": "tile",
+        "tile_id": "minimal8:terrain:22,24"
+      },
+      "note": "Canonically confirmed liminal scenery cell from the solved party-menu reference reconstruction; exact tile minimal8:terrain:22,24."
+    }
+  }
+}

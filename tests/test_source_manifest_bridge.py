@@ -602,6 +602,33 @@ class SourceManifestBridgeTests(unittest.TestCase):
                     self.assertEqual(bridged_ref.physical_ref, legacy_ref.physical_ref)
                     self.assertEqual(bridged_ref.variant_ref, legacy_ref.variant_ref)
 
+    def test_bridge_wraps_minimal8_characters_family_into_equivalent_runtime_shape(self) -> None:
+        pack_path = ROOT / "prototypes/minimal8-harness/tile-packs/minimal8/pack.json"
+
+        bridged = load_bridged_tile_family(
+            pack_path,
+            tileset_id="characters",
+            tilesheet_id="characters",
+        )
+        legacy = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8-characters")
+
+        self.assertEqual(bridged.family_id, legacy.family_id)
+        self.assertEqual(bridged.title, legacy.title)
+        self.assertEqual(bridged.tile_width, legacy.tile_width)
+        self.assertEqual(bridged.tile_height, legacy.tile_height)
+        self.assertEqual(bridged.render_step_width, legacy.render_step_width)
+        self.assertEqual(bridged.render_step_height, legacy.render_step_height)
+        self.assertEqual(bridged.default_variant_id, legacy.default_variant_id)
+        self.assertEqual(bridged.notes, legacy.notes)
+        self.assertEqual(bridged.variants, legacy.variants)
+        self.assertEqual(bridged.tiles, legacy.tiles)
+        self.assertEqual(bridged.aliases, legacy.aliases)
+        self.assertEqual(bridged.clusters, legacy.clusters)
+        self.assertEqual(bridged.constructions, legacy.constructions)
+        self.assertEqual(bridged.source_layout, legacy.source_layout)
+        self.assertIsNotNone(bridged.source_layout)
+        self.assertIsNotNone(legacy.source_layout)
+
     def test_bridge_surfaces_catalog_payload_errors_like_tile_family_load(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             cases: list[tuple[str, Callable[[Path], None], str]] = [

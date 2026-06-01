@@ -6,12 +6,14 @@ Minimal 8 harness.
 These files are intended to be executable examples and durable ingest state for:
 
 - [reference_grid.py](../../../scripts/reference_grid.py)
-- [reference_tile_match.py](../../../scripts/reference_tile_match.py)
+- [reference_tile_match.py](../../../scripts/reference_tile_match.py) when a
+  reference is genuinely ready for whole-cell matching
 
 Each JSON file stores:
 
 - the reference image path
-- the compatibility family path and preferred variant when matching is useful
+- the candidate source family path(s) and preferred variant(s) when matching is
+  useful
 - either the solved grid origin/pitch or an exact tiled-body `span_box`, plus
   the logical `content_box`
 - an optional `normalize_cell_size` for building a uniform ingest surface from
@@ -31,6 +33,14 @@ Each JSON file stores:
   - uses normalized span ingest and committed manual review overrides
   - the current best source matches come from the `2bit_colored_bg` variant even
     though the reference visually appears to derive from the older 1-bit sheet
+- [reference-party-menu-character-stats.json](reference-party-menu-character-stats.json)
+- [reference-party-menu-character-stats.md](reference-party-menu-character-stats.md)
+  - committed canonical handoff for the party-menu screen
+  - captures the trusted `34 x 24` grid solve plus the reviewed tile-and-colour
+    truth for the solved non-text cells
+  - the tracked recreation now mirrors that reviewed truth, with one explicit
+    intentional deviation at `C31R17` where the recreation keeps a brown trunk
+    instead of the green reference colour
 
 The JSON file is the executable ingest state. The sibling Markdown note is the
 human-facing rationale: why we trust the reference, what is messy about it, and
@@ -55,6 +65,33 @@ python3 scripts/reference_tile_match.py \
   --output /private/tmp/overworld-reference/match.json
 ```
 
+Matcher output now includes copy-pasteable refs for each exact/candidate tile:
+
+- `physical_ref`: the stable family sheet cell, e.g. `minimal8:20,17`
+- `variant_ref`: the same sheet cell on the matched sibling variant, e.g.
+  `minimal8@2bit_colored_bg_green:20,17`
+- `semantic_variant_ref`: the stable tile identity on that variant when the cell
+  is catalogued, e.g. `minimal8@2bit_colored_bg_green:minimal8:terrain:1,15`
+
+For colour-sensitive scene reconstruction, the matcher also emits a sibling
+colourway recommendation on each exact/candidate match:
+
+- `recommended_variant_id`
+- `recommended_colorway`
+- `recommended_variant_ref`
+- `recommended_semantic_variant_ref`
+
+That second pass runs only after tile identity has already been chosen. It keeps
+shape/identity matching colour-light, then compares the reference cell's
+foreground colours against the same sheet cell across sibling variants so a
+reconstruction scene can use the best green/orange/red sibling without falling
+back to ad hoc raw `#col,row` swaps.
+
+For reference-review overrides, prefer recording a semantic tile plus explicit
+`variant_id` when the tile identity is known and only the sibling colourway is
+being corrected. Keep raw `source_cell` overrides for genuinely uncatalogued
+cells or for exact source-sheet review work.
+
 The slicer also writes a padded ingest guide beside the source image with a
 `--guide` suffix. That checked-in sibling guide uses the same trimmed ingest
 grid as the output-directory guide sheets, so excluded regions only appear when
@@ -77,6 +114,21 @@ python3 scripts/source_ingest.py inspect-source-cell \
 That reports the physical source-layout region/cluster and the mapped family
 tile separately, which avoids confusing source-sheet structure with the tile
 record's semantic `cluster_ids`.
+
+When a sheet is dominated by multi-cell figures rather than one-cell semantic
+tiles, start with the source-sheet inspection bundle instead of the semantic
+review pack:
+
+```bash
+python3 scripts/source_ingest.py inspect-family \
+  prototypes/minimal8-harness/project.minimal8.characters.json \
+  --tileset 'minimal8.characters@2bit_colored'
+```
+
+When a committed source-layout map exists, that emits `source_layout.guide.png`,
+a numbered zero-based source-sheet guide that makes it much easier to author or
+review multi-cell collection blocks without guessing raw sheet coordinates from
+the unlabelled art.
 
 When `normalize_cell_size` is set, the slicer also writes a
 `*_normalized_body.png` image and builds the guide/matcher surface from that

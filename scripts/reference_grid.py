@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
@@ -65,9 +66,12 @@ class GridRunSettings:
     excluded_boxes: tuple[Rect, ...]
     exclude_partial_edge_cells: bool
     guide_line_mode: GuideLineMode
+    guide_render_scale: int
+    transparent_grid_surface: bool
+    emit_recovered_tile_sheet: bool
     background: str | None
     zoom_cell: tuple[int, int] | None
-    scale: int
+    recovered_tile_scale: int
 
 
 @dataclass
@@ -79,12 +83,259 @@ class PreparedReferenceGrid:
     normalized_cell_size: int | None
 
 
-GUIDE_OUTER_PAD = 8
-GUIDE_LABEL_BAND = 20
-GUIDE_MARGIN = GUIDE_OUTER_PAD + GUIDE_LABEL_BAND
+GUIDE_MIN_OUTER_PAD = 4
+GUIDE_LABEL_HEIGHT_RATIO = 0.30
+GUIDE_LABEL_WIDTH_RATIO = 0.75
+GUIDE_LABEL_MIN_HEIGHT = 4
+GUIDE_LABEL_MAX_HEIGHT = 72
+GUIDE_LABEL_INNER_PAD_RATIO = 0.20
+GUIDE_OUTER_PAD_CELL_RATIO = 0.125
+GUIDE_OUTER_PAD_LABEL_RATIO = 0.25
+GUIDE_LINE_ALPHA_MIN = 30
+GUIDE_LINE_ALPHA_MAX = 70
+GUIDE_LINE_FULL_STRENGTH_CELL = 24
+DEFAULT_GUIDE_BACKGROUND: RGBA = (36, 25, 42, 255)
 RELEVANT_FILL_COLOUR: RGBA = (80, 160, 120, 48)
 EXCLUDED_FILL_COLOUR: RGBA = (218, 80, 80, 64)
 EXCLUDED_OUTLINE_COLOUR: RGBA = (218, 80, 80, 255)
+DEFAULT_GUIDE_LINE_RGB = (218, 206, 185)
+
+
+@dataclass(frozen=True)
+class GuideChrome:
+    outer_pad: int
+    label_band: int
+    label_inner_pad: int
+    margin: int
+    target_label_height: int
+    actual_label_height: int
+    actual_label_width: int
+    font_size: int | None
+
+
+@dataclass(frozen=True)
+class GuideLabelFit:
+    sample_text: str
+    max_label_height: int
+    max_label_width: int
+    actual_label_height: int
+    actual_label_width: int
+    font_size: int | None
+
+
+@dataclass(frozen=True)
+class GuideCanvasLayout:
+    left_margin: int
+    top_margin: int
+    right_margin: int
+    bottom_margin: int
+    content_width: int
+    content_height: int
+    canvas_width: int
+    canvas_height: int
+    top_label_center_y: float
+    bottom_label_center_y: float
+    left_label_center_x: float
+    right_label_center_x: float
+
+
+GUIDE_FONT_CANDIDATES = (
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/SFNSMono.ttf",
+    "/System/Library/Fonts/Monaco.ttf",
+    "/System/Library/Fonts/Courier.ttc",
+    "/System/Library/Fonts/Supplemental/Andale Mono.ttf",
+    "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Courier New.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "DejaVuSansMono-Bold.ttf",
+    "DejaVuSansMono.ttf",
+    "DejaVuSans-Bold.ttf",
+    "DejaVuSans.ttf",
+)
+
+
+@lru_cache(maxsize=1)
+def _resolve_guide_font_resource() -> str | None:
+    for resource in GUIDE_FONT_CANDIDATES:
+        try:
+            ImageFont.truetype(resource, 12)
+            return resource
+        except OSError:
+            continue
+    return None
+
+
+def _measure_text(font: ImageFont.ImageFont | ImageFont.FreeTypeFont, text: str = "88") -> tuple[int, int]:
+    left, top, right, bottom = font.getbbox(text)
+    return (int(right - left), int(bottom - top))
+
+
+def _font_metrics_for_size(
+    size: int,
+    *,
+    sample_text: str,
+) -> tuple[ImageFont.ImageFont | ImageFont.FreeTypeFont, int, int]:
+    resource = _resolve_guide_font_resource()
+    if resource is None:
+        font = ImageFont.load_default()
+        width, height = _measure_text(font, sample_text)
+        return (font, width, height)
+    font = ImageFont.truetype(resource, size)
+    width, height = _measure_text(font, sample_text)
+    return (font, width, height)
+
+
+def _load_guide_font(
+    *,
+    target_label_height: int,
+    max_label_width: int,
+    sample_text: str,
+) -> tuple[ImageFont.ImageFont | ImageFont.FreeTypeFont, int | None, int, int]:
+    resource = _resolve_guide_font_resource()
+    if resource is None:
+        font = ImageFont.load_default()
+        width, height = _measure_text(font, sample_text)
+        return (font, None, width, height)
+
+    low = 4
+    high = max(target_label_height * 3, 12)
+    best_size = low
+    best_font: ImageFont.ImageFont | ImageFont.FreeTypeFont | None = None
+    best_width = 0
+    best_height = 0
+    while low <= high:
+        mid = (low + high) // 2
+        font, width, height = _font_metrics_for_size(mid, sample_text=sample_text)
+        if height <= target_label_height and width <= max_label_width:
+            best_size = mid
+            best_font = font
+            best_width = width
+            best_height = height
+            low = mid + 1
+        else:
+            high = mid - 1
+    if best_font is None:
+        best_font, best_width, best_height = _font_metrics_for_size(best_size, sample_text=sample_text)
+    return (best_font, best_size, best_width, best_height)
+
+
+def _average_cell_extent(extraction: GridExtraction) -> float:
+    widths = [extraction.x_edges[index + 1] - extraction.x_edges[index] for index in range(extraction.columns)]
+    heights = [extraction.y_edges[index + 1] - extraction.y_edges[index] for index in range(extraction.rows)]
+    extents = widths + heights
+    return sum(extents) / len(extents)
+
+
+def _average_cell_width(extraction: GridExtraction) -> float:
+    widths = [extraction.x_edges[index + 1] - extraction.x_edges[index] for index in range(extraction.columns)]
+    return sum(widths) / len(widths)
+
+
+def _guide_font_for_extraction(
+    extraction: GridExtraction,
+    *,
+    target_label_height: int,
+    render_scale: int,
+) -> tuple[ImageFont.ImageFont | ImageFont.FreeTypeFont, int | None, int, int]:
+    sample_text = str(max(extraction.columns, extraction.rows))
+    return _load_guide_font(
+        target_label_height=target_label_height,
+        max_label_width=max(5, round((_average_cell_width(extraction) * render_scale) * GUIDE_LABEL_WIDTH_RATIO)),
+        sample_text=sample_text,
+    )
+
+
+def _build_guide_label_fit(extraction: GridExtraction, *, render_scale: int) -> GuideLabelFit:
+    sample_text = str(max(extraction.columns, extraction.rows))
+    average_extent = _average_cell_extent(extraction) * render_scale
+    max_label_height = round(average_extent * GUIDE_LABEL_HEIGHT_RATIO)
+    max_label_height = max(GUIDE_LABEL_MIN_HEIGHT, min(GUIDE_LABEL_MAX_HEIGHT, max_label_height))
+    max_label_width = max(5, round((_average_cell_width(extraction) * render_scale) * GUIDE_LABEL_WIDTH_RATIO))
+    _, font_size, actual_label_width, actual_label_height = _load_guide_font(
+        target_label_height=max_label_height,
+        max_label_width=max_label_width,
+        sample_text=sample_text,
+    )
+    return GuideLabelFit(
+        sample_text=sample_text,
+        max_label_height=max_label_height,
+        max_label_width=max_label_width,
+        actual_label_height=actual_label_height,
+        actual_label_width=actual_label_width,
+        font_size=font_size,
+    )
+
+
+@lru_cache(maxsize=None)
+def _build_guide_chrome(extraction: GridExtraction, render_scale: int = 1) -> GuideChrome:
+    average_extent = _average_cell_extent(extraction) * render_scale
+    fit = _build_guide_label_fit(extraction, render_scale=render_scale)
+    label_extent = max(fit.actual_label_width, fit.actual_label_height)
+    label_inner_pad = max(2, round(label_extent * GUIDE_LABEL_INNER_PAD_RATIO))
+    outer_pad = max(
+        GUIDE_MIN_OUTER_PAD,
+        round(average_extent * GUIDE_OUTER_PAD_CELL_RATIO),
+        round(label_extent * GUIDE_OUTER_PAD_LABEL_RATIO),
+    )
+    label_band = label_extent + (label_inner_pad * 2)
+    return GuideChrome(
+        outer_pad=outer_pad,
+        label_band=label_band,
+        label_inner_pad=label_inner_pad,
+        margin=outer_pad + label_band,
+        target_label_height=fit.max_label_height,
+        actual_label_height=fit.actual_label_height,
+        actual_label_width=fit.actual_label_width,
+        font_size=fit.font_size,
+    )
+
+
+def guide_margin_for_extraction(extraction: GridExtraction, *, render_scale: int = 1) -> int:
+    return _build_guide_chrome(extraction, render_scale=render_scale).margin
+
+
+def _resolve_default_guide_line_colour(extraction: GridExtraction, *, render_scale: int = 1) -> RGBA:
+    average_extent = _average_cell_extent(extraction) * render_scale
+    if average_extent >= GUIDE_LINE_FULL_STRENGTH_CELL:
+        alpha = GUIDE_LINE_ALPHA_MAX
+    else:
+        ratio = max(0.0, (average_extent - 8.0) / (GUIDE_LINE_FULL_STRENGTH_CELL - 8.0))
+        alpha = round(GUIDE_LINE_ALPHA_MIN + ((GUIDE_LINE_ALPHA_MAX - GUIDE_LINE_ALPHA_MIN) * ratio))
+    r, g, b = DEFAULT_GUIDE_LINE_RGB
+    return (r, g, b, alpha)
+
+
+def _build_guide_canvas_layout(
+    *,
+    content_width: int,
+    content_height: int,
+    chrome: GuideChrome,
+) -> GuideCanvasLayout:
+    left_margin = chrome.margin
+    top_margin = chrome.margin
+    right_margin = chrome.margin
+    bottom_margin = chrome.margin
+    canvas_width = left_margin + content_width + right_margin + 1
+    canvas_height = top_margin + content_height + bottom_margin + 1
+    label_center_offset = chrome.label_band / 2
+    return GuideCanvasLayout(
+        left_margin=left_margin,
+        top_margin=top_margin,
+        right_margin=right_margin,
+        bottom_margin=bottom_margin,
+        content_width=content_width,
+        content_height=content_height,
+        canvas_width=canvas_width,
+        canvas_height=canvas_height,
+        top_label_center_y=chrome.outer_pad + label_center_offset,
+        bottom_label_center_y=top_margin + content_height + label_center_offset,
+        left_label_center_x=chrome.outer_pad + label_center_offset,
+        right_label_center_x=left_margin + content_width + label_center_offset,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -163,6 +414,25 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--guide-render-scale",
+        type=int,
+        default=None,
+        help=(
+            "Optional integer guide-only render scale. The guide overlays are "
+            "rendered on a nearest-neighbour magnified view of the native grid, "
+            "without changing extraction or matching."
+        ),
+    )
+    parser.add_argument(
+        "--transparent-grid-surface",
+        action="store_true",
+        help=(
+            "Render the grid content area with a transparent background while "
+            "keeping the outer guide chrome filled. This only affects guide-style "
+            "overlay outputs."
+        ),
+    )
+    parser.add_argument(
         "--content-box",
         default=None,
         help=(
@@ -181,7 +451,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional zoom target as col,row for a 2-cell padded crop around one tile.",
     )
-    parser.add_argument("--scale", type=int, default=4, help="Scale factor for the tile contact sheet.")
+    parser.add_argument(
+        "--emit-recovered-tile-sheet",
+        action="store_true",
+        help=(
+            "Also emit a recovered-tile matcher-debug sheet. This is not part of the "
+            "default human review workflow; it shows the per-cell canonical tile "
+            "recovery surface that the matcher would compare against source tiles."
+        ),
+    )
+    parser.add_argument(
+        "--recovered-tile-scale",
+        "--scale",
+        dest="recovered_tile_scale",
+        type=int,
+        default=4,
+        help="Scale factor for the optional recovered-tile matcher-debug sheet.",
+    )
     return parser.parse_args()
 
 def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
@@ -211,11 +497,26 @@ def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
         default=False,
     )
     guide_line_mode = read_guide_line_mode(args.guide_line_mode, config, "guide_line_mode")
+    guide_render_scale = read_int(args.guide_render_scale, config, "guide_render_scale")
+    transparent_grid_surface = read_bool(
+        args.transparent_grid_surface,
+        config,
+        "transparent_grid_surface",
+        default=False,
+    )
+    emit_recovered_tile_sheet = read_bool(
+        args.emit_recovered_tile_sheet,
+        config,
+        "emit_recovered_tile_sheet",
+        default=False,
+    )
     background = read_string(args.background, config, "background")
     zoom_cell = read_zoom_cell(args.zoom_cell, config, "zoom_cell")
-    scale = read_int(args.scale, config, "scale")
-    if scale is None:
-        scale = 4
+    recovered_tile_scale = read_int(args.recovered_tile_scale, config, "recovered_tile_scale")
+    if recovered_tile_scale is None:
+        recovered_tile_scale = read_int(args.recovered_tile_scale, config, "scale")
+    if recovered_tile_scale is None:
+        recovered_tile_scale = 4
 
     if image_path is None:
         raise ValueError("image is required")
@@ -223,6 +524,10 @@ def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
         raise ValueError("output_dir is required")
     if prefix is None:
         raise ValueError("prefix is required")
+    if guide_render_scale is None:
+        guide_render_scale = 1
+    if guide_render_scale <= 0:
+        raise ValueError("guide_render_scale must be positive")
     return GridRunSettings(
         image_path=image_path,
         output_dir=output_dir,
@@ -245,9 +550,12 @@ def resolve_grid_run_settings(args: argparse.Namespace) -> GridRunSettings:
         excluded_boxes=excluded_boxes,
         exclude_partial_edge_cells=exclude_partial_edge_cells,
         guide_line_mode=guide_line_mode,
+        guide_render_scale=guide_render_scale,
+        transparent_grid_surface=transparent_grid_surface,
+        emit_recovered_tile_sheet=emit_recovered_tile_sheet,
         background=background,
         zoom_cell=zoom_cell,
-        scale=scale,
+        recovered_tile_scale=recovered_tile_scale,
     )
 
 
@@ -389,7 +697,12 @@ def _max_intersecting_cells_within_limit(limit: int, origin: float, cell_size: f
 
 def resolve_background(image: Image.Image, background: str | None) -> RGBA:
     if background is None:
-        return cast(RGBA, image.convert("RGBA").getpixel((0, 0)))
+        sampled = cast(RGBA, image.convert("RGBA").getpixel((0, 0)))
+        if sampled[3] == 255:
+            return sampled
+        background_base = Image.new("RGBA", (1, 1), DEFAULT_GUIDE_BACKGROUND)
+        background_base.alpha_composite(Image.new("RGBA", (1, 1), sampled))
+        return cast(RGBA, background_base.getpixel((0, 0)))
     return cast(RGBA, ImageColor.getcolor(background, "RGBA"))
 
 
@@ -412,7 +725,7 @@ def extract_crop(
     ):
         return image.crop(extraction.crop_box)
     if background is None:
-        background = cast(RGBA, image.convert("RGBA").getpixel((0, 0)))
+        background = resolve_background(image, None)
     crop = Image.new("RGBA", (crop_right - crop_left, crop_bottom - crop_top), background)
     if image_left < image_right and image_top < image_bottom:
         cropped = image.crop((image_left, image_top, image_right, image_bottom))
@@ -910,106 +1223,117 @@ def _content_box_edge_offsets(
     return ((), tuple(offsets))
 
 
-def render_contact_sheet(
+def _crop_and_extraction_for_recovered_tile_grid(
     tile_grid: list[list[Image.Image]],
+    *,
     background: RGBA,
-    scale: int,
-    label_colour: RGBA = (218, 206, 185, 255),
-) -> Image.Image:
+) -> tuple[Image.Image, GridExtraction]:
     if not tile_grid or not tile_grid[0]:
         raise ValueError("tile grid must not be empty")
     rows = len(tile_grid)
     cols = len(tile_grid[0])
-    tile_size = tile_grid[0][0].width
-    pad = max(4, scale + 2)
-    left_margin = 42
-    top_margin = 30
-    canvas = Image.new(
-        "RGBA",
-        (
-            left_margin + cols * (tile_size * scale + pad) + pad,
-            top_margin + rows * (tile_size * scale + pad) + pad,
-        ),
-        background,
-    )
-    draw = ImageDraw.Draw(canvas)
-    font = ImageFont.load_default()
-    for col in range(cols):
-        label = str(col + 1)
-        center_x = left_margin + pad + col * (tile_size * scale + pad) + (tile_size * scale / 2)
-        _draw_centered_text(draw, label, center_x=center_x, center_y=11, fill=label_colour, font=font)
-    for row in range(rows):
-        label = str(row + 1)
-        center_y = top_margin + pad + row * (tile_size * scale + pad) + (tile_size * scale / 2)
-        _draw_centered_text(draw, label, center_x=11, center_y=center_y, fill=label_colour, font=font)
+    tile_width = tile_grid[0][0].width
+    tile_height = tile_grid[0][0].height
+    if tile_width != tile_height:
+        raise ValueError("tile grid cells must be square")
+    for row_tiles in tile_grid:
+        if len(row_tiles) != cols:
+            raise ValueError("tile grid rows must have a consistent width")
+        for tile in row_tiles:
+            if tile.width != tile_width or tile.height != tile_height:
+                raise ValueError("tile grid cells must all share the same size")
+
+    crop = Image.new("RGBA", (cols * tile_width, rows * tile_height), background)
     for row_index, row_tiles in enumerate(tile_grid):
         for col_index, tile in enumerate(row_tiles):
-            x = left_margin + pad + col_index * (tile_size * scale + pad)
-            y = top_margin + pad + row_index * (tile_size * scale + pad)
-            scaled_tile = resize_nearest(tile, (tile_size * scale, tile_size * scale))
-            canvas.alpha_composite(scaled_tile, (x, y))
-    return canvas
+            crop.alpha_composite(tile.convert("RGBA"), (col_index * tile_width, row_index * tile_height))
+
+    extraction = GridExtraction(
+        transform=GridTransform(
+            origin_x=0,
+            origin_y=0,
+            cell_size=tile_width,
+            tile_size=tile_width,
+        ),
+        columns=cols,
+        rows=rows,
+        crop_box=(0, 0, crop.width, crop.height),
+        x_edges=tuple(index * tile_width for index in range(cols + 1)),
+        y_edges=tuple(index * tile_height for index in range(rows + 1)),
+    )
+    return crop, extraction
 
 
 def _new_guide_canvas(
     *,
-    content_width: int,
-    content_height: int,
+    layout: GuideCanvasLayout,
     background: RGBA,
 ) -> tuple[Image.Image, int, int]:
-    left_margin = GUIDE_MARGIN
-    top_margin = GUIDE_MARGIN
-    right_margin = GUIDE_MARGIN
-    bottom_margin = GUIDE_MARGIN
     canvas = Image.new(
         "RGBA",
-        (
-            left_margin + content_width + right_margin + 1,
-            top_margin + content_height + bottom_margin + 1,
-        ),
+        (layout.canvas_width, layout.canvas_height),
         background,
     )
-    return canvas, left_margin, top_margin
+    return canvas, layout.left_margin, layout.top_margin
+
+
+def _clear_region(
+    canvas: Image.Image,
+    *,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+) -> None:
+    if right <= left or bottom <= top:
+        return
+    canvas.paste((0, 0, 0, 0), (left, top, right, bottom))
 
 
 def _draw_guide_labels(
     draw: ImageDraw.ImageDraw,
     extraction: GridExtraction,
     *,
+    layout: GuideCanvasLayout,
+    render_scale: int,
     guide_line_mode: GuideLineMode,
     left_margin: int,
     top_margin: int,
-    crop_width: int,
-    crop_height: int,
     label_colour: RGBA,
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
 ) -> None:
-    top_y = GUIDE_OUTER_PAD // 2
-    bottom_y = top_margin + crop_height + GUIDE_OUTER_PAD // 2
-    left_x = GUIDE_OUTER_PAD // 2
-    right_x = left_margin + crop_width + GUIDE_OUTER_PAD // 2
     x_edges = _guide_display_edges(
         extraction,
         axis="x",
         guide_line_mode=guide_line_mode,
         margin=left_margin,
+        render_scale=render_scale,
     )
     y_edges = _guide_display_edges(
         extraction,
         axis="y",
         guide_line_mode=guide_line_mode,
         margin=top_margin,
+        render_scale=render_scale,
     )
     for col in range(extraction.columns):
         label = str(col + 1)
         center_x = (x_edges[col] + x_edges[col + 1]) / 2
-        _draw_centered_text(draw, label, center_x=center_x, center_y=top_y + 5, fill=label_colour, font=font)
-        _draw_centered_text(draw, label, center_x=center_x, center_y=bottom_y + 5, fill=label_colour, font=font)
+        _draw_centered_text(
+            draw, label, center_x=center_x, center_y=layout.top_label_center_y, fill=label_colour, font=font
+        )
+        _draw_centered_text(
+            draw, label, center_x=center_x, center_y=layout.bottom_label_center_y, fill=label_colour, font=font
+        )
     for row in range(extraction.rows):
         label = str(row + 1)
         center_y = (y_edges[row] + y_edges[row + 1]) / 2
-        _draw_centered_text(draw, label, center_x=left_x + 5, center_y=center_y, fill=label_colour, font=font)
-        _draw_centered_text(draw, label, center_x=right_x + 5, center_y=center_y, fill=label_colour, font=font)
+        _draw_centered_text(
+            draw, label, center_x=layout.left_label_center_x, center_y=center_y, fill=label_colour, font=font
+        )
+        _draw_centered_text(
+            draw, label, center_x=layout.right_label_center_x, center_y=center_y, fill=label_colour, font=font
+        )
 
 
 def _draw_centered_text(
@@ -1022,13 +1346,33 @@ def _draw_centered_text(
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
 ) -> None:
     left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-    width = right - left
-    height = bottom - top
     draw.text(
-        (round(center_x - (width / 2)), round(center_y - (height / 2))),
+        _text_origin_for_centered_bbox(
+            left=int(left),
+            top=int(top),
+            right=int(right),
+            bottom=int(bottom),
+            center_x=center_x,
+            center_y=center_y,
+        ),
         text,
         fill=fill,
         font=font,
+    )
+
+
+def _text_origin_for_centered_bbox(
+    *,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+    center_x: float,
+    center_y: float,
+) -> tuple[int, int]:
+    return (
+        round(center_x - ((left + right) / 2)),
+        round(center_y - ((top + bottom) / 2)),
     )
 
 
@@ -1041,16 +1385,12 @@ def _draw_guide_border(
     crop_height: int,
     line_colour: RGBA,
 ) -> None:
-    draw.rectangle(
-        (
-            left_margin,
-            top_margin,
-            left_margin + crop_width,
-            top_margin + crop_height,
-        ),
-        outline=line_colour,
-        width=1,
-    )
+    right = left_margin + crop_width
+    bottom = top_margin + crop_height
+    draw.line((left_margin, top_margin, right, top_margin), fill=line_colour, width=1)
+    draw.line((left_margin, bottom, right, bottom), fill=line_colour, width=1)
+    draw.line((left_margin, top_margin, left_margin, bottom), fill=line_colour, width=1)
+    draw.line((right, top_margin, right, bottom), fill=line_colour, width=1)
 
 
 def _fill_region(
@@ -1078,7 +1418,10 @@ def _outline_region(
 ) -> None:
     if right <= left or bottom <= top:
         return
-    draw.rectangle((left, top, right - 1, bottom - 1), outline=outline, width=1)
+    draw.line((left, top, right, top), fill=outline, width=1)
+    draw.line((left, bottom, right, bottom), fill=outline, width=1)
+    draw.line((left, top, left, bottom), fill=outline, width=1)
+    draw.line((right, top, right, bottom), fill=outline, width=1)
 
 
 def _guide_display_edges(
@@ -1087,11 +1430,12 @@ def _guide_display_edges(
     axis: Literal["x", "y"],
     guide_line_mode: GuideLineMode,
     margin: int,
+    render_scale: int,
 ) -> tuple[int, ...]:
     edges = extraction.x_edges if axis == "x" else extraction.y_edges
     if guide_line_mode == "overlay":
-        return tuple(margin + edge for edge in edges)
-    return tuple(margin + 1 + edge + index for index, edge in enumerate(edges))
+        return tuple(margin + (edge * render_scale) for edge in edges)
+    return tuple(margin + 1 + (edge * render_scale) + index for index, edge in enumerate(edges))
 
 
 def _mapped_crop_coordinate_for_separated(
@@ -1100,10 +1444,11 @@ def _mapped_crop_coordinate_for_separated(
     *,
     axis: Literal["x", "y"],
     margin: int,
+    render_scale: int,
 ) -> int:
     edges = extraction.x_edges if axis == "x" else extraction.y_edges
     separators_before = sum(1 for edge in edges[1:-1] if edge < coordinate)
-    return margin + 1 + coordinate + separators_before
+    return margin + 1 + (coordinate * render_scale) + separators_before
 
 
 def _mapped_cell_origin_for_separated(
@@ -1113,17 +1458,18 @@ def _mapped_cell_origin_for_separated(
     *,
     left_margin: int,
     top_margin: int,
+    render_scale: int,
 ) -> tuple[int, int]:
     return (
-        left_margin + 1 + extraction.x_edges[col] + col,
-        top_margin + 1 + extraction.y_edges[row] + row,
+        left_margin + 1 + (extraction.x_edges[col] * render_scale) + col,
+        top_margin + 1 + (extraction.y_edges[row] * render_scale) + row,
     )
 
 
-def _grid_span_for_separated(extraction: GridExtraction) -> tuple[int, int]:
+def _grid_span_for_separated(extraction: GridExtraction, *, render_scale: int) -> tuple[int, int]:
     return (
-        extraction.x_edges[-1] + extraction.columns + 1,
-        extraction.y_edges[-1] + extraction.rows + 1,
+        (extraction.x_edges[-1] * render_scale) + extraction.columns + 1,
+        (extraction.y_edges[-1] * render_scale) + extraction.rows + 1,
     )
 
 
@@ -1133,16 +1479,35 @@ def render_exact_boundary_overlay(
     background: RGBA,
     relevant_boxes: tuple[Rect, ...] = (),
     excluded_boxes: tuple[Rect, ...] = (),
+    transparent_grid_surface: bool = False,
+    guide_render_scale: int = 1,
     line_colour: RGBA = (218, 206, 185, 180),
     label_colour: RGBA = (218, 206, 185, 255),
 ) -> Image.Image:
+    scaled_size = (crop.width * guide_render_scale, crop.height * guide_render_scale)
+    scaled_crop = resize_nearest(crop, scaled_size) if guide_render_scale != 1 else crop
+    scaled_relevant_boxes = _scale_rectangles(relevant_boxes, from_size=crop.size, to_size=scaled_size)
+    scaled_excluded_boxes = _scale_rectangles(excluded_boxes, from_size=crop.size, to_size=scaled_size)
+    chrome = _build_guide_chrome(extraction, render_scale=guide_render_scale)
+    layout = _build_guide_canvas_layout(
+        content_width=scaled_crop.width,
+        content_height=scaled_crop.height,
+        chrome=chrome,
+    )
     canvas, left_margin, top_margin = _new_guide_canvas(
-        content_width=crop.width,
-        content_height=crop.height,
+        layout=layout,
         background=background,
     )
-    canvas.alpha_composite(crop, (left_margin, top_margin))
-    for left, top, right, bottom in relevant_boxes:
+    if transparent_grid_surface:
+        _clear_region(
+            canvas,
+            left=left_margin,
+            top=top_margin,
+            right=left_margin + scaled_crop.width,
+            bottom=top_margin + scaled_crop.height,
+        )
+    canvas.alpha_composite(scaled_crop, (left_margin, top_margin))
+    for left, top, right, bottom in scaled_relevant_boxes:
         _fill_region(
             canvas,
             left=left_margin + left,
@@ -1151,7 +1516,7 @@ def render_exact_boundary_overlay(
             bottom=top_margin + bottom,
             fill=RELEVANT_FILL_COLOUR,
         )
-    for left, top, right, bottom in excluded_boxes:
+    for left, top, right, bottom in scaled_excluded_boxes:
         _fill_region(
             canvas,
             left=left_margin + left,
@@ -1161,33 +1526,37 @@ def render_exact_boundary_overlay(
             fill=EXCLUDED_FILL_COLOUR,
         )
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.load_default()
+    font, _, _, _ = _guide_font_for_extraction(
+        extraction,
+        target_label_height=chrome.target_label_height,
+        render_scale=guide_render_scale,
+    )
     for edge in extraction.x_edges:
-        x = left_margin + edge
-        draw.line((x, top_margin, x, top_margin + crop.height), fill=line_colour, width=1)
+        x = left_margin + (edge * guide_render_scale)
+        draw.line((x, top_margin, x, top_margin + scaled_crop.height), fill=line_colour, width=1)
     for edge in extraction.y_edges:
-        y = top_margin + edge
-        draw.line((left_margin, y, left_margin + crop.width, y), fill=line_colour, width=1)
+        y = top_margin + (edge * guide_render_scale)
+        draw.line((left_margin, y, left_margin + scaled_crop.width, y), fill=line_colour, width=1)
     _draw_guide_border(
         draw,
         left_margin=left_margin,
         top_margin=top_margin,
-        crop_width=crop.width,
-        crop_height=crop.height,
+        crop_width=scaled_crop.width,
+        crop_height=scaled_crop.height,
         line_colour=line_colour,
     )
     _draw_guide_labels(
         draw,
         extraction,
+        layout=layout,
+        render_scale=guide_render_scale,
         guide_line_mode="overlay",
         left_margin=left_margin,
         top_margin=top_margin,
-        crop_width=crop.width,
-        crop_height=crop.height,
         label_colour=label_colour,
         font=font,
     )
-    for left, top, right, bottom in excluded_boxes:
+    for left, top, right, bottom in scaled_excluded_boxes:
         _outline_region(
             draw,
             left=left_margin + left,
@@ -1205,10 +1574,16 @@ def render_gutter_overlay(
     background: RGBA,
     relevant_boxes: tuple[Rect, ...] = (),
     excluded_boxes: tuple[Rect, ...] = (),
-    guide_colour: RGBA = (218, 206, 185, 70),
+    transparent_grid_surface: bool = False,
+    guide_render_scale: int = 1,
+    guide_colour: RGBA | None = None,
     label_colour: RGBA = (218, 206, 185, 255),
     guide_line_mode: GuideLineMode = "separated",
 ) -> Image.Image:
+    resolved_guide_colour = guide_colour or _resolve_default_guide_line_colour(
+        extraction,
+        render_scale=guide_render_scale,
+    )
     if guide_line_mode == "separated":
         return _render_gutter_overlay_separated(
             crop=crop,
@@ -1216,7 +1591,9 @@ def render_gutter_overlay(
             background=background,
             relevant_boxes=relevant_boxes,
             excluded_boxes=excluded_boxes,
-            guide_colour=guide_colour,
+            transparent_grid_surface=transparent_grid_surface,
+            guide_render_scale=guide_render_scale,
+            guide_colour=resolved_guide_colour,
             label_colour=label_colour,
         )
     return _render_gutter_overlay_overlay(
@@ -1225,7 +1602,9 @@ def render_gutter_overlay(
         background=background,
         relevant_boxes=relevant_boxes,
         excluded_boxes=excluded_boxes,
-        guide_colour=guide_colour,
+        transparent_grid_surface=transparent_grid_surface,
+        guide_render_scale=guide_render_scale,
+        guide_colour=resolved_guide_colour,
         label_colour=label_colour,
     )
 
@@ -1237,15 +1616,30 @@ def _render_gutter_overlay_separated(
     background: RGBA,
     relevant_boxes: tuple[Rect, ...],
     excluded_boxes: tuple[Rect, ...],
+    transparent_grid_surface: bool,
+    guide_render_scale: int,
     guide_colour: RGBA,
     label_colour: RGBA,
 ) -> Image.Image:
-    grid_width, grid_height = _grid_span_for_separated(extraction)
-    canvas, left_margin, top_margin = _new_guide_canvas(
+    grid_width, grid_height = _grid_span_for_separated(extraction, render_scale=guide_render_scale)
+    chrome = _build_guide_chrome(extraction, render_scale=guide_render_scale)
+    layout = _build_guide_canvas_layout(
         content_width=grid_width,
         content_height=grid_height,
+        chrome=chrome,
+    )
+    canvas, left_margin, top_margin = _new_guide_canvas(
+        layout=layout,
         background=background,
     )
+    if transparent_grid_surface:
+        _clear_region(
+            canvas,
+            left=left_margin,
+            top=top_margin,
+            right=left_margin + grid_width,
+            bottom=top_margin + grid_height,
+        )
     for row in range(extraction.rows):
         for col in range(extraction.columns):
             x0 = extraction.x_edges[col]
@@ -1253,20 +1647,47 @@ def _render_gutter_overlay_separated(
             y0 = extraction.y_edges[row]
             y1 = extraction.y_edges[row + 1]
             cell = crop.crop((x0, y0, x1, y1))
+            if guide_render_scale != 1:
+                cell = resize_nearest(cell, ((x1 - x0) * guide_render_scale, (y1 - y0) * guide_render_scale))
             cell_left, cell_top = _mapped_cell_origin_for_separated(
                 extraction,
                 col,
                 row,
                 left_margin=left_margin,
                 top_margin=top_margin,
+                render_scale=guide_render_scale,
             )
             canvas.alpha_composite(cell, (cell_left, cell_top))
 
     for left, top, right, bottom in relevant_boxes:
-        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        mapped_left = _mapped_crop_coordinate_for_separated(
+            extraction,
+            left,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_top = _mapped_crop_coordinate_for_separated(
+            extraction,
+            top,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_right = _mapped_crop_coordinate_for_separated(
+            extraction,
+            right,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_bottom = _mapped_crop_coordinate_for_separated(
+            extraction,
+            bottom,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
         _fill_region(
             canvas,
             left=mapped_left,
@@ -1276,10 +1697,34 @@ def _render_gutter_overlay_separated(
             fill=RELEVANT_FILL_COLOUR,
         )
     for left, top, right, bottom in excluded_boxes:
-        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        mapped_left = _mapped_crop_coordinate_for_separated(
+            extraction,
+            left,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_top = _mapped_crop_coordinate_for_separated(
+            extraction,
+            top,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_right = _mapped_crop_coordinate_for_separated(
+            extraction,
+            right,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_bottom = _mapped_crop_coordinate_for_separated(
+            extraction,
+            bottom,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
         _fill_region(
             canvas,
             left=mapped_left,
@@ -1292,11 +1737,11 @@ def _render_gutter_overlay_separated(
     draw = ImageDraw.Draw(canvas)
     for col in range(1, extraction.columns):
         edge = extraction.x_edges[col]
-        x = left_margin + edge + col
+        x = left_margin + (edge * guide_render_scale) + col
         draw.line((x, top_margin, x, top_margin + grid_height - 1), fill=guide_colour, width=1)
     for row in range(1, extraction.rows):
         edge = extraction.y_edges[row]
-        y = top_margin + edge + row
+        y = top_margin + (edge * guide_render_scale) + row
         draw.line((left_margin, y, left_margin + grid_width - 1, y), fill=guide_colour, width=1)
 
     _draw_guide_border(
@@ -1305,25 +1750,53 @@ def _render_gutter_overlay_separated(
         top_margin=top_margin,
         crop_width=grid_width - 1,
         crop_height=grid_height - 1,
-        line_colour=label_colour,
+        line_colour=guide_colour,
     )
-    font = ImageFont.load_default()
+    font, _, _, _ = _guide_font_for_extraction(
+        extraction,
+        target_label_height=chrome.target_label_height,
+        render_scale=guide_render_scale,
+    )
     _draw_guide_labels(
         draw,
         extraction,
+        layout=layout,
+        render_scale=guide_render_scale,
         guide_line_mode="separated",
         left_margin=left_margin,
         top_margin=top_margin,
-        crop_width=grid_width - 1,
-        crop_height=grid_height - 1,
         label_colour=label_colour,
         font=font,
     )
     for left, top, right, bottom in excluded_boxes:
-        mapped_left = _mapped_crop_coordinate_for_separated(extraction, left, axis="x", margin=left_margin)
-        mapped_top = _mapped_crop_coordinate_for_separated(extraction, top, axis="y", margin=top_margin)
-        mapped_right = _mapped_crop_coordinate_for_separated(extraction, right, axis="x", margin=left_margin)
-        mapped_bottom = _mapped_crop_coordinate_for_separated(extraction, bottom, axis="y", margin=top_margin)
+        mapped_left = _mapped_crop_coordinate_for_separated(
+            extraction,
+            left,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_top = _mapped_crop_coordinate_for_separated(
+            extraction,
+            top,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_right = _mapped_crop_coordinate_for_separated(
+            extraction,
+            right,
+            axis="x",
+            margin=left_margin,
+            render_scale=guide_render_scale,
+        )
+        mapped_bottom = _mapped_crop_coordinate_for_separated(
+            extraction,
+            bottom,
+            axis="y",
+            margin=top_margin,
+            render_scale=guide_render_scale,
+        )
         _outline_region(
             draw,
             left=mapped_left,
@@ -1342,17 +1815,36 @@ def _render_gutter_overlay_overlay(
     background: RGBA,
     relevant_boxes: tuple[Rect, ...],
     excluded_boxes: tuple[Rect, ...],
+    transparent_grid_surface: bool,
+    guide_render_scale: int,
     guide_colour: RGBA,
     label_colour: RGBA,
 ) -> Image.Image:
     content_box = extraction.transform.content_box
+    scaled_size = (crop.width * guide_render_scale, crop.height * guide_render_scale)
+    scaled_crop = resize_nearest(crop, scaled_size) if guide_render_scale != 1 else crop
+    scaled_relevant_boxes = _scale_rectangles(relevant_boxes, from_size=crop.size, to_size=scaled_size)
+    scaled_excluded_boxes = _scale_rectangles(excluded_boxes, from_size=crop.size, to_size=scaled_size)
+    chrome = _build_guide_chrome(extraction, render_scale=guide_render_scale)
+    layout = _build_guide_canvas_layout(
+        content_width=scaled_crop.width,
+        content_height=scaled_crop.height,
+        chrome=chrome,
+    )
     canvas, left_margin, top_margin = _new_guide_canvas(
-        content_width=crop.width,
-        content_height=crop.height,
+        layout=layout,
         background=background,
     )
-    canvas.alpha_composite(crop, (left_margin, top_margin))
-    for left, top, right, bottom in relevant_boxes:
+    if transparent_grid_surface:
+        _clear_region(
+            canvas,
+            left=left_margin,
+            top=top_margin,
+            right=left_margin + scaled_crop.width,
+            bottom=top_margin + scaled_crop.height,
+        )
+    canvas.alpha_composite(scaled_crop, (left_margin, top_margin))
+    for left, top, right, bottom in scaled_relevant_boxes:
         _fill_region(
             canvas,
             left=left_margin + left,
@@ -1361,7 +1853,7 @@ def _render_gutter_overlay_overlay(
             bottom=top_margin + bottom,
             fill=RELEVANT_FILL_COLOUR,
         )
-    for left, top, right, bottom in excluded_boxes:
+    for left, top, right, bottom in scaled_excluded_boxes:
         _fill_region(
             canvas,
             left=left_margin + left,
@@ -1373,14 +1865,14 @@ def _render_gutter_overlay_overlay(
     line_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(line_layer)
     if content_box is None:
-        gutter = extraction.transform.gutter_size
+        gutter = extraction.transform.gutter_size * guide_render_scale
         for col in range(extraction.columns):
-            cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
-            x = left_margin + extraction.x_edges[col] + max(0, cell_width - gutter)
-            draw.line((x, top_margin, x, top_margin + crop.height), fill=guide_colour, width=1)
+            cell_width = (extraction.x_edges[col + 1] - extraction.x_edges[col]) * guide_render_scale
+            x = left_margin + (extraction.x_edges[col] * guide_render_scale) + max(0, cell_width - gutter)
+            draw.line((x, top_margin, x, top_margin + scaled_crop.height), fill=guide_colour, width=1)
         for row in range(extraction.rows):
-            y = top_margin + extraction.y_edges[row] + max(0, gutter - 1)
-            draw.line((left_margin, y, left_margin + crop.width, y), fill=guide_colour, width=1)
+            y = top_margin + (extraction.y_edges[row] * guide_render_scale) + max(0, gutter - 1)
+            draw.line((left_margin, y, left_margin + scaled_crop.width, y), fill=guide_colour, width=1)
     else:
         for col in range(extraction.columns):
             cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
@@ -1391,8 +1883,8 @@ def _render_gutter_overlay_overlay(
                 axis="x",
             )
             for offset in vertical_offsets:
-                x = left_margin + extraction.x_edges[col] + offset
-                draw.line((x, top_margin, x, top_margin + crop.height), fill=guide_colour, width=1)
+                x = left_margin + (extraction.x_edges[col] * guide_render_scale) + (offset * guide_render_scale)
+                draw.line((x, top_margin, x, top_margin + scaled_crop.height), fill=guide_colour, width=1)
         for row in range(extraction.rows):
             cell_height = extraction.y_edges[row + 1] - extraction.y_edges[row]
             _, horizontal_offsets = _content_box_edge_offsets(
@@ -1402,31 +1894,35 @@ def _render_gutter_overlay_overlay(
                 axis="y",
             )
             for offset in horizontal_offsets:
-                y = top_margin + extraction.y_edges[row] + offset
-                draw.line((left_margin, y, left_margin + crop.width, y), fill=guide_colour, width=1)
+                y = top_margin + (extraction.y_edges[row] * guide_render_scale) + (offset * guide_render_scale)
+                draw.line((left_margin, y, left_margin + scaled_crop.width, y), fill=guide_colour, width=1)
     canvas.alpha_composite(line_layer)
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.load_default()
+    font, _, _, _ = _guide_font_for_extraction(
+        extraction,
+        target_label_height=chrome.target_label_height,
+        render_scale=guide_render_scale,
+    )
     _draw_guide_border(
         draw,
         left_margin=left_margin,
         top_margin=top_margin,
-        crop_width=crop.width,
-        crop_height=crop.height,
-        line_colour=label_colour,
+        crop_width=scaled_crop.width,
+        crop_height=scaled_crop.height,
+        line_colour=guide_colour,
     )
     _draw_guide_labels(
         draw,
         extraction,
+        layout=layout,
+        render_scale=guide_render_scale,
         guide_line_mode="overlay",
         left_margin=left_margin,
         top_margin=top_margin,
-        crop_width=crop.width,
-        crop_height=crop.height,
         label_colour=label_colour,
         font=font,
     )
-    for left, top, right, bottom in excluded_boxes:
+    for left, top, right, bottom in scaled_excluded_boxes:
         _outline_region(
             draw,
             left=left_margin + left,
@@ -1444,12 +1940,14 @@ def render_zoom(
     cell: tuple[int, int],
     *,
     guide_line_mode: GuideLineMode,
+    guide_render_scale: int = 1,
 ) -> Image.Image:
     col, row = cell
     if not (0 <= col < extraction.columns and 0 <= row < extraction.rows):
         raise ValueError("zoom cell lies outside the extracted grid")
-    left_margin = GUIDE_MARGIN
-    top_margin = GUIDE_MARGIN
+    chrome = _build_guide_chrome(extraction, render_scale=guide_render_scale)
+    left_margin = chrome.margin
+    top_margin = chrome.margin
     if guide_line_mode == "separated":
         cell_left, cell_top = _mapped_cell_origin_for_separated(
             extraction,
@@ -1457,20 +1955,21 @@ def render_zoom(
             row,
             left_margin=left_margin,
             top_margin=top_margin,
+            render_scale=guide_render_scale,
         )
-        cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
-        cell_height = extraction.y_edges[row + 1] - extraction.y_edges[row]
+        cell_width = (extraction.x_edges[col + 1] - extraction.x_edges[col]) * guide_render_scale
+        cell_height = (extraction.y_edges[row + 1] - extraction.y_edges[row]) * guide_render_scale
         x0 = cell_left
         y0 = cell_top
         x1 = cell_left + cell_width
         y1 = cell_top + cell_height
     else:
-        cell_width = extraction.x_edges[col + 1] - extraction.x_edges[col]
-        cell_height = extraction.y_edges[row + 1] - extraction.y_edges[row]
-        x0 = left_margin + extraction.x_edges[col]
-        y0 = top_margin + extraction.y_edges[row]
-        x1 = left_margin + extraction.x_edges[col + 1]
-        y1 = top_margin + extraction.y_edges[row + 1]
+        cell_width = (extraction.x_edges[col + 1] - extraction.x_edges[col]) * guide_render_scale
+        cell_height = (extraction.y_edges[row + 1] - extraction.y_edges[row]) * guide_render_scale
+        x0 = left_margin + (extraction.x_edges[col] * guide_render_scale)
+        y0 = top_margin + (extraction.y_edges[row] * guide_render_scale)
+        x1 = left_margin + (extraction.x_edges[col + 1] * guide_render_scale)
+        y1 = top_margin + (extraction.y_edges[row + 1] * guide_render_scale)
     pad_x = cell_width // 2
     pad_y = cell_height // 2
     x0 -= pad_x
@@ -1520,10 +2019,21 @@ def save_outputs(args: argparse.Namespace) -> list[Path]:
         prepared_for_outputs.crop.save(normalized_path)
         outputs.append(normalized_path)
 
-    contact_sheet = render_contact_sheet(tile_grid, background, scale=settings.scale)
-    contact_path = settings.output_dir / f"{settings.prefix}_contact_sheet.png"
-    contact_sheet.save(contact_path)
-    outputs.append(contact_path)
+    if settings.emit_recovered_tile_sheet:
+        recovered_tile_crop, recovered_tile_extraction = _crop_and_extraction_for_recovered_tile_grid(
+            tile_grid,
+            background=background,
+        )
+        recovered_tile_sheet = render_gutter_overlay(
+            recovered_tile_crop,
+            recovered_tile_extraction,
+            background,
+            guide_render_scale=settings.recovered_tile_scale,
+            guide_line_mode="separated",
+        )
+        recovered_tile_path = settings.output_dir / f"{settings.prefix}_recovered_tile_sheet.png"
+        recovered_tile_sheet.save(recovered_tile_path)
+        outputs.append(recovered_tile_path)
 
     exact_overlay = render_exact_boundary_overlay(
         prepared_for_outputs.crop,
@@ -1531,6 +2041,8 @@ def save_outputs(args: argparse.Namespace) -> list[Path]:
         background,
         relevant_boxes=prepared_for_outputs.relevant_boxes,
         excluded_boxes=prepared_for_outputs.excluded_boxes,
+        transparent_grid_surface=settings.transparent_grid_surface,
+        guide_render_scale=settings.guide_render_scale,
     )
     exact_path = settings.output_dir / f"{settings.prefix}_exact_boundary.png"
     exact_overlay.save(exact_path)
@@ -1542,6 +2054,8 @@ def save_outputs(args: argparse.Namespace) -> list[Path]:
         background,
         relevant_boxes=prepared_for_outputs.relevant_boxes,
         excluded_boxes=prepared_for_outputs.excluded_boxes,
+        transparent_grid_surface=settings.transparent_grid_surface,
+        guide_render_scale=settings.guide_render_scale,
         guide_line_mode=settings.guide_line_mode,
     )
     gutter_path = settings.output_dir / f"{settings.prefix}_gutter_guides.png"
@@ -1558,6 +2072,7 @@ def save_outputs(args: argparse.Namespace) -> list[Path]:
             prepared_for_outputs.extraction,
             settings.zoom_cell,
             guide_line_mode=settings.guide_line_mode,
+            guide_render_scale=settings.guide_render_scale,
         )
         zoom_path = settings.output_dir / f"{settings.prefix}_zoom_c{settings.zoom_cell[0]}_r{settings.zoom_cell[1]}.png"
         zoom.save(zoom_path)
