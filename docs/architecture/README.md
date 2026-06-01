@@ -85,12 +85,12 @@ See [docs/architecture/decisions/README.md](decisions/README.md).
 ## Related Notes
 
 - [Minimal 8 Source-Sheet Notes](minimal8-source-sheet-notes.md) — sheet-level facts captured during Minimal 8 ingestion.
-- [Runtime Tile Genesis and Provenance](runtime-tile-genesis-and-provenance.md) — runtime-owned provenance model for tracing resolved tiles and scene stamps back to their promoted source genesis without reopening ingest-time files.
+- [Runtime Tile Genesis and Provenance](decisions/0005-runtime-tile-genesis-and-provenance.md) (ADR 0005) — runtime-owned provenance model for tracing resolved tiles and scene stamps back to their promoted source genesis without reopening ingest-time files.
 - [Source-Sheet Ingestion Model](source-sheet-ingestion-model.md) — separation between source-sheet layout and tile semantics.
 
 ## Operator Surfaces
 
-The operator-facing split should now be read the same way as the code split:
+The operator surface is split (`source_ingest.py` is the entrypoint), but the implementation boundary is not complete — the ingest function bodies still reside in `minimal8_harness.py`. The operator-facing split should be read as follows:
 
 - source-side ingest and review work starts from [scripts/source_ingest.py](../../scripts/source_ingest.py), [scripts/reference_grid.py](../../scripts/reference_grid.py), and [scripts/reference_tile_match.py](../../scripts/reference_tile_match.py)
 - runtime/composition work starts from [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) and the scene/layout artefacts it renders

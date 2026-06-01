@@ -17,11 +17,15 @@ if str(SCRIPTS_DIR) not in sys.path:
 import minimal8_harness as harness
 import scene_templates
 from tile_families import (
+    Construction,
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
     EntityTemplateRecord,
+    FrameCornerSlot,
+    FrameSlot,
     GridBounds,
     MetatileConstruction,
+    ParametricFrameConstruction,
     ParametricRunConstruction,
     TileRecord,
     entity_template_from_construction,
@@ -1182,14 +1186,14 @@ def _make_tile_record(tile_id: str) -> TileRecord:
 class _FakeFamily:
     def __init__(
         self,
-        constructions: dict[str, MetatileConstruction | ParametricRunConstruction],
+        constructions: dict[str, Construction],
         *,
         attachment_sets: dict[str, tuple[ConstructionAttachmentSet, ...]] | None = None,
     ) -> None:
         self._constructions = constructions
         self._attachment_sets = attachment_sets or {}
 
-    def lookup_construction(self, construction_id: str) -> MetatileConstruction | ParametricRunConstruction | None:
+    def lookup_construction(self, construction_id: str) -> Construction | None:
         return self._constructions.get(construction_id)
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
@@ -1830,6 +1834,199 @@ class PlaceSceneTests(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 harness.load_scene_template_library(Path(tmpdir), str(templates_dir))
             self.assertIn("cycle", str(ctx.exception).lower())
+
+
+def _make_frame_construction(
+    *,
+    with_edges: bool = True,
+    with_fill: bool = True,
+    corners: tuple[str, ...] = ("tl", "tr", "bl", "br"),
+    min_width: int = 2,
+    min_height: int = 2,
+) -> ParametricFrameConstruction:
+    def _tile(role: str) -> TileRecord:
+        return _make_tile_record(f"testfam:all:{role}")
+
+    corner_map = {f"corner_{c}": FrameCornerSlot(cells=((_tile(f"corner_{c}"),),)) for c in corners}
+    edges: dict[str, FrameSlot] = {}
+    if with_edges:
+        for edge in ("top", "bottom", "left", "right"):
+            edges[f"edge_{edge}"] = FrameSlot(tile=_tile(f"edge_{edge}"))
+    fill = FrameSlot(tile=_tile("fill")) if with_fill else None
+    return ParametricFrameConstruction(
+        id="test.frame.kit",
+        collection_id="test.frame",
+        corners=corner_map,
+        edges=edges,
+        fill=fill,
+        min_width=min_width,
+        min_height=min_height,
+    )
+
+
+class FrameOpExpandStampsTests(unittest.TestCase):
+    def _expand(self, construction: ParametricFrameConstruction, **params: int) -> dict[tuple[int, int], str]:
+        family = _FakeFamily({"test.frame.kit": construction})
+        stamps = harness.expand_entity_stamps(
+            family,  # type: ignore[arg-type]
+            "test.frame.kit",
+            x=0,
+            y=0,
+            context="frame test",
+            params=cast("dict[str, object]", params),
+        )
+        return {(s["x"], s["y"]): cast(str, s["ref"]) for s in stamps}
+
+    def test_full_frame_places_corners_edges_and_fill(self) -> None:
+        cells = self._expand(_make_frame_construction(), width=4, height=3)
+        self.assertEqual(len(cells), 12)
+        # corners
+        self.assertEqual(cells[(0, 0)], "testfam:all:corner_tl")
+        self.assertEqual(cells[(3, 0)], "testfam:all:corner_tr")
+        self.assertEqual(cells[(0, 2)], "testfam:all:corner_bl")
+        self.assertEqual(cells[(3, 2)], "testfam:all:corner_br")
+        # edges tile between corners
+        self.assertEqual(cells[(1, 0)], "testfam:all:edge_top")
+        self.assertEqual(cells[(2, 0)], "testfam:all:edge_top")
+        self.assertEqual(cells[(1, 2)], "testfam:all:edge_bottom")
+        self.assertEqual(cells[(0, 1)], "testfam:all:edge_left")
+        self.assertEqual(cells[(3, 1)], "testfam:all:edge_right")
+        # interior fill
+        self.assertEqual(cells[(1, 1)], "testfam:all:fill")
+        self.assertEqual(cells[(2, 1)], "testfam:all:fill")
+
+    def test_minimum_2x2_frame_is_corners_only(self) -> None:
+        cells = self._expand(_make_frame_construction(), width=2, height=2)
+        self.assertEqual(
+            cells,
+            {
+                (0, 0): "testfam:all:corner_tl",
+                (1, 0): "testfam:all:corner_tr",
+                (0, 1): "testfam:all:corner_bl",
+                (1, 1): "testfam:all:corner_br",
+            },
+        )
+
+    def test_corner_only_kit_skips_blank_edge_and_fill_slots(self) -> None:
+        construction = _make_frame_construction(with_edges=False, with_fill=False)
+        cells = self._expand(construction, width=5, height=4)
+        self.assertEqual(
+            cells,
+            {
+                (0, 0): "testfam:all:corner_tl",
+                (4, 0): "testfam:all:corner_tr",
+                (0, 3): "testfam:all:corner_bl",
+                (4, 3): "testfam:all:corner_br",
+            },
+        )
+
+    def test_border_only_frame_leaves_interior_transparent(self) -> None:
+        construction = _make_frame_construction(with_fill=False)
+        cells = self._expand(construction, width=4, height=4)
+        # no fill emitted in the interior; the border still renders
+        self.assertNotIn((1, 1), cells)
+        self.assertNotIn((2, 2), cells)
+        self.assertEqual(cells[(0, 0)], "testfam:all:corner_tl")
+        self.assertEqual(cells[(1, 0)], "testfam:all:edge_top")
+
+    def test_below_minimum_dimensions_raise(self) -> None:
+        construction = _make_frame_construction(min_width=2, min_height=2)
+        with self.assertRaisesRegex(ValueError, "width >= 2"):
+            self._expand(construction, width=1, height=3)
+
+    def test_missing_dimension_params_raise(self) -> None:
+        construction = _make_frame_construction()
+        with self.assertRaisesRegex(ValueError, "requires"):
+            self._expand(construction, width=4)
+
+    def test_flip_derived_corners_emit_flipped_stamp_refs(self) -> None:
+        tile = _make_tile_record("testfam:all:corner")
+        construction = ParametricFrameConstruction(
+            id="t.flip",
+            collection_id="t.flip",
+            corners={
+                "corner_tl": FrameCornerSlot(cells=((tile,),)),
+                "corner_tr": FrameCornerSlot(cells=((tile,),), flip_x=True),
+                "corner_bl": FrameCornerSlot(cells=((tile,),), flip_y=True),
+                "corner_br": FrameCornerSlot(cells=((tile,),), flip_x=True, flip_y=True),
+            },
+            edges={},
+        )
+        family = _FakeFamily({"t.flip": construction})
+        stamps = harness.expand_entity_stamps(
+            family, "t.flip", x=0, y=0, context="t", params={"width": 4, "height": 3}  # type: ignore[arg-type]
+        )
+        by_pos = {(s["x"], s["y"]): s["ref"] for s in stamps}
+        self.assertEqual(by_pos[(0, 0)], "testfam:all:corner")  # tl unflipped → plain str
+        self.assertEqual(by_pos[(3, 0)], {"ref": "testfam:all:corner", "flip_x": True, "flip_y": False})
+        self.assertEqual(by_pos[(0, 2)], {"ref": "testfam:all:corner", "flip_x": False, "flip_y": True})
+        self.assertEqual(by_pos[(3, 2)], {"ref": "testfam:all:corner", "flip_x": True, "flip_y": True})
+
+    def test_flip_derived_edges_emit_flipped_stamp_refs(self) -> None:
+        corner = _make_tile_record("testfam:all:corner")
+        h_edge = _make_tile_record("testfam:all:h")
+        v_edge = _make_tile_record("testfam:all:v")
+        construction = ParametricFrameConstruction(
+            id="t.edgeflip",
+            collection_id="t.edgeflip",
+            corners={
+                "corner_tl": FrameCornerSlot(cells=((corner,),)),
+                "corner_tr": FrameCornerSlot(cells=((corner,),), flip_x=True),
+                "corner_bl": FrameCornerSlot(cells=((corner,),), flip_y=True),
+                "corner_br": FrameCornerSlot(cells=((corner,),), flip_x=True, flip_y=True),
+            },
+            edges={
+                "edge_top": FrameSlot(tile=h_edge),
+                "edge_bottom": FrameSlot(tile=h_edge, flip_y=True),  # derives from top
+                "edge_left": FrameSlot(tile=v_edge),
+                "edge_right": FrameSlot(tile=v_edge, flip_x=True),  # derives from left
+            },
+        )
+        family = _FakeFamily({"t.edgeflip": construction})
+        stamps = harness.expand_entity_stamps(
+            family, "t.edgeflip", x=0, y=0, context="t", params={"width": 3, "height": 3}  # type: ignore[arg-type]
+        )
+        by_pos = {(s["x"], s["y"]): s["ref"] for s in stamps}
+        self.assertEqual(by_pos[(1, 0)], "testfam:all:h")  # top edge unflipped
+        self.assertEqual(by_pos[(1, 2)], {"ref": "testfam:all:h", "flip_x": False, "flip_y": True})  # bottom
+        self.assertEqual(by_pos[(0, 1)], "testfam:all:v")  # left edge unflipped
+        self.assertEqual(by_pos[(2, 1)], {"ref": "testfam:all:v", "flip_x": True, "flip_y": False})  # right
+
+    def test_fat_2x2_corners_place_blocks_with_flip(self) -> None:
+        def t(name: str) -> TileRecord:
+            return _make_tile_record(f"testfam:all:{name}")
+
+        def block(*, flip_x: bool = False, flip_y: bool = False) -> FrameCornerSlot:
+            return FrameCornerSlot(cells=((t("a"), t("b")), (t("c"), t("d"))), flip_x=flip_x, flip_y=flip_y)
+
+        construction = ParametricFrameConstruction(
+            id="t.fat",
+            collection_id="t.fat",
+            corners={
+                "corner_tl": block(),
+                "corner_tr": block(flip_x=True),
+                "corner_bl": block(flip_y=True),
+                "corner_br": block(flip_x=True, flip_y=True),
+            },
+            edges={},
+            min_width=4,
+            min_height=4,
+        )
+        family = _FakeFamily({"t.fat": construction})
+        stamps = harness.expand_entity_stamps(
+            family, "t.fat", x=0, y=0, context="t", params={"width": 4, "height": 4}  # type: ignore[arg-type]
+        )
+        by_pos = {(s["x"], s["y"]): s["ref"] for s in stamps}
+        # tl block (unflipped) fills its 2x2
+        self.assertEqual(by_pos[(0, 0)], "testfam:all:a")
+        self.assertEqual(by_pos[(1, 0)], "testfam:all:b")
+        self.assertEqual(by_pos[(0, 1)], "testfam:all:c")
+        self.assertEqual(by_pos[(1, 1)], "testfam:all:d")
+        # tr block anchored at x=2, mirrored on x: column order reversed + each tile flipped_x
+        self.assertEqual(by_pos[(2, 0)], {"ref": "testfam:all:b", "flip_x": True, "flip_y": False})
+        self.assertEqual(by_pos[(3, 0)], {"ref": "testfam:all:a", "flip_x": True, "flip_y": False})
+        # 4 corners x 4 cells, no room for edges/fill at the 4x4 minimum
+        self.assertEqual(len(stamps), 16)
 
 
 if __name__ == "__main__":

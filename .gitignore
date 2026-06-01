@@ -30,6 +30,10 @@ scratch.local/
 # transient prototype renders and archive snapshots
 prototypes/minimal8-harness/generated/
 
+# generated inspect-family guide artefacts (must not be committed into family dirs)
+prototypes/minimal8-harness/tile-families/**/sheet_grid.png
+prototypes/minimal8-harness/tile-families/**/source_layout*.png
+
 # canary receipts (transient pre-commit log)
 .canary--pre-commit
 

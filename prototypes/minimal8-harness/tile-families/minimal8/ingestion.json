@@ -438,7 +438,7 @@
       "kind": "kit",
       "label": "Gold frame border kit",
       "source_region_id": "ui.column_4",
-      "source_cluster_id": "ui.column_4.cluster_02",
+      "source_cluster_id": "ui.column_4.cluster_01",
       "bounds": {
         "x": 55,
         "y": 4,

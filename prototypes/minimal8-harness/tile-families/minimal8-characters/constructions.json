@@ -221,8 +221,12 @@
           }
         ],
         [
-          ".",
-          "."
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
         ]
       ]
     },

@@ -20,6 +20,7 @@ from tile_families import (
     ConstructionAttachmentSetConfig,
     ConstructionValidationError,
     MetatileConstruction,
+    ParametricFrameConstruction,
     ParametricRunConstruction,
     ParametricRunConstructionConfig,
     TileFamily,
@@ -953,6 +954,51 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
             }.issubset(set(table_collection.constructions))
         )
 
+    def test_ui_gold_frame_collection_is_tagged_cluster_01(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        assert family.source_layout is not None
+        gold_frame = family.source_layout.source_collections["ui.gold_frame"]
+        # ui.gold_frame occupies sheet rows 4-6, which fall inside
+        # ui.column_4.cluster_01 (rows 4-15), not cluster_02 (rows 17-18).
+        self.assertEqual(gold_frame.source_cluster_id, "ui.column_4.cluster_01")
+
+    def test_head_study_spare_03_construction_is_full_2x2(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8-characters")
+        construction = family.constructions["head_study.head.spare_03"]
+        assert isinstance(construction, MetatileConstruction)
+        self.assertEqual(len(construction.cells), 2)
+        self.assertEqual(len(construction.cells[1]), 2)
+        self.assertIsNotNone(construction.cells[1][0])
+        self.assertIsNotNone(construction.cells[1][1])
+        roles = {
+            cell.compose_role
+            for row in construction.cells
+            for cell in row
+            if cell is not None
+        }
+        self.assertEqual(roles, {"top_left", "top_right", "bottom_left", "bottom_right"})
+
+    def test_ui_border_kits_have_complete_compose_role_bindings(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        roles_by_kit: dict[str, set[str]] = {}
+        for tile in family.tiles.values():
+            group = tile.compose_group
+            if group is not None and group.startswith("ui.frame."):
+                self.assertIsNotNone(tile.compose_role, f"{tile.id} has compose_group but no compose_role")
+                assert tile.compose_role is not None
+                roles_by_kit.setdefault(group, set()).add(tile.compose_role)
+        full_frame = {
+            "corner_tl", "corner_tr", "corner_bl", "corner_br",
+            "edge_top", "edge_bottom", "edge_left", "edge_right", "fill",
+        }
+        corners_only = {"corner_tl", "corner_tr", "corner_bl", "corner_br"}
+        self.assertEqual(roles_by_kit.get("ui.frame.gold.gap"), full_frame)
+        self.assertEqual(roles_by_kit.get("ui.frame.gold.smooth"), full_frame)
+        self.assertEqual(roles_by_kit.get("ui.frame.less_ornate.gap"), full_frame)
+        self.assertEqual(roles_by_kit.get("ui.frame.less_ornate.smooth"), full_frame)
+        self.assertEqual(roles_by_kit.get("ui.frame.gold.simple"), corners_only)
+        self.assertEqual(roles_by_kit.get("ui.frame.panel.smooth"), corners_only)
+
     def test_minimal8_source_layout_coverage_is_complete(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
         assert family.source_layout is not None
@@ -1842,6 +1888,94 @@ class ParametricRunValidationTests(unittest.TestCase):
             self.assertIsNotNone(construction.start_tile)
             self.assertIsNotNone(construction.repeat_tile)
             self.assertIsNotNone(construction.end_tile)
+
+
+class ParametricFrameConstructionBuildTests(unittest.TestCase):
+    def _frame_tiles(self) -> dict[str, TileRecord]:
+        group = "ui.frame.gold.smooth"
+        return _make_tiles_dict(
+            _make_tile("t:tl", compose_group=group, compose_role="corner_tl"),
+            _make_tile("t:tr", compose_group=group, compose_role="corner_tr"),
+            _make_tile("t:bl", compose_group=group, compose_role="corner_bl"),
+            _make_tile("t:br", compose_group=group, compose_role="corner_br"),
+            _make_tile("t:top", compose_group=group, compose_role="edge_top"),
+            _make_tile("t:bottom", compose_group=group, compose_role="edge_bottom"),
+            _make_tile("t:left", compose_group=group, compose_role="edge_left"),
+            _make_tile("t:right", compose_group=group, compose_role="edge_right"),
+            _make_tile("t:fill", compose_group=group, compose_role="fill"),
+        )
+
+    def _full_raw(self) -> dict[str, object]:
+        return {
+            "id": "ui.frame.gold.smooth",
+            "collection_id": "ui.frame.gold.smooth",
+            "kind": "parametric_frame",
+            "corners": ["tl", "tr", "bl", "br"],
+            "edges": {
+                "top": {"fill_mode": "repeat"},
+                "bottom": {"fill_mode": "repeat"},
+                "left": {"fill_mode": "repeat"},
+                "right": {"fill_mode": "repeat"},
+            },
+            "fill": {"fill_mode": "repeat"},
+        }
+
+    def test_build_raises_on_non_mapping_edge_slot(self) -> None:
+        raw = self._full_raw()
+        edges = cast("dict[str, object]", raw["edges"])
+        edges["top"] = "repeat"  # wrong shape — must be a mapping
+        with self.assertRaisesRegex(ValueError, "edge_top"):
+            build_construction(raw, tiles=self._frame_tiles())  # type: ignore[arg-type]
+
+    def test_build_resolves_all_nine_slots(self) -> None:
+        construction = build_construction(self._full_raw(), tiles=self._frame_tiles())  # type: ignore[arg-type]
+        assert isinstance(construction, ParametricFrameConstruction)
+        self.assertEqual(construction.kind, "parametric_frame")
+        self.assertEqual(construction.id, "ui.frame.gold.smooth")
+        self.assertEqual(construction.corners["corner_tl"].tiles()[0].id, "t:tl")
+        self.assertEqual(construction.corners["corner_br"].tiles()[0].id, "t:br")
+        self.assertEqual(set(construction.corners), {"corner_tl", "corner_tr", "corner_bl", "corner_br"})
+        self.assertEqual(construction.edges["edge_top"].tile.id, "t:top")
+        self.assertEqual(construction.edges["edge_top"].fill_mode, "repeat")
+        self.assertEqual(set(construction.edges), {"edge_top", "edge_bottom", "edge_left", "edge_right"})
+        self.assertIsNotNone(construction.fill)
+        assert construction.fill is not None
+        self.assertEqual(construction.fill.tile.id, "t:fill")
+        self.assertEqual(construction.fill.fill_mode, "repeat")
+        self.assertEqual(construction.min_width, 2)
+        self.assertEqual(construction.min_height, 2)
+
+    def test_build_defaults_expose_as_entity_to_true(self) -> None:
+        # The renderer/footprint/entity paths now support parametric_frame, so a
+        # built frame defaults to a materialisable entity like other kinds.
+        construction = build_construction(self._full_raw(), tiles=self._frame_tiles())  # type: ignore[arg-type]
+        assert isinstance(construction, ParametricFrameConstruction)
+        self.assertTrue(construction.expose_as_entity)
+
+    def test_build_resolves_width_and_height_params_with_defaults(self) -> None:
+        construction = build_construction(self._full_raw(), tiles=self._frame_tiles())  # type: ignore[arg-type]
+        assert isinstance(construction, ParametricFrameConstruction)
+        self.assertEqual(construction.width_param, "width")
+        self.assertEqual(construction.height_param, "height")
+
+    def test_minimal8_gold_smooth_loads_as_full_parametric_frame(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        construction = family.lookup_construction("ui.frame.gold.smooth")
+        self.assertIsNotNone(construction)
+        assert isinstance(construction, ParametricFrameConstruction)
+        self.assertTrue(construction.expose_as_entity)
+        self.assertEqual(set(construction.corners), {"corner_tl", "corner_tr", "corner_bl", "corner_br"})
+        self.assertEqual(set(construction.edges), {"edge_top", "edge_bottom", "edge_left", "edge_right"})
+        self.assertIsNotNone(construction.fill)
+
+    def test_minimal8_panel_smooth_loads_as_corner_only_parametric_frame(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        construction = family.lookup_construction("ui.frame.panel.smooth")
+        self.assertIsNotNone(construction)
+        assert isinstance(construction, ParametricFrameConstruction)
+        self.assertEqual(set(construction.corners), {"corner_tl", "corner_tr", "corner_bl", "corner_br"})
+        self.assertEqual(dict(construction.edges), {})
+        self.assertIsNone(construction.fill)
 
 
 if __name__ == "__main__":

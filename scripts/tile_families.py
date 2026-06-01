@@ -304,6 +304,36 @@ class ParametricRunConstructionConfig(TypedDict):
     expose_as_entity: NotRequired[bool]
 
 
+class FrameSlotConfig(TypedDict):
+    fill_mode: NotRequired[str]
+    role: NotRequired[str]
+    tile: NotRequired[str]
+    flip_x: NotRequired[bool]
+    flip_y: NotRequired[bool]
+
+
+class FrameCornerSlotConfig(TypedDict):
+    role: NotRequired[str]
+    tile: NotRequired[str]
+    cells: NotRequired[list[list[str]]]
+    flip_x: NotRequired[bool]
+    flip_y: NotRequired[bool]
+
+
+class ParametricFrameConstructionConfig(TypedDict):
+    id: str
+    collection_id: str
+    kind: Literal["parametric_frame"]
+    corners: list[str] | dict[str, FrameCornerSlotConfig]
+    edges: NotRequired[dict[str, FrameSlotConfig]]
+    fill: NotRequired[FrameSlotConfig]
+    min_width: NotRequired[int]
+    min_height: NotRequired[int]
+    width_param: NotRequired[str]
+    height_param: NotRequired[str]
+    expose_as_entity: NotRequired[bool]
+
+
 class AttachmentCanvasConfig(TypedDict):
     x: int
     y: int
@@ -330,7 +360,11 @@ class ConstructionAttachmentSetConfig(TypedDict):
     notes: NotRequired[str]
 
 
-ConstructionConfig = Union[MetatileConstructionConfig, ParametricRunConstructionConfig]
+ConstructionConfig = Union[
+    MetatileConstructionConfig,
+    ParametricRunConstructionConfig,
+    ParametricFrameConstructionConfig,
+]
 
 
 class ConstructionValidationError(ValueError):
@@ -359,7 +393,75 @@ class ParametricRunConstruction:
     kind: Literal["parametric_run"] = "parametric_run"
 
 
-Construction: TypeAlias = Union[MetatileConstruction, ParametricRunConstruction]
+FRAME_FILL_MODES: tuple[str, ...] = ("repeat", "round", "space", "stretch")
+
+
+@dataclass(frozen=True)
+class FrameSlot:
+    """A resizable frame slot (edge or fill): the tile plus how it fills its span.
+
+    ``flip_x``/``flip_y`` let one edge derive from the opposite edge's art (e.g.
+    ``edge_right`` = ``edge_left`` mirrored on x), so a symmetric kit declares it once.
+    """
+
+    tile: TileRecord
+    fill_mode: str = "repeat"
+    flip_x: bool = False
+    flip_y: bool = False
+
+
+@dataclass(frozen=True)
+class FrameCornerSlot:
+    """A frame corner: a grid of tiles, optionally flipped.
+
+    Thin frames use a 1x1 grid; fat ("thick") corners use an NxM grid. A flipped
+    slot derives one corner from another (e.g. ``corner_tr`` = ``corner_tl``
+    mirrored on x), so a symmetric kit declares its art once.
+    """
+
+    cells: tuple[tuple[TileRecord | None, ...], ...]
+    flip_x: bool = False
+    flip_y: bool = False
+
+    @property
+    def width(self) -> int:
+        return len(self.cells[0]) if self.cells else 0
+
+    @property
+    def height(self) -> int:
+        return len(self.cells)
+
+    def tiles(self) -> tuple[TileRecord, ...]:
+        return tuple(cell for row in self.cells for cell in row if cell is not None)
+
+
+@dataclass(frozen=True)
+class ParametricFrameConstruction:
+    """A resizable border/UI frame — the 2-D analogue of a parametric run.
+
+    Corners are placed once; present edges tile between them per ``fill_mode``;
+    an optional ``fill`` tiles the interior. Absent slots render transparent,
+    so a corner-only kit is simply a frame with empty ``edges`` and no ``fill``.
+    """
+
+    id: str
+    collection_id: str
+    corners: Mapping[str, FrameCornerSlot]
+    edges: Mapping[str, FrameSlot]
+    fill: FrameSlot | None = None
+    min_width: int = 2
+    min_height: int = 2
+    width_param: str = "width"
+    height_param: str = "height"
+    expose_as_entity: bool = True
+    kind: Literal["parametric_frame"] = "parametric_frame"
+
+
+Construction: TypeAlias = Union[
+    MetatileConstruction,
+    ParametricRunConstruction,
+    ParametricFrameConstruction,
+]
 
 
 @dataclass(frozen=True)
@@ -429,12 +531,14 @@ class EntityAttachmentSetRecord:
 
 @dataclass(frozen=True)
 class EntityFootprintSpec:
-    mode: Literal["fixed", "parametric_run"]
+    mode: Literal["fixed", "parametric_run", "parametric_frame"]
     width: int
     height: int
     axis: Literal["x", "y"] | None = None
     length_param: str | None = None
     minimum_length: int | None = None
+    width_param: str | None = None
+    height_param: str | None = None
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -444,6 +548,8 @@ class EntityFootprintSpec:
             "axis": self.axis,
             "length_param": self.length_param,
             "minimum_length": self.minimum_length,
+            "width_param": self.width_param,
+            "height_param": self.height_param,
         }
 
 
@@ -452,7 +558,7 @@ class EntityTemplateRecord:
     id: str
     construction_id: str
     collection_id: str
-    kind: Literal["metatile", "parametric_run"]
+    kind: Literal["metatile", "parametric_run", "parametric_frame"]
     placement_anchor: Literal["top_left"]
     compose_roles: tuple[str, ...]
     affordances: tuple[str, ...]
@@ -658,6 +764,8 @@ def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
                 ("axis", "length_param", "start_role", "repeat_role", "end_role"),
                 context=item_context,
             )
+        elif construction_kind == "parametric_frame":
+            check_required_keys(item_mapping, ("corners",), context=item_context)
         else:
             check_required_keys(item_mapping, ("cells",), context=item_context)
         construction_id = str(item_mapping["id"])
@@ -1770,9 +1878,22 @@ def _validate_parametric_run_construction(construction: ParametricRunConstructio
         )
 
 
+def _validate_parametric_frame_construction(construction: ParametricFrameConstruction) -> None:
+    if not construction.corners:
+        raise ConstructionValidationError(
+            f"construction {construction.id!r} parametric_frame must declare at least one corner"
+        )
+    if construction.min_width < 2 or construction.min_height < 2:
+        raise ConstructionValidationError(
+            f"construction {construction.id!r} parametric_frame min_width/min_height must be >= 2"
+        )
+
+
 def validate_construction(construction: Construction) -> None:
     if isinstance(construction, ParametricRunConstruction):
         _validate_parametric_run_construction(construction)
+    elif isinstance(construction, ParametricFrameConstruction):
+        _validate_parametric_frame_construction(construction)
     else:
         _validate_metatile_construction(construction)
 
@@ -1802,8 +1923,10 @@ def _resolve_role(
     return matches[0]
 
 
-def _parse_expose_as_entity(raw: Mapping[str, object], construction_id: str) -> bool:
-    expose_as_entity = raw.get("expose_as_entity", True)
+def _parse_expose_as_entity(
+    raw: Mapping[str, object], construction_id: str, *, default: bool = True
+) -> bool:
+    expose_as_entity = raw.get("expose_as_entity", default)
     if not isinstance(expose_as_entity, bool):
         raise ValueError(f"construction {construction_id!r} expose_as_entity must be a boolean")
     return expose_as_entity
@@ -1886,6 +2009,156 @@ def _build_parametric_run_construction(
     return construction
 
 
+def _frame_slot(
+    raw_slot: object,
+    *,
+    role: str,
+    construction_id: str,
+    collection_id: str,
+    tiles: dict[str, TileRecord],
+) -> FrameSlot:
+    if not isinstance(raw_slot, Mapping):
+        raise ValueError(
+            f"construction {construction_id!r} slot {role!r} must be a mapping with optional "
+            f"'fill_mode'; got {type(raw_slot).__name__}"
+        )
+    slot_mapping: Mapping[str, object] = cast(Mapping[str, object], raw_slot)
+    fill_mode = str(slot_mapping.get("fill_mode", "repeat"))
+    if fill_mode not in FRAME_FILL_MODES:
+        raise ValueError(
+            f"construction {construction_id!r} slot {role!r} has invalid fill_mode {fill_mode!r}; "
+            f"expected one of {FRAME_FILL_MODES}"
+        )
+    flip_x = bool(slot_mapping.get("flip_x", False))
+    flip_y = bool(slot_mapping.get("flip_y", False))
+    raw_tile = slot_mapping.get("tile")
+    if raw_tile is not None:
+        tile_id = str(raw_tile)
+        if tile_id not in tiles:
+            raise ValueError(f"construction {construction_id!r} slot {role!r} references unknown tile {tile_id!r}")
+        tile = tiles[tile_id]
+    else:
+        # An explicit 'role' lets one edge borrow the opposite edge's art
+        # (e.g. edge_right resolves edge_left's tile, then flips it).
+        resolve_role = str(slot_mapping.get("role", role))
+        tile = _resolve_role(resolve_role, construction_id=construction_id, collection_id=collection_id, tiles=tiles)
+    return FrameSlot(tile=tile, fill_mode=fill_mode, flip_x=flip_x, flip_y=flip_y)
+
+
+def _frame_corner_slot(
+    key: str,
+    raw_corner: object,
+    *,
+    construction_id: str,
+    collection_id: str,
+    tiles: dict[str, TileRecord],
+) -> FrameCornerSlot:
+    """Resolve one corner slot.
+
+    List-form sugar (``raw_corner is None``) resolves a single tile by the
+    canonical ``corner_<key>`` role. The dict form takes an optional ``role``
+    (single 1x1 tile) or a ``cells`` grid (fat corner), plus ``flip_x``/
+    ``flip_y`` to derive a corner from another's art.
+    """
+    default_role = f"corner_{key}"
+
+    def _tile(role: str) -> TileRecord:
+        return _resolve_role(role, construction_id=construction_id, collection_id=collection_id, tiles=tiles)
+
+    def _cell(token: str) -> TileRecord:
+        # A fat-corner cell may name a tile by id (to borrow art already owned by
+        # another kit) or by a compose role within this kit's collection.
+        return tiles[token] if token in tiles else _tile(token)
+
+    if raw_corner is None:
+        return FrameCornerSlot(cells=((_tile(default_role),),))
+    if not isinstance(raw_corner, Mapping):
+        raise ValueError(
+            f"construction {construction_id!r} corner {key!r} must be a mapping with "
+            f"'role'/'cells' and optional flip_x/flip_y; got {type(raw_corner).__name__}"
+        )
+    corner_cfg = cast(Mapping[str, object], raw_corner)
+    flip_x = bool(corner_cfg.get("flip_x", False))
+    flip_y = bool(corner_cfg.get("flip_y", False))
+    raw_tile = corner_cfg.get("tile")
+    if raw_tile is not None:
+        # Direct tile reference — lets a kit borrow another kit's corner art
+        # (interchangeability) without re-binding compose roles.
+        tile_id = str(raw_tile)
+        if tile_id not in tiles:
+            raise ValueError(
+                f"construction {construction_id!r} corner {key!r} references unknown tile {tile_id!r}"
+            )
+        return FrameCornerSlot(cells=((tiles[tile_id],),), flip_x=flip_x, flip_y=flip_y)
+    raw_cells = corner_cfg.get("cells")
+    if raw_cells is not None:
+        if not isinstance(raw_cells, list) or not raw_cells:
+            raise ValueError(f"construction {construction_id!r} corner {key!r} 'cells' must be a non-empty grid")
+        grid: list[tuple[TileRecord | None, ...]] = []
+        width: int | None = None
+        for raw_row in cast(list[object], raw_cells):
+            if not isinstance(raw_row, list):
+                raise ValueError(f"construction {construction_id!r} corner {key!r} 'cells' rows must be lists")
+            row: list[object] = cast(list[object], raw_row)
+            if width is None:
+                width = len(row)
+            elif len(row) != width:
+                raise ValueError(f"construction {construction_id!r} corner {key!r} has a ragged 'cells' grid")
+            grid.append(tuple(None if r == "." else _cell(str(r)) for r in row))
+        return FrameCornerSlot(cells=tuple(grid), flip_x=flip_x, flip_y=flip_y)
+    role = str(corner_cfg.get("role", default_role))
+    return FrameCornerSlot(cells=((_tile(role),),), flip_x=flip_x, flip_y=flip_y)
+
+
+def _build_parametric_frame_construction(
+    raw: ParametricFrameConstructionConfig,
+    *,
+    tiles: dict[str, TileRecord],
+) -> ParametricFrameConstruction:
+    construction_id = raw["id"]
+    collection_id = raw["collection_id"]
+
+    corners: dict[str, FrameCornerSlot] = {}
+    raw_corners = raw.get("corners", [])
+    if isinstance(raw_corners, Mapping):
+        corner_items: list[tuple[str, object]] = [(key, raw_corners[key]) for key in raw_corners]
+    else:
+        corner_items = [(key, None) for key in raw_corners]
+    for key, raw_corner in corner_items:
+        corners[f"corner_{key}"] = _frame_corner_slot(
+            key, raw_corner, construction_id=construction_id, collection_id=collection_id, tiles=tiles
+        )
+
+    edges: dict[str, FrameSlot] = {}
+    for key, raw_slot in (raw.get("edges") or {}).items():
+        role = f"edge_{key}"
+        edges[role] = _frame_slot(
+            raw_slot, role=role, construction_id=construction_id, collection_id=collection_id, tiles=tiles
+        )
+
+    fill: FrameSlot | None = None
+    raw_fill = raw.get("fill")
+    if raw_fill is not None:
+        fill = _frame_slot(
+            raw_fill, role="fill", construction_id=construction_id, collection_id=collection_id, tiles=tiles
+        )
+
+    construction = ParametricFrameConstruction(
+        id=construction_id,
+        collection_id=collection_id,
+        corners=MappingProxyType(corners),
+        edges=MappingProxyType(edges),
+        fill=fill,
+        min_width=int(raw.get("min_width", 2)),
+        min_height=int(raw.get("min_height", 2)),
+        width_param=str(raw.get("width_param", "width")),
+        height_param=str(raw.get("height_param", "height")),
+        expose_as_entity=_parse_expose_as_entity(cast(Mapping[str, object], raw), construction_id),
+    )
+    validate_construction(construction)
+    return construction
+
+
 def build_construction(
     raw: ConstructionConfig,
     *,
@@ -1894,6 +2167,8 @@ def build_construction(
     kind = raw["kind"]
     if kind == "parametric_run":
         return _build_parametric_run_construction(cast(ParametricRunConstructionConfig, raw), tiles=tiles)
+    if kind == "parametric_frame":
+        return _build_parametric_frame_construction(cast(ParametricFrameConstructionConfig, raw), tiles=tiles)
     return _build_metatile_construction(cast(MetatileConstructionConfig, raw), tiles=tiles)
 
 
@@ -1904,6 +2179,14 @@ def _construction_tiles(construction: Construction) -> tuple[TileRecord, ...]:
             construction.repeat_tile,
             construction.end_tile,
         )
+    if isinstance(construction, ParametricFrameConstruction):
+        tiles: list[TileRecord] = []
+        for corner in construction.corners.values():
+            tiles.extend(corner.tiles())
+        tiles.extend(slot.tile for slot in construction.edges.values())
+        if construction.fill is not None:
+            tiles.append(construction.fill.tile)
+        return tuple(tiles)
     return tuple(
         cell
         for row in construction.cells
@@ -1925,6 +2208,16 @@ def _construction_footprint_spec(construction: Construction) -> EntityFootprintS
             axis=construction.axis,
             length_param=construction.length_param,
             minimum_length=2,
+        )
+    if isinstance(construction, ParametricFrameConstruction):
+        # Both axes are variable; width/height carry the minimum bounding box
+        # (the 2-D analogue of parametric_run's minimum-length box).
+        return EntityFootprintSpec(
+            mode="parametric_frame",
+            width=construction.min_width,
+            height=construction.min_height,
+            width_param=construction.width_param,
+            height_param=construction.height_param,
         )
     width = len(construction.cells[0]) if construction.cells else 0
     height = len(construction.cells)
@@ -2476,6 +2769,8 @@ def load_constructions_from_data(
 def _fixed_construction_bounds(construction: Construction, *, context: str) -> GridBounds:
     if isinstance(construction, ParametricRunConstruction):
         raise ValueError(f"{context} must reference a fixed metatile construction, not parametric_run {construction.id!r}")
+    if isinstance(construction, ParametricFrameConstruction):
+        raise ValueError(f"{context} must reference a fixed metatile construction, not parametric_frame {construction.id!r}")
     width = len(construction.cells[0]) if construction.cells else 0
     height = len(construction.cells)
     return GridBounds(x=0, y=0, width=width, height=height)

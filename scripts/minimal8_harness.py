@@ -47,10 +47,13 @@ from scene_templates import (
     validate_scene_template_input,
 )
 from tile_families import (
+    Construction,
     ConstructionAttachmentSet,
     EntityTemplateRecord,
+    FrameCornerSlot,
     LoadedTileLibraryUnit,
     MetatileConstruction,
+    ParametricFrameConstruction,
     ParametricRunConstruction,
     ResolvedFamilyTile,
     SheetCell,
@@ -696,6 +699,14 @@ class EntityTilePlacement:
     walkable: bool | None = None
     blocking: bool | None = None
     affordances: tuple[str, ...] = ()
+    flip_x: bool = False
+    flip_y: bool = False
+
+    def stamp_ref(self) -> TileRefToken:
+        """The ref to emit in a StampOp — a flip-bearing dict token when flipped."""
+        if self.flip_x or self.flip_y:
+            return {"ref": self.ref, "flip_x": self.flip_x, "flip_y": self.flip_y}
+        return self.ref
 
 
 @dataclass(frozen=True)
@@ -2270,9 +2281,30 @@ def _scene_str(scene: SceneTemplate, key: str, default: str) -> str:
     return value
 
 
+def _placement_ref(
+    tile_library: RuntimeConstructionCatalog,
+    construction_id: str,
+    tile_id: str,
+    variant_id: str | None,
+    *,
+    context: str,
+) -> str:
+    if variant_id is None:
+        return tile_id
+    runtime_tileset_id = tile_library.runtime_tileset_id_for_construction(
+        construction_id,
+        variant_id=variant_id,
+    )
+    assert runtime_tileset_id is not None, (
+        f"{context} references unknown construction {construction_id!r} "
+        f"for variant {variant_id!r} (invariant: construction pre-verified by lookup_construction)"
+    )
+    return f"{runtime_tileset_id}:{tile_id}"
+
+
 def _construction_tile_placements(
     tile_library: RuntimeConstructionCatalog,
-    construction: MetatileConstruction | ParametricRunConstruction,
+    construction: Construction,
     construction_id: str,
     x: int,
     y: int,
@@ -2281,20 +2313,17 @@ def _construction_tile_placements(
     params: Mapping[str, object] | None = None,
     variant_id: str | None = None,
 ) -> list[EntityTilePlacement]:
-    def _placement_ref(tile_id: str) -> str:
-        if variant_id is None:
-            return tile_id
-        runtime_tileset_id = tile_library.runtime_tileset_id_for_construction(
+    if isinstance(construction, ParametricFrameConstruction):
+        return _parametric_frame_tile_placements(
+            tile_library,
+            construction,
             construction_id,
+            x,
+            y,
+            params=params,
+            context=context,
             variant_id=variant_id,
         )
-        if runtime_tileset_id is None:
-            raise ValueError(
-                f"{context} references unknown construction {construction_id!r} "
-                f"for variant {variant_id!r}"
-            )
-        return f"{runtime_tileset_id}:{tile_id}"
-
     if isinstance(construction, ParametricRunConstruction):
         return _parametric_run_tile_placements(
             tile_library,
@@ -2313,7 +2342,9 @@ def _construction_tile_placements(
                 placements.append(
                     EntityTilePlacement(
                         tile_id=cell.id,
-                        ref=_placement_ref(cell.id),
+                        ref=_placement_ref(
+                            tile_library, construction_id, cell.id, variant_id, context=context
+                        ),
                         x=x + col_index,
                         y=y + row_index,
                         compose_role=cell.compose_role,
@@ -2389,7 +2420,7 @@ def _attachment_tile_placements(
 
 def _entity_tile_placements(
     tile_library: RuntimeConstructionCatalog,
-    construction: MetatileConstruction | ParametricRunConstruction,
+    construction: Construction,
     x: int,
     y: int,
     *,
@@ -2433,20 +2464,6 @@ def _parametric_run_tile_placements(
     context: str,
     variant_id: str | None = None,
 ) -> list[EntityTilePlacement]:
-    def _placement_ref(tile_id: str) -> str:
-        if variant_id is None:
-            return tile_id
-        runtime_tileset_id = tile_library.runtime_tileset_id_for_construction(
-            construction_id,
-            variant_id=variant_id,
-        )
-        if runtime_tileset_id is None:
-            raise ValueError(
-                f"{context} references unknown construction {construction_id!r} "
-                f"for variant {variant_id!r}"
-            )
-        return f"{runtime_tileset_id}:{tile_id}"
-
     length_param = construction.length_param
     if params is None or length_param not in params:
         raise ValueError(
@@ -2473,7 +2490,9 @@ def _parametric_run_tile_placements(
         placements.append(
             EntityTilePlacement(
                 tile_id=tile.id,
-                ref=_placement_ref(tile.id),
+                ref=_placement_ref(
+                    tile_library, construction_id, tile.id, variant_id, context=context
+                ),
                 x=cx,
                 y=cy,
                 compose_role=tile.compose_role,
@@ -2482,6 +2501,112 @@ def _parametric_run_tile_placements(
                 affordances=tile.affordances,
             )
         )
+    return placements
+
+
+def _parametric_frame_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
+    construction: ParametricFrameConstruction,
+    construction_id: str,
+    x: int,
+    y: int,
+    *,
+    params: Mapping[str, object] | None,
+    context: str,
+    variant_id: str | None = None,
+) -> list[EntityTilePlacement]:
+    if params is None or construction.width_param not in params or construction.height_param not in params:
+        raise ValueError(
+            f"Construction {construction.id!r} parametric_frame requires "
+            f"params[{construction.width_param!r}] and params[{construction.height_param!r}] ({context})"
+        )
+    width = int(params[construction.width_param])  # type: ignore[arg-type]
+    height = int(params[construction.height_param])  # type: ignore[arg-type]
+    if width < construction.min_width or height < construction.min_height:
+        raise ValueError(
+            f"Construction {construction.id!r} parametric_frame requires width >= {construction.min_width} "
+            f"and height >= {construction.min_height}, got {width}x{height} ({context})"
+        )
+
+    placements: list[EntityTilePlacement] = []
+
+    def _emit(tile: TileRecord, cx: int, cy: int, *, flip_x: bool = False, flip_y: bool = False) -> None:
+        placements.append(
+            EntityTilePlacement(
+                tile_id=tile.id,
+                ref=_placement_ref(tile_library, construction_id, tile.id, variant_id, context=context),
+                x=cx,
+                y=cy,
+                compose_role=tile.compose_role,
+                walkable=tile.walkable,
+                blocking=tile.blocking,
+                affordances=tile.affordances,
+                flip_x=flip_x,
+                flip_y=flip_y,
+            )
+        )
+
+    def _place_corner(corner: FrameCornerSlot, anchor_x: int, anchor_y: int) -> None:
+        # Place the corner's cells grid at the anchor, applying the slot's flip
+        # (mirror the grid order and flip each tile) so one corner's art can
+        # derive the other three.
+        h, w = corner.height, corner.width
+        for r, row in enumerate(corner.cells):
+            for c, tile in enumerate(row):
+                if tile is None:
+                    continue
+                dx = (w - 1 - c) if corner.flip_x else c
+                dy = (h - 1 - r) if corner.flip_y else r
+                _emit(tile, anchor_x + dx, anchor_y + dy, flip_x=corner.flip_x, flip_y=corner.flip_y)
+
+    tl = construction.corners.get("corner_tl")
+    tr = construction.corners.get("corner_tr")
+    bl = construction.corners.get("corner_bl")
+    br = construction.corners.get("corner_br")
+
+    def _w(corner: FrameCornerSlot | None) -> int:
+        return corner.width if corner is not None else 0
+
+    def _h(corner: FrameCornerSlot | None) -> int:
+        return corner.height if corner is not None else 0
+
+    # Corners are placed once each at the four anchors; absent corners stay blank.
+    if tl is not None:
+        _place_corner(tl, x, y)
+    if tr is not None:
+        _place_corner(tr, x + width - tr.width, y)
+    if bl is not None:
+        _place_corner(bl, x, y + height - bl.height)
+    if br is not None:
+        _place_corner(br, x + width - br.width, y + height - br.height)
+
+    # Present edges tile between the corner extents at the outer row/col; absent
+    # edges stay blank. (fill_mode only affects multi-cell "fat" edges, which are
+    # a deferred extension — single-cell v1 edges place one tile per border cell.)
+    top = construction.edges.get("edge_top")
+    bottom = construction.edges.get("edge_bottom")
+    left = construction.edges.get("edge_left")
+    right = construction.edges.get("edge_right")
+    if top is not None:
+        for col in range(x + _w(tl), x + width - _w(tr)):
+            _emit(top.tile, col, y, flip_x=top.flip_x, flip_y=top.flip_y)
+    if bottom is not None:
+        for col in range(x + _w(bl), x + width - _w(br)):
+            _emit(bottom.tile, col, y + height - 1, flip_x=bottom.flip_x, flip_y=bottom.flip_y)
+    if left is not None:
+        for row in range(y + _h(tl), y + height - _h(bl)):
+            _emit(left.tile, x, row, flip_x=left.flip_x, flip_y=left.flip_y)
+    if right is not None:
+        for row in range(y + _h(tr), y + height - _h(br)):
+            _emit(right.tile, x + width - 1, row, flip_x=right.flip_x, flip_y=right.flip_y)
+
+    # The interior fills only when the kit declares a fill slot (1-thick kits).
+    # Fat-corner kits declare no fill and supply their interior via a fill op.
+    if construction.fill is not None:
+        for row in range(y + 1, y + height - 1):
+            for col in range(x + 1, x + width - 1):
+                _emit(construction.fill.tile, col, row)
+
     return placements
 
 
@@ -2553,7 +2678,7 @@ def expand_entity_stamps(
         variant_id=variant_id,
     )
     return [
-        {"kind": "stamp", "ref": placement.ref, "x": placement.x, "y": placement.y}
+        {"kind": "stamp", "ref": placement.stamp_ref(), "x": placement.x, "y": placement.y}
         for placement in placements
     ]
 
@@ -2608,7 +2733,7 @@ def _resolve_scene_entity_request(
 
 def _lower_entity_instance_to_stamp_ops(entity: EntityInstance) -> list[StampOp]:
     return [
-        {"kind": "stamp", "ref": placement.ref, "x": placement.x, "y": placement.y}
+        {"kind": "stamp", "ref": placement.stamp_ref(), "x": placement.x, "y": placement.y}
         for placement in entity.tiles
     ]
 
@@ -4727,6 +4852,50 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
             },
         }
 
+    if isinstance(construction, ParametricFrameConstruction):
+        return {
+            "id": construction.id,
+            "collection_id": construction.collection_id,
+            "kind": construction.kind,
+            "expose_as_entity": construction.expose_as_entity,
+            "min_width": construction.min_width,
+            "min_height": construction.min_height,
+            "width_param": construction.width_param,
+            "height_param": construction.height_param,
+            "corners": {
+                role: {
+                    "flip_x": corner.flip_x,
+                    "flip_y": corner.flip_y,
+                    "cells": [
+                        [
+                            None if tile is None else {"tile_id": tile.id, "role": tile.compose_role}
+                            for tile in row
+                        ]
+                        for row in corner.cells
+                    ],
+                }
+                for role, corner in construction.corners.items()
+            },
+            "edges": {
+                role: {
+                    "tile_id": slot.tile.id,
+                    "role": slot.tile.compose_role,
+                    "fill_mode": slot.fill_mode,
+                    "flip_x": slot.flip_x,
+                    "flip_y": slot.flip_y,
+                }
+                for role, slot in construction.edges.items()
+            },
+            "fill": (
+                None
+                if construction.fill is None
+                else {
+                    "tile_id": construction.fill.tile.id,
+                    "role": construction.fill.tile.compose_role,
+                    "fill_mode": construction.fill.fill_mode,
+                }
+            ),
+        }
     metatile = cast(MetatileConstruction, construction)
     return {
         "id": metatile.id,
@@ -4928,11 +5097,61 @@ def _collection_preview_image(
 def _construction_preview_image(
     project: LayoutProject,
     tileset_id: str,
-    construction: MetatileConstruction | ParametricRunConstruction,
+    construction: Construction,
     *,
     scale: int,
     preview_length: int = 4,
 ) -> Image.Image:
+    if isinstance(construction, ParametricFrameConstruction):
+        preview_width = max(construction.min_width, 4)
+        preview_height = max(construction.min_height, 3)
+
+        def _preview_slot_tile(col: int, row: int) -> TileRecord | None:
+            on_left = col == 0
+            on_right = col == preview_width - 1
+            on_top = row == 0
+            on_bottom = row == preview_height - 1
+            if (on_left or on_right) and (on_top or on_bottom):
+                role = f"corner_{'t' if on_top else 'b'}{'l' if on_left else 'r'}"
+                corner = construction.corners.get(role)
+                if corner is None:
+                    return None
+                corner_tiles = corner.tiles()
+                # Thumbnail: a representative corner tile (fat corners + flips are
+                # rendered faithfully by the placement renderer, not this preview).
+                return corner_tiles[0] if corner_tiles else None
+            if on_top:
+                slot = construction.edges.get("edge_top")
+            elif on_bottom:
+                slot = construction.edges.get("edge_bottom")
+            elif on_left:
+                slot = construction.edges.get("edge_left")
+            elif on_right:
+                slot = construction.edges.get("edge_right")
+            else:
+                slot = construction.fill
+            return slot.tile if slot is not None else None
+
+        frame_rows: list[list[ResolvedTile | None]] = []
+        for row in range(preview_height):
+            frame_row: list[ResolvedTile | None] = []
+            for col in range(preview_width):
+                tile = _preview_slot_tile(col, row)
+                if tile is None:
+                    frame_row.append(None)
+                    continue
+                resolved = project.family_tile_for_ref(tile.id, tileset_id=tileset_id)
+                if resolved is None:
+                    raise ValueError(f"Unable to resolve construction tile preview for {tile.id!r} in {tileset_id!r}")
+                frame_row.append(resolved)
+            frame_rows.append(frame_row)
+        pattern = Pattern(
+            width=preview_width,
+            height=preview_height,
+            cells=tuple(tuple(row) for row in frame_rows),
+        )
+        rendered = render_pattern_image(project, pattern, snap_to_grid=True)
+        return _resize_nearest(rendered, (rendered.width * scale, rendered.height * scale))
     if isinstance(construction, ParametricRunConstruction):
         length = max(3, preview_length)
         run_tiles = [construction.start_tile] + [construction.repeat_tile] * (length - 2) + [construction.end_tile]

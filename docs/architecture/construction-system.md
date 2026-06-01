@@ -4,7 +4,7 @@ How the current stack, initially realised through Minimal 8, composes tile-based
 
 This document should be read as the current composition-side baseline after the metatile-convergence phase, not as a speculative future design:
 
-- the staged source-pack ingest/runtime boundary is now complete elsewhere in the architecture
+- the staged source-pack ingest/runtime boundary is now established at the CLI surface — `source_ingest.py` provides the operator-facing ingest entrypoint, though the ingest function bodies currently remain in `minimal8_harness.py` pending a full implementation-level split
 - constructions, entity templates, and recursive scene placement are healthy and remain the right centre of gravity here
 - the project-level `metatiles` registry is gone as an active harness/project concept; project-local tile-grid snippets now live under explicit `patterns` consumed through `stamp`, `fill`, `repeat`, `box`, and similar pattern-oriented surfaces
 - former mixed-use registry entries have now been routed onto honest composition nouns: entity-shaped cases onto constructions, pure naming conveniences onto aliases/direct refs, and non-entity reusable snippets onto patterns
@@ -30,9 +30,9 @@ Constructions live in `tile-families/<family>/constructions.json`. Each record c
 
 - `id` — namespaced as `<collection_id>.<short_name>` (e.g. `indoors.door.grand.closed`, `indoors.table.kit.horizontal_run`).
 - `collection_id` — backref to the source-layout collection.
-- `kind` — currently `metatile` (fixed-shape multi-tile composite) or `parametric_run` (variable-length run with start / repeat / end roles).
+- `kind` — currently `metatile` (fixed-shape multi-tile composite), `parametric_run` (variable-length run with start / repeat / end roles), or `parametric_frame` (resizable border/frame kind — the 2-D analogue of `parametric_run` — placed through the entity/construction pipeline; `expose_as_entity` defaults `true`).
 
-For `metatile`: an explicit 2D `cells` grid with role-bound entries; `.` for empty. For `parametric_run`: `axis: "x" | "y"`, `length_param`, `start_role`, `repeat_role`, `end_role`.
+For `metatile`: an explicit 2D `cells` grid with role-bound entries; `.` for empty. For `parametric_run`: `axis: "x" | "y"`, `length_param`, `start_role`, `repeat_role`, `end_role`. For `parametric_frame`: corners (1×1 by role, fat N×M via a `cells` grid, flip-derived, or borrowed by tile-id), edges (with flip-derivation and role/tile overrides), and an optional fill slot; `fill_mode` enum (`repeat` / `round`) is a no-op for single-cell tiles; resizable `width`/`height` are supplied via the entity op's `params`.
 
 `metatile` preserves the canonical graphics-programming meaning; `parametric_run` extends to variable-length runs without overloading the term.
 
@@ -59,6 +59,7 @@ Scenes are templates in `scene-templates/`. The DSL evaluator currently supports
 - **`entity`** — places one entity (construction instance) at (x, y), optionally with parameters for parametric kinds. Resolves construction → cells → stamps.
 - **`place_scene`** — places another scene's contents at (x, y), passing arguments. Cycle detection at load. Sub-scene's (0, 0) becomes parent's (x, y). Each call is a fresh binding frame; sub-scenes do not see parent bindings except via passed arguments.
 - **`scatter`** — sparse stamp placement against a hand-authored mask using a deterministic seed (data-mode wrapper over the runtime variant).
+- **`populate_slots`** — slot-based entity population.
 
 Expression operators include `param`, `add`, `sub`, `mul`, `centered_x` / `centered_y`, `min`, `fill_rows`, plus `when_present` for optional branches.
 

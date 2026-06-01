@@ -8,6 +8,7 @@ Pre-`1.0.0` semver here: `PATCH` = shipped, backward-compatible engine, tooling,
 
 | Version | Date | Summary |
 |---|---|---|
+| [v0.4.0](changelog/v0.4.0.md) | 2026-05-30 | Build the parametric_frame construction system end-to-end |
 | [v0.3.0](changelog/v0.3.0.md) | 2026-05-29 | Build the data-backed party-menu reference scene and character ingest |
 | [v0.2.2](changelog/v0.2.2.md) | 2026-05-25 | Split source-ingest tooling from runtime harness and tighten reference matching |
 | [v0.2.1](changelog/v0.2.1.md) | 2026-05-25 | Ship reference-ingest transforms, matching, and guide tooling |

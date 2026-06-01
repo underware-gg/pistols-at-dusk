@@ -28,3 +28,4 @@ Per the [Agent-Ready Documentation Standard v1.0](../../contributor/documentatio
 | [0002](0002-family-manifests-replace-python-catalogs.md) | Family Manifests Replace Python Semantic Catalogs | accepted |
 | [0003](0003-scene-entities-are-first-class-runtime-objects.md) | Scene Entities Are First-Class Runtime Objects | accepted |
 | [0004](0004-runtime-registry-loads-multiple-compatibility-units.md) | Runtime Registry Loads Multiple Compatibility Units | accepted |
+| [0005](0005-runtime-tile-genesis-and-provenance.md) | Runtime Tile Genesis and Provenance | accepted |

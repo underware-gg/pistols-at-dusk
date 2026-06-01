@@ -434,6 +434,122 @@
       "start_role": "left_end",
       "repeat_role": "horizontal_middle",
       "end_role": "right_end"
+    },
+    {
+      "id": "ui.frame.gold.gap",
+      "collection_id": "ui.frame.gold.gap",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"],
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "fill": { "fill_mode": "repeat" }
+    },
+    {
+      "id": "ui.frame.gold.smooth",
+      "collection_id": "ui.frame.gold.smooth",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"],
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "fill": { "fill_mode": "repeat" }
+    },
+    {
+      "id": "ui.frame.gold.simple",
+      "collection_id": "ui.frame.gold.simple",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"]
+    },
+    {
+      "id": "ui.frame.less_ornate.gap",
+      "collection_id": "ui.frame.less_ornate.gap",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"],
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "fill": { "fill_mode": "repeat" }
+    },
+    {
+      "id": "ui.frame.less_ornate.smooth",
+      "collection_id": "ui.frame.less_ornate.smooth",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"],
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "fill": { "fill_mode": "repeat" }
+    },
+    {
+      "id": "ui.frame.panel.smooth",
+      "collection_id": "ui.frame.panel.smooth",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"]
+    },
+    {
+      "id": "ui.frame.outer_screen",
+      "collection_id": "ui.frame.outer_screen",
+      "kind": "parametric_frame",
+      "corners": ["tl", "tr", "bl", "br"],
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "min_width": 10,
+      "min_height": 6
+    },
+    {
+      "id": "ui.frame.inner_window",
+      "collection_id": "ui.frame.inner_window",
+      "kind": "parametric_frame",
+      "corners": {
+        "tl": { "tile": "minimal8:ui:1,3" },
+        "tr": { "tile": "minimal8:ui:3,3" },
+        "bl": { "tile": "minimal8:ui:1,5" },
+        "br": { "tile": "minimal8:ui:3,5" }
+      },
+      "edges": {
+        "top": { "fill_mode": "repeat" },
+        "bottom": { "fill_mode": "repeat" },
+        "left": { "fill_mode": "repeat" },
+        "right": { "fill_mode": "repeat" }
+      },
+      "min_width": 6,
+      "min_height": 4
+    },
+    {
+      "id": "ui.frame.gold_room",
+      "collection_id": "ui.frame.gold_room",
+      "kind": "parametric_frame",
+      "corners": {
+        "tl": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]] },
+        "tr": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_x": true },
+        "bl": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_y": true },
+        "br": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_x": true, "flip_y": true }
+      },
+      "edges": {
+        "top": { "tile": "minimal8:ui:2,3" },
+        "bottom": { "tile": "minimal8:ui:2,6" },
+        "left": { "tile": "minimal8:ui:1,4" },
+        "right": { "tile": "minimal8:ui:1,4", "flip_x": true }
+      },
+      "min_width": 4,
+      "min_height": 4
     }
   ]
 }
