@@ -12,7 +12,8 @@ Practical guidance for contributors and agents working in this repo. Repo layout
 
 - Minimal 8 sheet/family semantics: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8).
 - Harness runtime: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py).
-- Family loader / query model: [scripts/tile_families.py](../../scripts/tile_families.py).
+- Family ingest / loader / query model: [scripts/tile_families.py](../../scripts/tile_families.py).
+- Runtime library surface: [scripts/tile_library.py](../../scripts/tile_library.py).
 - Scene DSL evaluator: [scripts/scene_templates.py](../../scripts/scene_templates.py).
 
 Use stable family / region / grid tile IDs and semantic aliases. Do not invent scene-specific IDs. Treat the scene experiment track as exploratory and not the canonical architecture; prefer extending the harness for reusable engine / layout work.

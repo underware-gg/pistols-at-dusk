@@ -32,7 +32,8 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from tile_families import SourceLayoutIngestion, TileFamily, TileRecord
+from tile_library import TileRecord
+from tile_families import SourceLayoutIngestion, TileFamily
 
 
 def _resize_nearest(image: Image.Image, size: tuple[int, int]) -> Image.Image:

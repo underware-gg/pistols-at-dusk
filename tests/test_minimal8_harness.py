@@ -1058,7 +1058,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
     def test_validate_family_ingest_reports_complete_minimal8_family(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
-        report = harness.validate_family_ingest(project_path, "minimal8@1bit_colored_bg")
+        report = harness.validate_family_ingest(harness.LayoutProject(project_path), "minimal8@1bit_colored_bg")
 
         self.assertTrue(report["complete"])
         self.assertEqual(report["tile_count"], 1408)
@@ -1189,7 +1189,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
     def test_audit_family_semantic_usage_reports_current_reference_surface(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
-        report = harness.audit_family_semantic_usage(project_path, "minimal8@1bit_colored_bg")
+        report = harness.audit_family_semantic_usage(harness.LayoutProject(project_path), "minimal8@1bit_colored_bg")
 
         self.assertEqual(report["tileset"], "minimal8@1bit_colored_bg")
         self.assertGreater(report["total_references"], 0)
@@ -1200,7 +1200,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "detected"
-            harness.detect_family_source_layout(project_path, "minimal8@1bit_colored_bg", output_dir)
+            harness.detect_family_source_layout(harness.LayoutProject(project_path), "minimal8@1bit_colored_bg", output_dir)
             payload = json.loads((output_dir / "source_layout.detected.json").read_text(encoding="utf-8"))
 
         self.assertEqual(len(payload["regions"]), 4)
@@ -1493,7 +1493,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             )
 
             report = harness.audit_family_semantic_usage(
-                project_path,
+                harness.LayoutProject(project_path),
                 "testfam@base",
                 layouts_dir=layouts_dir,
             )
@@ -1586,12 +1586,12 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         assert family is not None
 
         def role(cell: object) -> str | None:
-            from tile_families import TileRecord
+            from tile_library import TileRecord
             if not isinstance(cell, TileRecord):
                 return None
             return cell.compose_role
 
-        from tile_families import MetatileConstruction
+        from tile_library import MetatileConstruction
 
         square = family.lookup_construction("indoors.table.kit.square_2x2")
         assert square is not None
@@ -1813,14 +1813,14 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             root_dir = Path(temp_dir) / "collection-review"
             scratch_dir = Path(temp_dir) / "collection-review-scratch"
             round_one_dir = harness.export_collection_review_pack(
-                project_path,
+                harness.LayoutProject(project_path),
                 "minimal8@1bit_colored_bg",
                 root_dir,
                 scale=2,
                 scratch_output_root=scratch_dir,
             )
             round_two_dir = harness.export_collection_review_pack(
-                project_path,
+                harness.LayoutProject(project_path),
                 "minimal8@1bit_colored_bg",
                 root_dir,
                 scale=2,
@@ -1867,7 +1867,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             (root_dir / "images" / "legacy.png").write_bytes(b"legacy")
             (root_dir / "collections" / "legacy.md").write_text("# Legacy\n", encoding="utf-8")
 
-            round_two_dir = harness.export_collection_review_pack(project_path, "minimal8@1bit_colored_bg", root_dir, scale=2)
+            round_two_dir = harness.export_collection_review_pack(harness.LayoutProject(project_path), "minimal8@1bit_colored_bg", root_dir, scale=2)
             migrated_round_one_dir = root_dir / "rounds" / "round_001"
 
             self.assertTrue((migrated_round_one_dir / "manifest.json").exists())
@@ -2081,7 +2081,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = harness.export_semantic_review_pack(
-                project_path,
+                harness.LayoutProject(project_path),
                 "minimal8@1bit_colored_bg",
                 Path(temp_dir) / "semantic-review",
                 alias_prefix="indoors.bookcase",
@@ -2132,7 +2132,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = harness.inspect_family(
-                project_path,
+                harness.LayoutProject(project_path),
                 "minimal8@1bit_colored_bg",
                 Path(temp_dir) / "family-inspection",
             )

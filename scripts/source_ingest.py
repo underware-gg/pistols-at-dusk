@@ -89,26 +89,24 @@ def main() -> None:
 
     if args.command == "inspect-family":
         output_dir = args.output_dir or (harness.DEFAULT_INSPECT_DIR / args.tileset)
-        print(harness.inspect_family(args.project, args.tileset, output_dir, project=project))
+        print(harness.inspect_family(project, args.tileset, output_dir))
     elif args.command == "detect-source-layout":
         output_dir = args.output_dir or (harness.DEFAULT_INSPECT_DIR / f"{args.tileset}-detected")
         print(
             harness.detect_family_source_layout(
-                args.project,
+                project,
                 args.tileset,
                 output_dir,
-                project=project,
             )
         )
     elif args.command == "inspect-source-cell":
         print(
             json.dumps(
                 harness.inspect_source_cell(
-                    args.project,
+                    project,
                     args.tileset,
                     sheet_col=args.sheet_col,
                     sheet_row=args.sheet_row,
-                    project=project,
                 ),
                 indent=2,
             )
@@ -123,14 +121,13 @@ def main() -> None:
             output_dir = harness.DEFAULT_REVIEW_PACK_DIR / pack_slug
         print(
             harness.export_semantic_review_pack(
-                args.project,
+                project,
                 args.tileset,
                 output_dir,
                 scene=args.scene,
                 categories=args.category,
                 alias_prefix=args.alias_prefix,
                 scale=args.scale,
-                project=project,
             )
         )
     elif args.command == "export-collection-review-pack":
@@ -143,25 +140,23 @@ def main() -> None:
             scratch_output_dir = harness.DEFAULT_COLLECTION_REVIEW_SCRATCH_DIR / output_dir.name
         print(
             harness.export_collection_review_pack(
-                args.project,
+                project,
                 args.tileset,
                 output_dir,
                 scale=args.scale,
                 scratch_output_root=scratch_output_dir,
-                project=project,
             )
         )
     elif args.command == "validate-family-ingest":
-        report = harness.validate_family_ingest(args.project, args.tileset, project=project)
+        report = harness.validate_family_ingest(project, args.tileset)
         print(json.dumps(report, indent=2))
         if not report["complete"]:
             raise SystemExit(1)
     elif args.command == "audit-family-semantic-usage":
         report = harness.audit_family_semantic_usage(
-            args.project,
+            project,
             args.tileset,
             layouts_dir=args.layouts_dir,
-            project=project,
         )
         print(json.dumps(report, indent=2))
 

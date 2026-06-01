@@ -174,7 +174,7 @@ The functional content of the codebase is also documented co-located with the mo
 
 Behavioural tests are part of the functional layer — they document what the system does, executably. They live under [tests/](../../tests):
 
-- [test_tile_families.py](../../tests/test_tile_families.py) — family-package loading, address parsing, alias resolution, construction loading and validator behaviour (adjacency / exposure rules, parametric-run validation).
+- [test_tile_families.py](../../tests/test_tile_families.py) — family-package loading, address parsing, alias resolution, construction loading and validator behaviour (adjacency / exposure rules, parametric-run validation); also exercises the `tile_library` runtime surface (`TileLibraryUnit` / `TileLibraryRegistry`, construction records) reached through loaded families.
 - [test_source_manifests.py](../../tests/test_source_manifests.py) — staged source-side pack / tileset / logical-tilesheet manifest loading and validation, including explicit sparse-coverage checks for render variants.
 - [test_source_manifest_bridge.py](../../tests/test_source_manifest_bridge.py) — one-way source-manifest bridge coverage: synthetic adapter fixtures plus equivalence checks against the current Minimal 8 family-backed runtime shape.
 - [test_source_ingest.py](../../tests/test_source_ingest.py) — source-side ingest CLI coverage: source-sheet cell lookup and ingest validation through the dedicated ingest entrypoint.

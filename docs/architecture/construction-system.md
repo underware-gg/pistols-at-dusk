@@ -92,6 +92,7 @@ Known open questions, deferred:
 ## References
 
 - [scripts/tile_families.py](../../scripts/tile_families.py) — construction loading and validation.
+- [scripts/tile_library.py](../../scripts/tile_library.py) — construction records and the runtime catalog containers they are looked up through.
 - [scripts/scene_templates.py](../../scripts/scene_templates.py) — DSL evaluator.
 - [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py) — entity resolution and render pipeline.
 - [prototypes/minimal8-harness/tile-families/minimal8/constructions.json](../../prototypes/minimal8-harness/tile-families/minimal8/constructions.json) — current Minimal 8 construction set.

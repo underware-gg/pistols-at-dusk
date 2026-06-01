@@ -47,14 +47,16 @@ That split keeps the source of truth aligned with the asset itself while also gi
 
 ## Current Runtime Shape
 
-- Loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
+- Ingest/loader/query module: [scripts/tile_families.py](../../scripts/tile_families.py)
+- Runtime library surface module: [scripts/tile_library.py](../../scripts/tile_library.py)
 - Harness entrypoint: [scripts/minimal8_harness.py](../../scripts/minimal8_harness.py)
 - Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
 - Minimal 8 compatibility bundle: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
 
 In the current implementation:
 
-- `tile_families.py` still owns loading, validation, provenance, and rich source-family queries
+- `tile_families.py` owns ingest: loading, validation, provenance, `TileFamily`, source-layout, detection/bootstrap, and rich source-family queries
+- `tile_library.py` owns the runtime library surface: the construction records (`MetatileConstruction` / `ParametricRunConstruction` / `ParametricFrameConstruction`), tile/cluster records, and the catalog containers (`TileLibraryUnit` / `LoadedTileLibraryUnit` / `TileLibraryRegistry`); the dependency runs one-directional, ingest → library
 - `source_manifests.py` owns the staged pack / tileset / logical-tilesheet source hierarchy
 - `source_manifest_bridge.py` is the transitional one-way adapter from staged source manifests into the current `TileFamily` / `TileLibraryUnit` compatibility path
 - `project.minimal8.json` and `project.minimal8.2bit.json` now select Minimal 8 through `tile_family.source_pack` rather than a direct family path

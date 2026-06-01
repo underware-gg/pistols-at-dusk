@@ -15,17 +15,19 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from tile_library import (
+    MetatileConstruction,
+    ParametricFrameConstruction,
+    ParametricRunConstruction,
+    TileLibraryRegistry,
+    TileRecord,
+)
 from tile_families import (
     ConstructionConfig,
     ConstructionAttachmentSetConfig,
     ConstructionValidationError,
-    MetatileConstruction,
-    ParametricFrameConstruction,
-    ParametricRunConstruction,
     ParametricRunConstructionConfig,
     TileFamily,
-    TileLibraryRegistry,
-    TileRecord,
     build_construction,
     compute_non_empty_tile_mask,
     compute_source_layout_coverage,
@@ -1379,6 +1381,20 @@ class TileLibraryRegistryTests(unittest.TestCase):
             self.assertIsNone(promoted_metadata.source_tilesheet_id)
             self.assertEqual(dict(promoted_metadata.module_context), {})
             self.assertEqual(promoted_metadata.documented_hints, ())
+
+    def test_runtime_unit_omits_source_layout_ingest_attribute(self) -> None:
+        # H3: source_layout is an ingest-only concern. The ingest TileFamily carries it;
+        # the runtime library surface (TileLibraryUnit) must not expose it, so runtime
+        # scene work cannot reach back into ingest-time layout facts.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+
+            family = TileFamily.load(family_dir)
+            unit = family.runtime_unit
+
+            self.assertTrue(hasattr(family, "source_layout"))
+            self.assertFalse(hasattr(unit, "source_layout"))
+            self.assertEqual(unit.family_id, family.family_id)
 
     def test_family_load_rejects_intra_family_alias_tile_id_collision(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

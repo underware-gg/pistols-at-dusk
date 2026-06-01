@@ -46,7 +46,7 @@ from scene_templates import (
     TileRefToken,
     validate_scene_template_input,
 )
-from tile_families import (
+from tile_library import (
     Construction,
     ConstructionAttachmentSet,
     EntityTemplateRecord,
@@ -56,17 +56,19 @@ from tile_families import (
     ParametricFrameConstruction,
     ParametricRunConstruction,
     ResolvedFamilyTile,
+    RuntimeConstructionCatalog,
     SheetCell,
+    TileClusterRecord,
+    TileLibraryRegistry,
+    TileLibraryUnit,
+    TileRecord,
+)
+from tile_families import (
     SourceLayoutCollection,
     SourceLayoutCollectionMember,
     SourceLayoutIngestion,
     TileFamily,
     TileFamilyIngestReport,
-    TileLibraryUnit,
-    TileLibraryRegistry,
-    TileClusterRecord,
-    TileRecord,
-    RuntimeConstructionCatalog,
     bootstrap_family as bootstrap_tile_family,
     collection_member_ref,
     collection_member_to_config,
@@ -4443,15 +4445,13 @@ def _write_collection_review_scratch_assets(
 
 
 def export_collection_review_pack(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     output_dir: Path,
     *,
     scale: int = 8,
     scratch_output_root: Path | None = None,
-    project: LayoutProject | None = None,
 ) -> Path:
-    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None or family.source_layout is None:
         raise ValueError(f"Tileset {tileset_id!r} does not expose a source-layout ingestion model")
@@ -4477,7 +4477,7 @@ def export_collection_review_pack(
         "This pack is intended to be edited and committed.",
         "Do not regenerate it in place if you want to keep prior feedback; create a new slugged pack instead.",
         "",
-        f"- project: `{project_path}`",
+        f"- project: `{project.project_path}`",
         f"- tileset: `{tileset_id}`",
         f"- round: `{round_id}`",
         "",
@@ -4589,7 +4589,7 @@ def export_collection_review_pack(
         index_lines.append(f"- [{collection.label or collection.id}](collections/{slug}.md)")
 
     manifest = {
-        "project": str(project_path),
+        "project": str(project.project_path),
         "tileset": tileset_id,
         "round_id": round_id,
         "exported_at": datetime.now().isoformat(timespec="seconds"),
@@ -4612,7 +4612,7 @@ def export_collection_review_pack(
     round_ids = sorted(child.name for child in rounds_dir.iterdir() if child.is_dir())
     _write_collection_review_series_readme(
         root_dir=root_dir,
-        project_path=project_path,
+        project_path=project.project_path,
         tileset_id=tileset_id,
         rounds=round_ids,
     )
@@ -5705,7 +5705,7 @@ def export_public_tile_pack(
 
 
 def export_semantic_review_pack(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     output_dir: Path,
     *,
@@ -5713,9 +5713,7 @@ def export_semantic_review_pack(
     categories: list[str] | None = None,
     alias_prefix: str | None = None,
     scale: int = 8,
-    project: LayoutProject | None = None,
 ) -> Path:
-    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     entries = build_semantic_catalog_entries(project, tileset_id, include_empty=True)
 
@@ -5769,7 +5767,7 @@ def export_semantic_review_pack(
         exported.append(enriched)
 
     payload = {
-        "project": str(project_path),
+        "project": str(project.project_path),
         "tileset": tileset_id,
         "scene": scene,
         "categories": list(categories or []),
@@ -5785,7 +5783,7 @@ def export_semantic_review_pack(
     lines = [
         "# Semantic Review Pack",
         "",
-        f"- Project: `{project_path}`",
+        f"- Project: `{project.project_path}`",
         f"- Tileset: `{tileset_id}`",
         f"- Scene filter: `{scene or 'none'}`",
         f"- Categories: `{', '.join(categories or []) or 'all'}`",
@@ -5946,14 +5944,12 @@ def query_semantic_catalog(
 
 
 def inspect_source_cell(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     *,
     sheet_col: int,
     sheet_row: int,
-    project: LayoutProject | None = None,
 ) -> dict[str, object]:
-    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
@@ -5987,7 +5983,7 @@ def inspect_source_cell(
         }
 
     return {
-        "project": str(project_path),
+        "project": str(project.project_path),
         "tileset": tileset_id,
         "sheet_cell": {
             "col": sheet_col,
@@ -6030,13 +6026,10 @@ def inspect_source_cell(
 
 
 def inspect_family(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     output_dir: Path,
-    *,
-    project: LayoutProject | None = None,
 ) -> Path:
-    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     family = project.source_family_for_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -6114,13 +6107,10 @@ def inspect_family(
 
 
 def detect_family_source_layout(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     output_dir: Path,
-    *,
-    project: LayoutProject | None = None,
 ) -> Path:
-    project = project or LayoutProject(project_path)
     tileset = project.get_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     detected = detect_source_layout(image=tileset.image, tile_width=project.grid_width, tile_height=project.grid_height)
@@ -6129,12 +6119,9 @@ def detect_family_source_layout(
 
 
 def validate_family_ingest(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
-    *,
-    project: LayoutProject | None = None,
 ) -> TileFamilyIngestReport:
-    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
@@ -6208,13 +6195,11 @@ def _collect_project_semantic_reference_tokens(
 
 
 def audit_family_semantic_usage(
-    project_path: Path,
+    project: LayoutProject,
     tileset_id: str,
     *,
     layouts_dir: Path | None = None,
-    project: LayoutProject | None = None,
 ) -> SemanticUsageAuditReport:
-    project = project or LayoutProject(project_path)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
@@ -6296,7 +6281,7 @@ def audit_family_semantic_usage(
                 )
 
     return {
-        "project": str(project_path),
+        "project": str(project.project_path),
         "tileset": tileset_id,
         "total_references": total_references,
         "total_resolved_family_tiles": total_resolved_family_tiles,

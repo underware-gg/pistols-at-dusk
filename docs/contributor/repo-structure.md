@@ -6,7 +6,7 @@ How the repo is laid out, and the ownership rules contributors must follow when 
 
 | Path | Purpose |
 |---|---|
-| `scripts/` | Shared engine code plus contributor tooling. Engine: `scripts/minimal8_harness.py` (harness CLI), `scripts/tile_families.py` (family loader/query), `scripts/scene_templates.py` (scene DSL evaluator). Contributor tooling: `scripts/release_workflow.py` (version-bundle and stable-release validation; invoked by hooks and contributors), `scripts/check_pyright.sh`, `scripts/check_coverage.sh`. |
+| `scripts/` | Shared engine code plus contributor tooling. Engine: `scripts/minimal8_harness.py` (harness CLI), `scripts/tile_families.py` (family ingest/loader/query), `scripts/tile_library.py` (runtime library surface — construction/tile records and the `TileLibraryUnit`/`TileLibraryRegistry` containers), `scripts/scene_templates.py` (scene DSL evaluator). Contributor tooling: `scripts/release_workflow.py` (version-bundle and stable-release validation; invoked by hooks and contributors), `scripts/check_pyright.sh`, `scripts/check_coverage.sh`. |
 | `prototypes/minimal8-harness/` | The main prototype track. Owns its tile-family package, scene templates, and generated outputs. |
 | `experiments/202605-minimal8-scene-experiments/` | Separate exploratory scene-composition experiment track. Not the canonical architecture. |
 | `resources/references/` | Shared human-provided references and source inspiration. |

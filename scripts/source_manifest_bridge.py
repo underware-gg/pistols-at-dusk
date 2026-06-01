@@ -13,13 +13,15 @@ from source_manifests import (
     TilePackManifest,
     load_tile_pack_manifest,
 )
+from tile_library import (
+    TileFamilyHeader,
+    TileFamilyVariant,
+    TileLibraryPromotedMetadata,
+)
 from tile_families import (
     DEFAULT_TRANSPARENT_MODE,
     SourceLayoutIngestion,
     TileFamily,
-    TileFamilyHeader,
-    TileLibraryPromotedMetadata,
-    TileFamilyVariant,
     load_family_catalog_sources,
     load_family_header_and_variants,
     load_source_layout_from_path,

@@ -16,20 +16,20 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import minimal8_harness as harness
 import scene_templates
-from tile_families import (
+from tile_library import (
     Construction,
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
     EntityTemplateRecord,
     FrameCornerSlot,
     FrameSlot,
-    GridBounds,
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     TileRecord,
     entity_template_from_construction,
 )
+from _manifest_utils import GridBounds
 
 
 PROJECT_PATH = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
@@ -1208,6 +1208,13 @@ class _FakeFamily:
             attachment_sets=self.attachment_sets_for_construction(construction_id),
         )
 
+    def runtime_tileset_id_for_construction(
+        self, construction_id: str, *, variant_id: str | None = None
+    ) -> str | None:
+        if construction_id not in self._constructions:
+            return None
+        return f"testfam@{variant_id or 'base'}"
+
 
 def _make_fixture_family() -> _FakeFamily:
     tile_a = _make_tile_record("testfam:all:0,0")
@@ -1391,6 +1398,32 @@ class EntityOpExpandStampsTests(unittest.TestCase):
             [("testfam:all:0,0", 8, 9), ("testfam:all:1,0", 8, 9)],
         )
 
+    def test_scene_entity_request_selects_variant_tileset(self) -> None:
+        family = _make_fixture_family()
+
+        def _refs(variant_id: str | None) -> set[str]:
+            entity = harness._resolve_scene_entity_request(  # type: ignore[attr-defined]
+                family,  # type: ignore[arg-type]
+                harness.SceneEntityRequest(
+                    entity_id="fixture",
+                    source_template_id="fixture",
+                    construction_id="test.fixture.two_cells",
+                    layer="architecture",
+                    x=0,
+                    y=0,
+                    variant_id=variant_id,
+                ),
+            )
+            return {placement.ref for placement in entity.tiles}
+
+        # Without a variant the placement refs are bare tile ids; with an explicit
+        # variant they are prefixed with that variant's runtime tileset id.
+        self.assertEqual(_refs(None), {"testfam:all:0,0", "testfam:all:1,0"})
+        self.assertEqual(
+            _refs("alt"),
+            {"testfam@alt:testfam:all:0,0", "testfam@alt:testfam:all:1,0"},
+        )
+
 
 class EntityOpDataSceneTests(unittest.TestCase):
     def _data_scene_with_entity(self, *, template_id: str = "entity_test") -> dict[str, Any]:
@@ -1440,6 +1473,42 @@ class EntityOpDataSceneTests(unittest.TestCase):
         self.assertEqual(entity.layer, "architecture")
         self.assertEqual((entity.x, entity.y), (4, 2))
         self.assertEqual(entity.source_template_id, "entity_test")
+
+    def test_entity_op_forwards_variant_id(self) -> None:
+        spec_raw = self._data_scene_with_entity()
+        spec_raw["ops"][0]["variant_id"] = "alt"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            spec = scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+        runtime = self._make_runtime()
+        expanded = scene_templates.expand_data_scene(
+            {"template": "entity_test", "x": 4, "y": 2},
+            spec,
+            runtime=runtime,
+        )
+
+        self.assertEqual(len(expanded.entities), 1)
+        self.assertEqual(expanded.entities[0].variant_id, "alt")
+
+    def test_entity_op_defaults_variant_id_to_none(self) -> None:
+        spec_raw = self._data_scene_with_entity()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            spec = scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+        runtime = self._make_runtime()
+        expanded = scene_templates.expand_data_scene(
+            {"template": "entity_test", "x": 4, "y": 2},
+            spec,
+            runtime=runtime,
+        )
+
+        self.assertIsNone(expanded.entities[0].variant_id)
 
     def test_entity_op_preserves_explicit_entity_id(self) -> None:
         spec_raw = self._data_scene_with_entity()
