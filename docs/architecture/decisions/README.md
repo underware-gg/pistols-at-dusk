@@ -29,4 +29,5 @@ Per the [Agent-Ready Documentation Standard v1.0](../../contributor/documentatio
 | [0003](0003-scene-entities-are-first-class-runtime-objects.md) | Scene Entities Are First-Class Runtime Objects | accepted |
 | [0004](0004-runtime-registry-loads-multiple-compatibility-units.md) | Runtime Registry Loads Multiple Compatibility Units | accepted |
 | [0005](0005-runtime-tile-genesis-and-provenance.md) | Runtime Tile Genesis and Provenance | accepted |
-| [0006](0006-defer-cross-kit-interchangeability-to-seam-profiles.md) | Defer Cross-Kit Interchangeability to Machine-Verifiable Seam Profiles | accepted |
+| [0006](0006-defer-cross-kit-interchangeability-to-seam-profiles.md) | Defer Cross-Kit Interchangeability to Machine-Verifiable Seam Profiles | superseded |
+| [0007](0007-adopt-three-axis-tile-compatibility-and-build-seam-profiles.md) | Adopt the Three-Axis Tile-Compatibility Model and Build Machine-Verifiable Seam Profiles | accepted |

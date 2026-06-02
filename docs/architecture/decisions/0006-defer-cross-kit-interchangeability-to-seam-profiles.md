@@ -1,6 +1,7 @@
 # 0006 - Defer Cross-Kit Interchangeability to Machine-Verifiable Seam Profiles
 
-- Status: accepted
+- Status: superseded
+- Superseded by: [0007](0007-adopt-three-axis-tile-compatibility-and-build-seam-profiles.md)
 
 ## Context
 
