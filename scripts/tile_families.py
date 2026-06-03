@@ -5,7 +5,7 @@ import json
 import os
 import re
 from collections import defaultdict
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from difflib import get_close_matches
 from functools import cached_property
 from pathlib import Path
@@ -18,6 +18,8 @@ from PIL import Image
 
 from _manifest_utils import GridBounds, bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
 from compatibility_family import CompatibilityFamilyPaths
+from seam_profiles import derive_side_masks
+from tile_normalisation import apply_transparent_key, transparent_key_for_sheet
 from tile_library import (
     FRAME_FILL_MODES,
     MetatileConstruction,
@@ -898,6 +900,20 @@ def _normalise_meaning_confidence(value: object, *, context: str) -> str | None:
     return value
 
 
+def _crop_tile_from_sheet(
+    sheet: Image.Image,
+    *,
+    sheet_col: int,
+    sheet_row: int,
+    tile_width: int,
+    tile_height: int,
+) -> Image.Image:
+    """The tile-sized region of ``sheet`` at grid cell ``(sheet_col, sheet_row)``."""
+    left = sheet_col * tile_width
+    top = sheet_row * tile_height
+    return sheet.crop((left, top, left + tile_width, top + tile_height))
+
+
 def _tile_image_bytes(
     *,
     variant: TileFamilyVariant,
@@ -925,11 +941,96 @@ def _tile_image_bytes(
         image_cache[variant.sheet_path] = image
     if sheet_col is None or sheet_row is None:
         raise ValueError("Sheet-backed tile image lookup requires sheet_col and sheet_row")
-    left = sheet_col * tile_width
-    top = sheet_row * tile_height
-    right = left + tile_width
-    bottom = top + tile_height
-    return image.crop((left, top, right, bottom)).tobytes()
+    return _crop_tile_from_sheet(
+        image, sheet_col=sheet_col, sheet_row=sheet_row, tile_width=tile_width, tile_height=tile_height
+    ).tobytes()
+
+
+def _tile_occupancy_grid(
+    *,
+    variant: TileFamilyVariant,
+    sheet_col: int | None,
+    sheet_row: int | None,
+    tile_width: int,
+    tile_height: int,
+    image_cache: dict[Path, Image.Image],
+    image_override_path: Path | None = None,
+) -> list[list[bool]]:
+    """A tile's per-pixel occupancy (``True`` = painted) from its *normalised* art.
+
+    Background normalisation runs first (ADR 0007 precondition): a sheet-backed
+    tile's keyed background becomes transparent before occupancy is read, so a
+    gutter resolves to "no seam" rather than a false painted run. Synthetic
+    override images already carry genuine alpha, so they are read as-is. The grid
+    follows the tile's own pixel dimensions — a sheet crop is
+    ``tile_width × tile_height``; an override is read at its native size.
+    """
+    if image_override_path is not None:
+        tile = image_cache.get(image_override_path)
+        if tile is None:
+            tile = Image.open(image_override_path).convert("RGBA")
+            image_cache[image_override_path] = tile
+    else:
+        if sheet_col is None or sheet_row is None:
+            raise ValueError("Sheet-backed tile occupancy lookup requires sheet_col and sheet_row")
+        sheet = image_cache.get(variant.sheet_path)
+        if sheet is None:
+            sheet = Image.open(variant.sheet_path).convert("RGBA")
+            image_cache[variant.sheet_path] = sheet
+        tile = _crop_tile_from_sheet(
+            sheet, sheet_col=sheet_col, sheet_row=sheet_row, tile_width=tile_width, tile_height=tile_height
+        )
+        transparent_key = transparent_key_for_sheet(sheet, variant.transparent_mode)
+        if transparent_key is not None:
+            apply_transparent_key(tile, transparent_key)
+    width, height = tile.size
+    alpha = tile.getchannel("A")
+    return [
+        [cast(int, alpha.getpixel((x, y))) > 0 for x in range(width)]
+        for y in range(height)
+    ]
+
+
+def _attach_seam_profiles(
+    *,
+    tiles: dict[str, TileRecord],
+    default_variant: TileFamilyVariant,
+    root: Path,
+    tile_width: int,
+    tile_height: int,
+    image_cache: dict[Path, Image.Image],
+) -> dict[str, TileRecord]:
+    """Derive each tile's per-side seam profile from its own normalised pixels.
+
+    Runtime-derived (see the [[Ingestion–Runtime Separation]] invariant): the
+    seam profile is a pure function of the runtime sheet, never read back from
+    ingest-side data, so deleting all ingest data leaves it intact. Silhouette
+    is colour-blind (D2), so the family default variant's pixels suffice. The
+    caller supplies ``image_cache`` so the default variant's sheet — already
+    loaded for bounds-checking — is not re-opened.
+    """
+    enriched: dict[str, TileRecord] = {}
+    for tile_id, tile in tiles.items():
+        image_override_path = (
+            resolve_tile_image_override_path(
+                root=root,
+                image_override=tile.image_override,
+                variant_id=default_variant.id,
+            )
+            if tile.image_override is not None
+            else None
+        )
+        grid = _tile_occupancy_grid(
+            variant=default_variant,
+            sheet_col=tile.genesis.sheet_col,
+            sheet_row=tile.genesis.sheet_row,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            image_cache=image_cache,
+            image_override_path=image_override_path,
+        )
+        enriched[tile_id] = replace(tile, seam_profiles=derive_side_masks(grid))
+    return enriched
 
 
 def _sheet_bounds_for_variant(
@@ -2244,6 +2345,10 @@ class TileFamily:
             catalog=catalog,
             aliases_by_tile=aliases_by_tile,
         )
+        if header.default_variant_id not in variants:
+            raise ValueError(
+                f"Unknown default_variant_id {header.default_variant_id!r} in family {header.family_id!r}"
+            )
         _validate_alias_targets(alias_map=alias_map, tiles=tiles)
 
         _validate_tile_override_images(
@@ -2254,6 +2359,18 @@ class TileFamily:
             tile_height=header.tile_height,
         )
         _validate_clusters_against_tiles(clusters=clusters, tiles=tiles)
+
+        # Derive seam profiles after override images are validated to exist, so a
+        # missing override surfaces as the diagnostic ValueError above rather than
+        # a bare FileNotFoundError here. Reuses the already-loaded sheet cache.
+        tiles = _attach_seam_profiles(
+            tiles=tiles,
+            default_variant=variants[header.default_variant_id],
+            root=root,
+            tile_width=header.tile_width,
+            tile_height=header.tile_height,
+            image_cache=variant_sheet_image_cache,
+        )
 
         tiles_by_sheet_cell = _index_tiles_by_sheet_cell(tiles)
         _validate_exact_duplicate_pixels(
@@ -2269,11 +2386,6 @@ class TileFamily:
                 source_layout=source_layout,
                 tiles=tiles,
                 alias_map=alias_map,
-            )
-
-        if header.default_variant_id not in variants:
-            raise ValueError(
-                f"Unknown default_variant_id {header.default_variant_id!r} in family {header.family_id!r}"
             )
 
         constructions = load_constructions_from_data(

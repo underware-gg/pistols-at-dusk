@@ -369,6 +369,7 @@ class TileRecord:
     animation_frame: int | None = None
     animation_frame_count: int | None = None
     connects_on: tuple[str, ...] = ()
+    seam_profiles: dict[str, tuple[bool, ...]] | None = None
     requires_exposed_on: tuple[str, ...] = ()
     affordances: tuple[str, ...] = ()
     alt_uses: tuple[str, ...] = ()

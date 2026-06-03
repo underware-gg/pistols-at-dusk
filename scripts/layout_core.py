@@ -13,11 +13,13 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal, Sequence, TypedDict, TypeVar, cast
+from typing import Callable, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import NotRequired
 
 from PIL import Image, ImageOps
+
+from tile_normalisation import apply_transparent_key, transparent_key_for_sheet
 
 from scene_rules import (
     SceneRulesetLibrary,
@@ -223,19 +225,6 @@ def escape_xml(value: str) -> str:
 def slugify_identifier(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
     return slug or "tileset"
-
-
-def _apply_transparent_key(image: Image.Image, transparent_key: object) -> None:
-    """Replace pixels matching `transparent_key` in `image` with full transparency."""
-    # Pillow's get_flattened_data / putdata stubs are weakly typed; route through a
-    # cast that pyright can fully resolve so the strict checker stays happy.
-    get_data = cast(Callable[[], Sequence[object]], getattr(image, "get_flattened_data"))
-    put_data = cast(Callable[[Sequence[tuple[int, int, int, int]]], None], getattr(image, "putdata"))
-    pixels: list[tuple[int, int, int, int]] = [
-        (0, 0, 0, 0) if pixel == transparent_key else cast(tuple[int, int, int, int], pixel)
-        for pixel in get_data()
-    ]
-    put_data(pixels)
 
 
 def _filled_hole_mask(image: Image.Image) -> Image.Image:
@@ -570,12 +559,7 @@ class GridTileset:
             raise ValueError(f"Unsupported catalog_scope for {tileset_id}: {self.catalog_scope!r}")
         self.regions = regions or {}
         self.image = Image.open(self.sheet_path).convert("RGBA")
-        if self.transparent_mode == "top_left":
-            self.transparent_key = self.image.getpixel((0, 0))
-        elif self.transparent_mode == "none":
-            self.transparent_key = None
-        else:
-            raise ValueError(f"Unsupported transparent mode: {self.transparent_mode}")
+        self.transparent_key = transparent_key_for_sheet(self.image, self.transparent_mode)
 
         step_x = self.tile_width + self.spacing
         step_y = self.tile_height + self.spacing
@@ -610,7 +594,7 @@ class GridTileset:
             col, row = self.col_row_from_index(index)
             image = self.image.crop(self.tile_box(col, row)).convert("RGBA")
             if self.transparent_key is not None:
-                _apply_transparent_key(image, self.transparent_key)
+                apply_transparent_key(image, self.transparent_key)
             self._image_cache[base_key] = image
 
         image = self._image_cache[base_key]

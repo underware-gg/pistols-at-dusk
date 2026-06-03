@@ -2058,5 +2058,77 @@ class ParametricFrameConstructionBuildTests(unittest.TestCase):
         self.assertIsNone(construction.fill)
 
 
+class SeamProfileDerivationTests(unittest.TestCase):
+    def test_top_left_gutter_resolves_to_null_seams_on_north_and_east(self) -> None:
+        # A tile that keys its top row and right column to the sheet background
+        # (top_left transparent mode) leaves an L-shaped painted body. Seam
+        # derivation must normalise first, so the gutter reads as "no seam".
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            key = (255, 0, 0, 255)
+            paint = (0, 0, 255, 255)
+            image = Image.new("RGBA", (8, 8), paint)
+            for x in range(8):
+                image.putpixel((x, 0), key)  # top row -> keyed to transparent
+            for y in range(8):
+                image.putpixel((7, y), key)  # right column -> keyed to transparent
+            image.save(family_dir / "sheet.png")
+            family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+            cast(list[dict[str, object]], family_json["variants"])[0]["transparent"] = "top_left"
+            write_json(family_dir / "family.json", family_json)
+
+            family = TileFamily.load(family_dir)
+            tile = family.tiles["testfam:all:0,0"]
+            assert tile.seam_profiles is not None
+            # north (top row L->R) and east (right col T->B) are pure gutter -> null
+            self.assertEqual(tile.seam_profiles["north"], (False,) * 8)
+            self.assertEqual(tile.seam_profiles["east"], (False,) * 8)
+            # south (bottom row L->R): painted except the gutter pixel at x=7
+            self.assertEqual(tile.seam_profiles["south"], (True,) * 7 + (False,))
+            # west (left col T->B): gutter pixel at y=0, painted below
+            self.assertEqual(tile.seam_profiles["west"], (False,) + (True,) * 7)
+
+    def test_image_override_tile_derives_masks_from_override_pixels(self) -> None:
+        # Synthetic (image_override) tiles take the override branch of
+        # _tile_occupancy_grid: genuine alpha, no background keying.
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            override = Image.new("RGBA", (8, 8), (0, 0, 0, 0))  # transparent body
+            for y in range(8):
+                override.putpixel((0, y), (10, 20, 30, 255))  # paint the left column only
+            (family_dir / "derived").mkdir()
+            override.save(family_dir / "derived" / "synth.png")
+            tiles = cast(list[dict[str, object]], json.loads((family_dir / "tiles.json").read_text(encoding="utf-8")))
+            tiles.append({
+                "id": "testfam:synth:override",
+                "image_override": "derived/synth.png",
+                "layer": "map",
+                "category": "tile",
+                "transparent": True,
+                "cluster_ids": [],
+                "tags": ["semantic:synthetic"],
+                "source_group": "test.group",
+                "meaning": "Synthetic override tile.",
+                "meaning_confidence": "confirmed",
+            })
+            write_json(family_dir / "tiles.json", tiles)
+
+            family = TileFamily.load(family_dir)
+            tile = family.tiles["testfam:synth:override"]
+            assert tile.seam_profiles is not None
+            self.assertEqual(tile.seam_profiles["west"], (True,) * 8)  # painted left column
+            self.assertEqual(tile.seam_profiles["east"], (False,) * 8)  # transparent right column
+            self.assertEqual(tile.seam_profiles["north"], (True,) + (False,) * 7)  # top row: only x=0 painted
+            self.assertEqual(tile.seam_profiles["south"], (True,) + (False,) * 7)
+
+    def test_minimal8_tiles_carry_four_eight_long_masks(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        tile = next(iter(family.tiles.values()))
+        assert tile.seam_profiles is not None
+        self.assertEqual(set(tile.seam_profiles), {"north", "south", "east", "west"})
+        for mask in tile.seam_profiles.values():
+            self.assertEqual(len(mask), 8)
+
+
 if __name__ == "__main__":
     unittest.main()
