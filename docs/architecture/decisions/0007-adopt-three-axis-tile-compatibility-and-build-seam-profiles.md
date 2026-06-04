@@ -1,7 +1,8 @@
 # 0007 - Adopt the Three-Axis Tile-Compatibility Model and Build Machine-Verifiable Seam Profiles
 
-- Status: accepted
+- Status: extended
 - Supersedes: [0006](0006-defer-cross-kit-interchangeability-to-seam-profiles.md)
+- Extended by: [0008](0008-locate-seam-contact-line-at-content-box-edge.md)
 
 ## Context
 

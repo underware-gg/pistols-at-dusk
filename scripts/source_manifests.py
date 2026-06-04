@@ -19,6 +19,7 @@ from PIL import Image
 
 from _manifest_utils import GridBounds, bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
 from compatibility_family import CompatibilityFamilyPaths
+from tile_library import CellContentInset
 from tile_metadata import ModuleContextValue, RenderTraits
 
 MANIFEST_ID_RE = re.compile(r"^[a-z0-9_.-]+$")
@@ -55,6 +56,7 @@ class CompatibilityFamilySource:
     render_step_width: int | None = None
     render_step_height: int | None = None
     siblings_share_semantics: bool | None = None
+    cell_content_inset: CellContentInset | None = None
     notes: tuple[str, ...] = ()
 
 
@@ -466,6 +468,11 @@ def _load_compatibility_family_source(
         siblings_share_semantics=(
             _require_bool(mapping["siblings_share_semantics"], context=f"{context}.siblings_share_semantics")
             if mapping.get("siblings_share_semantics") is not None
+            else None
+        ),
+        cell_content_inset=(
+            CellContentInset.from_mapping(mapping["cell_content_inset"], context=f"{context}.cell_content_inset")
+            if mapping.get("cell_content_inset") is not None
             else None
         ),
         notes=_optional_notes(mapping, context=context),

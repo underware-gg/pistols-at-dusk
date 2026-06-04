@@ -32,6 +32,10 @@
     "render_step_width": 8,
     "render_step_height": 8,
     "siblings_share_semantics": true,
+    "cell_content_inset": {
+      "top": 1,
+      "right": 1
+    },
     "notes": [
       "Transitional compatibility bundle for the current family-backed runtime path."
     ]

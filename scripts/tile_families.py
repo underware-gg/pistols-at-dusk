@@ -21,6 +21,7 @@ from compatibility_family import CompatibilityFamilyPaths
 from seam_profiles import derive_side_masks
 from tile_normalisation import apply_transparent_key, transparent_key_for_sheet
 from tile_library import (
+    CellContentInset,
     FRAME_FILL_MODES,
     MetatileConstruction,
     ParametricRunConstruction,
@@ -79,6 +80,7 @@ class FamilyManifest(TypedDict):
     notes: NotRequired[list[str]]
     default_variant_id: NotRequired[str]
     ingestion_spec: NotRequired[str]
+    cell_content_inset: NotRequired[Mapping[str, int]]
 
 
 class IngestionBoundsConfig(TypedDict):
@@ -211,6 +213,7 @@ class TileConfig(TypedDict):
     animation_frame: NotRequired[int]
     animation_frame_count: NotRequired[int]
     connects_on: NotRequired[list[str]]
+    cell_content_inset: NotRequired[Mapping[str, int]]
     requires_exposed_on: NotRequired[list[str]]
     affordances: NotRequired[list[str]]
     alt_uses: NotRequired[list[str]]
@@ -397,6 +400,11 @@ def load_family_header_from_manifest(
         if declared_default_variant_id is not None
         else next(iter(variants.keys()))
     )
+    # Shape/sign is validated here; the inset-vs-tile-dimension check lives in
+    # TileFamilyHeader.__post_init__ so it covers the staged bridge path too.
+    cell_content_inset = CellContentInset.from_mapping(
+        family_data.get("cell_content_inset"), context=f"{root}: family cell_content_inset"
+    )
     return TileFamilyHeader(
         root=root,
         family_id=str(family_data["family_id"]),
@@ -412,6 +420,7 @@ def load_family_header_from_manifest(
             else None
         ),
         default_variant_id=default_variant_id,
+        cell_content_inset=cell_content_inset,
     )
 
 
@@ -999,6 +1008,7 @@ def _attach_seam_profiles(
     tile_width: int,
     tile_height: int,
     image_cache: dict[Path, Image.Image],
+    default_inset: CellContentInset,
 ) -> dict[str, TileRecord]:
     """Derive each tile's per-side seam profile from its own normalised pixels.
 
@@ -1008,6 +1018,11 @@ def _attach_seam_profiles(
     is colour-blind (D2), so the family default variant's pixels suffice. The
     caller supplies ``image_cache`` so the default variant's sheet — already
     loaded for bounds-checking — is not re-opened.
+
+    The contact line is read at the content-box edge using the tile's own
+    ``cell_content_inset`` override when present, otherwise the family
+    ``default_inset`` (ADR 0008), so a consistent gutter is matched as painted-
+    to-painted rather than as a null edge.
     """
     enriched: dict[str, TileRecord] = {}
     for tile_id, tile in tiles.items():
@@ -1029,7 +1044,9 @@ def _attach_seam_profiles(
             image_cache=image_cache,
             image_override_path=image_override_path,
         )
-        enriched[tile_id] = replace(tile, seam_profiles=derive_side_masks(grid))
+        inset = tile.cell_content_inset if tile.cell_content_inset is not None else default_inset
+        masks = derive_side_masks(grid, top=inset.top, right=inset.right, bottom=inset.bottom, left=inset.left)
+        enriched[tile_id] = replace(tile, seam_profiles=masks)
     return enriched
 
 
@@ -1796,6 +1813,18 @@ def _resolve_tiles_from_catalog(
             image_override_raw = inherited_scalar("image_override", None)
             meaning_raw = inherited_scalar("meaning", None)
             source_notes_raw = inherited_scalar("source_notes", None)
+            cell_content_inset_raw = inherited_scalar("cell_content_inset", None)
+            tile_cell_content_inset = (
+                CellContentInset.from_mapping(cell_content_inset_raw, context=f"tile {tile_id} cell_content_inset")
+                if cell_content_inset_raw is not None
+                else None
+            )
+            if tile_cell_content_inset is not None:
+                tile_cell_content_inset.validate_against(
+                    tile_width=header.tile_width,
+                    tile_height=header.tile_height,
+                    context=f"tile {tile_id} cell_content_inset",
+                )
             raw_sheet_col = spec.get("sheet_col")
             raw_sheet_row = spec.get("sheet_row")
             image_override = cast(str, image_override_raw) if image_override_raw is not None else None
@@ -1877,6 +1906,7 @@ def _resolve_tiles_from_catalog(
                 if animation_frame_count_raw is not None
                 else None,
                 connects_on=inherited_sequence("connects_on"),
+                cell_content_inset=tile_cell_content_inset,
                 requires_exposed_on=inherited_sequence("requires_exposed_on"),
                 affordances=inherited_sequence("affordances"),
                 alt_uses=inherited_sequence("alt_uses"),
@@ -2370,6 +2400,7 @@ class TileFamily:
             tile_width=header.tile_width,
             tile_height=header.tile_height,
             image_cache=variant_sheet_image_cache,
+            default_inset=header.cell_content_inset,
         )
 
         tiles_by_sheet_cell = _index_tiles_by_sheet_cell(tiles)

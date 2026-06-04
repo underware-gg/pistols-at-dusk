@@ -12,6 +12,7 @@ with manifests for variant metadata, source-sheet layout, semantics, and aliases
   - grid size
   - render defaults
   - variant list and per-variant sheet metadata
+  - optional `cell_content_inset` (per-side gutter, default 0 = flush) consumed by seam-profile derivation to read the content-box edge; also declarable on the staged tilesheet's `compatibility_family` block, which the bridge prefers ([ADR 0008](../architecture/decisions/0008-locate-seam-contact-line-at-content-box-edge.md))
 - `ingestion.json`
   - authoritative source-sheet regions, clusters, and collections
 - `clusters.json`
@@ -19,6 +20,7 @@ with manifests for variant metadata, source-sheet layout, semantics, and aliases
 - `tiles.json`
   - per-tile semantic records keyed by stable tile IDs
   - direct sheet provenance via `sheet_col` / `sheet_row` for sheet-backed tiles
+  - optional per-tile `cell_content_inset` override of the family default (e.g. full-bleed tiles)
 - `constructions.json`
   - legal multi-tile arrangements and parametric runs built from the tile catalogue
 - `aliases.json`

@@ -79,5 +79,57 @@ class DeriveSideMasksTests(unittest.TestCase):
             derive_side_masks([[True, False], [True]])
 
 
+class ContactMaskInsetTests(unittest.TestCase):
+    """Reading the contact line at the content-box edge (ADR 0008 gutter inset)."""
+
+    def setUp(self):
+        # 4x4; a 1px transparent gutter on top + right, painted body bottom-left.
+        self.grid = [
+            [False, False, False, False],  # top gutter
+            [True, True, True, False],
+            [True, True, True, False],
+            [True, True, True, False],
+        ]
+
+    def test_literal_east_edge_is_the_gutter(self):
+        self.assertEqual(contact_mask(self.grid, "east"), (False, False, False, False))
+
+    def test_inset_east_reads_the_content_edge(self):
+        # one column in from the right (skip the gutter) -> painted below the top gutter
+        self.assertEqual(contact_mask(self.grid, "east", 1), (False, True, True, True))
+
+    def test_inset_north_reads_below_the_gutter(self):
+        self.assertEqual(contact_mask(self.grid, "north", 1), (True, True, True, False))
+
+    def test_negative_inset_raises(self):
+        with self.assertRaises(ValueError):
+            contact_mask(self.grid, "north", -1)
+
+    def test_inset_beyond_bounds_raises(self):
+        with self.assertRaises(ValueError):
+            contact_mask(self.grid, "east", 4)
+
+
+class DeriveSideMasksInsetTests(unittest.TestCase):
+    def test_per_side_insets_locate_the_content_box(self):
+        grid = [
+            [False, False, False, False],  # top gutter
+            [True, True, True, False],
+            [True, True, True, False],
+            [True, True, True, False],
+        ]
+        masks = derive_side_masks(grid, top=1, right=1)
+        # east now reads col 2 (one in from the gutter), north reads row 1
+        self.assertEqual(masks["east"], (False, True, True, True))
+        self.assertEqual(masks["north"], (True, True, True, False))
+        # bottom/left default to 0 -> literal edges
+        self.assertEqual(masks["south"], (True, True, True, False))
+        self.assertEqual(masks["west"], (False, True, True, True))
+
+    def test_default_insets_match_literal_edges(self):
+        grid = [[True, False], [False, True]]
+        self.assertEqual(derive_side_masks(grid), derive_side_masks(grid, top=0, right=0, bottom=0, left=0))
+
+
 if __name__ == "__main__":
     unittest.main()

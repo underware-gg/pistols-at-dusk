@@ -11,6 +11,10 @@
   },
   "siblings_share_semantics": true,
   "default_variant_id": "1bit_colored_bg",
+  "cell_content_inset": {
+    "top": 1,
+    "right": 1
+  },
   "ingestion_spec": "ingestion.json",
   "notes": [
     "All sprite-sheet variants in this family share the same semantic meaning at the same grid coordinates.",

@@ -200,6 +200,13 @@ def _build_bridged_family_inputs(
             siblings_share_semantics=bridged_siblings_share_semantics,
             notes=bridged_notes,
             default_variant_id=logical_tilesheet.default_variant_id,
+            # The staged source manifest owns the cell-content inset (ADR 0008);
+            # fall back to the transitional family bundle only when it is silent.
+            cell_content_inset=(
+                compatibility.cell_content_inset
+                if compatibility.cell_content_inset is not None
+                else legacy_header.cell_content_inset
+            ),
         ),
         promoted_metadata=TileLibraryPromotedMetadata(
             source_pack_id=pack.id,

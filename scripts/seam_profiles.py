@@ -31,21 +31,45 @@ def _validate_grid(grid: Grid) -> None:
         raise ValueError("occupancy grid must be rectangular")
 
 
-def contact_mask(grid: Grid, side: str) -> Mask:
-    """The 1px contact line for ``side``, oriented per the module contract."""
+def contact_mask(grid: Grid, side: str, inset: int = 0) -> Mask:
+    """The 1px contact line for ``side``, oriented per the module contract.
+
+    ``inset`` reads the line that many pixels *in* from ``side``'s edge rather
+    than at the literal edge — the content-box edge for art drawn within a
+    consistent transparent margin ("gutter"); see ADR 0008. ``inset=0`` is the
+    literal cell edge.
+    """
     _validate_grid(grid)
-    if side == "north":
-        return tuple(bool(cell) for cell in grid[0])
-    if side == "south":
-        return tuple(bool(cell) for cell in grid[-1])
-    if side == "west":
-        return tuple(bool(row[0]) for row in grid)
-    if side == "east":
-        return tuple(bool(row[-1]) for row in grid)
+    if inset < 0:
+        raise ValueError(f"inset must be non-negative, got {inset}")
+    height = len(grid)
+    width = len(grid[0])
+    if side in ("north", "south"):
+        if inset >= height:
+            raise ValueError(f"inset {inset} exceeds grid height {height} for side {side!r}")
+        row = grid[inset] if side == "north" else grid[height - 1 - inset]
+        return tuple(bool(cell) for cell in row)
+    if side in ("east", "west"):
+        if inset >= width:
+            raise ValueError(f"inset {inset} exceeds grid width {width} for side {side!r}")
+        col = inset if side == "west" else width - 1 - inset
+        return tuple(bool(row[col]) for row in grid)
     raise ValueError(f"unknown side {side!r}; expected one of {SIDES}")
 
 
-def derive_side_masks(grid: Grid) -> dict[str, Mask]:
-    """Per-side contact masks for all four sides of a tile's occupancy grid."""
+def derive_side_masks(
+    grid: Grid, *, top: int = 0, right: int = 0, bottom: int = 0, left: int = 0
+) -> dict[str, Mask]:
+    """Per-side contact masks, each read at its side's content-box edge.
+
+    The per-side insets (``top``/``right``/``bottom``/``left``, default 0 = the
+    literal cell edge) absorb a consistent transparent gutter so painted content
+    is compared against painted content (ADR 0008).
+    """
     _validate_grid(grid)
-    return {side: contact_mask(grid, side) for side in SIDES}
+    return {
+        "north": contact_mask(grid, "north", top),
+        "south": contact_mask(grid, "south", bottom),
+        "east": contact_mask(grid, "east", right),
+        "west": contact_mask(grid, "west", left),
+    }

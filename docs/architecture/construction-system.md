@@ -80,7 +80,7 @@ Known open questions, deferred:
 
 - **Variant slots within a construction** (alternates per role).
 - **Affordance / walkability propagation** from tile rules up to construction-level composite affordances.
-- **Cross-kit constructions / kit interchangeability.** No longer deferred: [ADR 0007](decisions/0007-adopt-three-axis-tile-compatibility-and-build-seam-profiles.md) reversed the earlier deferral (ADR 0006) and adopted the three-axis tile-compatibility model, accepting machine-verifiable seam profiles — the mechanical axis — for build. The `connects_on` adjacency rule above will be superseded by derived seam-profile matching when that work lands; it remains the live mechanism until then.
+- **Cross-kit constructions / kit interchangeability.** No longer deferred: [ADR 0007](decisions/0007-adopt-three-axis-tile-compatibility-and-build-seam-profiles.md) reversed the earlier deferral (ADR 0006) and adopted the three-axis tile-compatibility model, accepting machine-verifiable seam profiles — the mechanical axis — for build. The `connects_on` adjacency rule above will be superseded by derived seam-profile matching when that work lands; it remains the live mechanism until then. [ADR 0008](decisions/0008-locate-seam-contact-line-at-content-box-edge.md) refines how the seam contact line is located for inset/guttered art (the content-box edge via a declared cell-content inset), so the check works across tilesets that draw their tiles within a gutter rather than flush to the cell edge.
 - **Scene-level validation** (overlap detection, layer correctness, reachability).
 
 ## Out of scope

@@ -16,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from source_manifest_bridge import load_bridged_tile_family
 from tile_families import TileFamily
+from tile_library import CellContentInset
 
 
 def read_json(path: Path) -> object:
@@ -212,6 +213,7 @@ def make_bridged_source_pack(root: Path) -> Path:
                 "render_step_width": 8,
                 "render_step_height": 8,
                 "siblings_share_semantics": True,
+                "cell_content_inset": {"top": 1, "right": 1},
                 "notes": ["Bridge-only compatibility note that should not leak into TileFamily.notes."],
             },
             "render_variants": [
@@ -332,6 +334,8 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(family.render_step_width, 8)
             self.assertEqual(family.render_step_height, 8)
             self.assertTrue(family.siblings_share_semantics)
+            # The cell-content inset is owned by the staged source manifest (ADR 0008).
+            self.assertEqual(family.header.cell_content_inset, CellContentInset(top=1, right=1))
             self.assertEqual(family.notes, ("Legacy overworld compatibility note.",))
             promoted_metadata = family.runtime_unit.promoted_metadata
             self.assertEqual(promoted_metadata.source_pack_id, "demo-pack")
@@ -434,6 +438,19 @@ class SourceManifestBridgeTests(unittest.TestCase):
 
             self.assertEqual(family.notes, ())
             self.assertEqual(family.runtime_unit.promoted_metadata.documented_hints, ())
+
+    def test_bridge_rejects_oversized_staged_cell_content_inset(self) -> None:
+        # The dimension check lives in TileFamilyHeader.__post_init__, so the staged
+        # bridge path is validated too (not only the legacy family-header path).
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pack_path = make_bridged_source_pack(Path(temp_dir))
+            set_json_value(
+                pack_path.parent / "tilesheets" / "overworld.json",
+                ["compatibility_family", "cell_content_inset"],
+                {"right": 99},
+            )
+            with self.assertRaisesRegex(ValueError, r"cell_content_inset.*tile width"):
+                load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
     def test_bridge_rejects_logical_tilesheet_without_compatibility_family(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

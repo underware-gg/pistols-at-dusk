@@ -15,7 +15,9 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from seam_matching import MatchPolicy
 from tile_library import (
+    CellContentInset,
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -2088,6 +2090,115 @@ class SeamProfileDerivationTests(unittest.TestCase):
             # west (left col T->B): gutter pixel at y=0, painted below
             self.assertEqual(tile.seam_profiles["west"], (False,) + (True,) * 7)
 
+    def test_invalid_family_inset_value_fails_with_context(self) -> None:
+        # A bad inset at the manifest boundary must fail loudly, not silently flatten to 0.
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+            family_json["cell_content_inset"] = {"right": [1]}  # not an int
+            write_json(family_dir / "family.json", family_json)
+            with self.assertRaisesRegex(ValueError, "cell_content_inset"):
+                TileFamily.load(family_dir)
+
+    def test_negative_family_inset_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+            family_json["cell_content_inset"] = {"top": -1}
+            write_json(family_dir / "family.json", family_json)
+            with self.assertRaisesRegex(ValueError, "non-negative"):
+                TileFamily.load(family_dir)
+
+    def _gutter_family(self, tmp: str) -> Path:
+        """A family whose sheet has a 1px top+right keyed gutter (top_left mode)."""
+        family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+        key = (255, 0, 0, 255)
+        paint = (0, 0, 255, 255)
+        image = Image.new("RGBA", (8, 8), paint)
+        for x in range(8):
+            image.putpixel((x, 0), key)  # top gutter
+        for y in range(8):
+            image.putpixel((7, y), key)  # right gutter
+        image.save(family_dir / "sheet.png")
+        family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+        cast(list[dict[str, object]], family_json["variants"])[0]["transparent"] = "top_left"
+        family_json["cell_content_inset"] = {"top": 1, "right": 1}
+        write_json(family_dir / "family.json", family_json)
+        return family_dir
+
+    def test_family_cell_content_inset_reads_content_box_edge(self) -> None:
+        # With a declared family gutter (top=1, right=1), seam derivation reads the
+        # content-box edge, so the guttered north/east sides carry content (ADR 0008).
+        with tempfile.TemporaryDirectory() as tmp:
+            tile = TileFamily.load(self._gutter_family(tmp)).tiles["testfam:all:0,0"]
+            assert tile.seam_profiles is not None
+            self.assertEqual(tile.seam_profiles["east"], (False,) + (True,) * 7)  # col 6, below top gutter
+            self.assertEqual(tile.seam_profiles["north"], (True,) * 7 + (False,))  # row 1, minus right gutter
+
+    def test_per_tile_inset_override_beats_family_default(self) -> None:
+        # A full-bleed tile can override the family gutter back to inset 0 (literal edge).
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = self._gutter_family(tmp)
+            tiles = cast(list[dict[str, object]], json.loads((family_dir / "tiles.json").read_text(encoding="utf-8")))
+            tiles[0]["cell_content_inset"] = {"top": 0, "right": 0}
+            write_json(family_dir / "tiles.json", tiles)
+            tile = TileFamily.load(family_dir).tiles["testfam:all:0,0"]
+            assert tile.seam_profiles is not None
+            # override -> literal edges -> the gutter reads as null again
+            self.assertEqual(tile.seam_profiles["east"], (False,) * 8)
+            self.assertEqual(tile.seam_profiles["north"], (False,) * 8)
+
+    def test_adjacent_gutter_tiles_match_via_matchpolicy_through_inset(self) -> None:
+        # End-to-end (ADR 0008 headline): two horizontally adjacent guttered tiles
+        # whose content edges meet. Reading at the content-box edge makes A.east
+        # (inset 1) compare content-to-content with B.west (literal); at the literal
+        # cell edge A.east would be the null gutter and the pair would fail to match.
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = Path(tmp) / "adj"
+            family_dir.mkdir()
+            key = (255, 0, 0, 255)
+            paint = (0, 0, 255, 255)
+            image = Image.new("RGBA", (16, 8), paint)
+            for x in range(16):
+                image.putpixel((x, 0), key)  # shared top gutter
+            for y in range(8):
+                image.putpixel((7, y), key)  # cell-0 right gutter
+                image.putpixel((15, y), key)  # cell-1 right gutter
+            image.save(family_dir / "sheet.png")
+            write_json(family_dir / "family.json", {
+                "family_id": "adjfam",
+                "grid": {"tile_width": 8, "tile_height": 8},
+                "default_variant_id": "base",
+                "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "top_left"}],
+                "cell_content_inset": {"top": 1, "right": 1},
+            })
+            write_json(family_dir / "aliases.json", {})
+            write_json(family_dir / "clusters.json", [])
+            common = {"layer": "map", "category": "tile", "transparent": False, "meaning_confidence": "confirmed"}
+            write_json(family_dir / "tiles.json", [
+                {"id": "adjfam:all:0,0", "sheet_col": 0, "sheet_row": 0, **common},
+                {"id": "adjfam:all:1,0", "sheet_col": 1, "sheet_row": 0, **common},
+            ])
+
+            fam = TileFamily.load(family_dir)
+            a, b = fam.tiles["adjfam:all:0,0"], fam.tiles["adjfam:all:1,0"]
+            assert a.seam_profiles is not None and b.seam_profiles is not None
+            policy = MatchPolicy()
+            self.assertTrue(any(a.seam_profiles["east"]))  # content edge, not the null gutter
+            self.assertTrue(policy.fits(a.seam_profiles["east"], b.seam_profiles["west"]))
+            # the literal cell edge (the all-null gutter) would NOT have matched B.west
+            self.assertFalse(policy.fits((False,) * 8, b.seam_profiles["west"]))
+
+    def test_oversized_inset_fails_with_manifest_context(self) -> None:
+        # M2: a declared inset that cannot fit the tile fails with a manifest-path message.
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+            family_json["cell_content_inset"] = {"right": 8}  # == tile width, out of range
+            write_json(family_dir / "family.json", family_json)
+            with self.assertRaisesRegex(ValueError, "cell_content_inset.*tile width"):
+                TileFamily.load(family_dir)
+
     def test_image_override_tile_derives_masks_from_override_pixels(self) -> None:
         # Synthetic (image_override) tiles take the override branch of
         # _tile_occupancy_grid: genuine alpha, no background keying.
@@ -2128,6 +2239,26 @@ class SeamProfileDerivationTests(unittest.TestCase):
         self.assertEqual(set(tile.seam_profiles), {"north", "south", "east", "west"})
         for mask in tile.seam_profiles.values():
             self.assertEqual(len(mask), 8)
+
+
+class CellContentInsetParseTests(unittest.TestCase):
+    def test_valid_mapping(self) -> None:
+        self.assertEqual(CellContentInset.from_mapping({"top": 1, "right": 2}), CellContentInset(top=1, right=2))
+
+    def test_none_is_flush_default(self) -> None:
+        self.assertEqual(CellContentInset.from_mapping(None), CellContentInset())
+
+    def test_bool_value_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "integer"):
+            CellContentInset.from_mapping({"top": True})
+
+    def test_unknown_key_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown keys"):
+            CellContentInset.from_mapping({"middle": 1})
+
+    def test_non_mapping_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            CellContentInset.from_mapping([1, 2])
 
 
 if __name__ == "__main__":

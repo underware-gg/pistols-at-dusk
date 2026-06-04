@@ -17,7 +17,7 @@ from typing import Iterable, Literal, Mapping, Protocol, Union
 
 from typing_extensions import TypeAlias
 
-from _manifest_utils import GridBounds, resolve_path
+from _manifest_utils import GridBounds, require_mapping, resolve_path
 from tile_metadata import ModuleContextValue, RenderTraits
 
 
@@ -25,6 +25,67 @@ PHYSICAL_TILE_RE = re.compile(r"^(?P<family>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\
 VARIANT_TILE_RE = re.compile(
     r"^(?P<family>[a-z0-9_.-]+)@(?P<variant>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$"
 )
+
+
+@dataclass(frozen=True)
+class CellContentInset:
+    """Per-side transparent margin ("gutter") a tileset draws inside each cell.
+
+    Seam derivation reads the contact line this many pixels in from each edge —
+    the content-box edge — so a consistent gutter is matched as painted-to-painted
+    rather than read as a null edge (ADR 0008). All sides default to 0 (flush art).
+    """
+
+    top: int = 0
+    right: int = 0
+    bottom: int = 0
+    left: int = 0
+
+    def __post_init__(self) -> None:
+        for name in ("top", "right", "bottom", "left"):
+            if getattr(self, name) < 0:
+                raise ValueError(f"cell_content_inset.{name} must be non-negative")
+
+    @classmethod
+    def from_mapping(cls, raw: object, *, context: str = "cell_content_inset") -> CellContentInset:
+        """Build from a JSON-style mapping; ``None`` yields the flush default.
+
+        Parses at a manifest trust boundary, so invalid values fail with context
+        rather than silently flattening to a flush edge and deriving wrong seams.
+        """
+        if raw is None:
+            return cls()
+        mapping = require_mapping(raw, context=context)
+        unknown = set(mapping) - {"top", "right", "bottom", "left"}
+        if unknown:
+            raise ValueError(f"{context} has unknown keys {sorted(unknown)}; expected top/right/bottom/left")
+
+        def _side(name: str) -> int:
+            value = mapping.get(name, 0)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{context}.{name} must be a non-negative integer, got {value!r}")
+            if value < 0:
+                raise ValueError(f"{context}.{name} must be non-negative, got {value}")
+            return value
+
+        return cls(top=_side("top"), right=_side("right"), bottom=_side("bottom"), left=_side("left"))
+
+    def validate_against(self, *, tile_width: int, tile_height: int, context: str) -> None:
+        """Raise if any side's inset cannot fit the tile — a manifest-boundary diagnostic.
+
+        ``seam_profiles.contact_mask`` keeps its own grid-centric bounds check as the
+        module contract; this gives a manifest-path message before derivation runs.
+        """
+        if self.top >= tile_height or self.bottom >= tile_height:
+            raise ValueError(
+                f"{context}: top/bottom inset ({self.top}/{self.bottom}) must be less than tile height {tile_height}"
+            )
+        if self.left >= tile_width or self.right >= tile_width:
+            raise ValueError(
+                f"{context}: left/right inset ({self.left}/{self.right}) must be less than tile width {tile_width}"
+            )
+
+
 @dataclass(frozen=True)
 class MetatileConstruction:
     id: str
@@ -260,6 +321,16 @@ class TileFamilyHeader:
     siblings_share_semantics: bool | None
     notes: tuple[str, ...] | None
     default_variant_id: str
+    cell_content_inset: CellContentInset = field(default_factory=CellContentInset)
+
+    def __post_init__(self) -> None:
+        # Holds both the inset and the tile dimensions, so every header-construction
+        # path (legacy load and the staged bridge) validates the family inset here.
+        self.cell_content_inset.validate_against(
+            tile_width=self.tile_width,
+            tile_height=self.tile_height,
+            context=f"family {self.family_id} cell_content_inset",
+        )
 
 
 def _empty_tile_library_module_context() -> dict[str, ModuleContextValue]:
@@ -370,6 +441,7 @@ class TileRecord:
     animation_frame_count: int | None = None
     connects_on: tuple[str, ...] = ()
     seam_profiles: dict[str, tuple[bool, ...]] | None = None
+    cell_content_inset: CellContentInset | None = None
     requires_exposed_on: tuple[str, ...] = ()
     affordances: tuple[str, ...] = ()
     alt_uses: tuple[str, ...] = ()
