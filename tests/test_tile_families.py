@@ -1218,6 +1218,9 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
             self.assertEqual(report["missing_meaning_confidence"], ["testfam:all:0,0"])
 
 
+_FULL_SEAM: tuple[bool, ...] = (True,) * 8
+
+
 def _make_tile(
     tile_id: str,
     *,
@@ -1225,7 +1228,14 @@ def _make_tile(
     compose_role: str | None = None,
     connects_on: list[str] | None = None,
     requires_exposed_on: list[str] | None = None,
+    seam_profiles: dict[str, tuple[bool, ...]] | None = None,
 ) -> TileRecord:
+    # Default every side to a fully-painted contact line, so two unspecified tiles
+    # butt-join cleanly (equality 1.0); a test that wants a mismatch overrides the
+    # relevant side. Mirrors what _attach_seam_profiles produces at family-build.
+    profiles: dict[str, tuple[bool, ...]] = {side: _FULL_SEAM for side in ("north", "south", "east", "west")}
+    if seam_profiles is not None:
+        profiles.update(seam_profiles)
     return TileRecord(
         id=tile_id,
         family_id="testfam",
@@ -1237,6 +1247,7 @@ def _make_tile(
         compose_group=compose_group,
         compose_role=compose_role,
         connects_on=tuple(connects_on or []),
+        seam_profiles=profiles,
         requires_exposed_on=tuple(requires_exposed_on or []),
     )
 
@@ -1741,6 +1752,11 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         self.assertEqual(construction.id, "test.metatile")
 
 
+# A contact line whose painted run is neither equal nor complementary to a fully
+# painted facing edge: equality 0.5, complement 0.5, so the exact policy rejects it.
+_MISMATCH_SEAM: tuple[bool, ...] = (True, True, True, True, False, False, False, False)
+
+
 class ConstructionValidationExposureTests(unittest.TestCase):
     def test_exposure_violation_south_neighbour_is_filled(self) -> None:
         top = _make_tile(
@@ -1864,13 +1880,13 @@ class ParametricRunValidationTests(unittest.TestCase):
     def _make_run_tiles(
         self,
         *,
-        start_connects: list[str],
-        repeat_connects: list[str],
-        end_connects: list[str],
+        start_seams: dict[str, tuple[bool, ...]] | None = None,
+        repeat_seams: dict[str, tuple[bool, ...]] | None = None,
+        end_seams: dict[str, tuple[bool, ...]] | None = None,
     ) -> dict[str, TileRecord]:
-        start = _make_tile("t:start", compose_group="kit", compose_role="start_role", connects_on=start_connects)
-        repeat = _make_tile("t:repeat", compose_group="kit", compose_role="repeat_role", connects_on=repeat_connects)
-        end = _make_tile("t:end", compose_group="kit", compose_role="end_role", connects_on=end_connects)
+        start = _make_tile("t:start", compose_group="kit", compose_role="start_role", seam_profiles=start_seams)
+        repeat = _make_tile("t:repeat", compose_group="kit", compose_role="repeat_role", seam_profiles=repeat_seams)
+        end = _make_tile("t:end", compose_group="kit", compose_role="end_role", seam_profiles=end_seams)
         return _make_tiles_dict(start, repeat, end)
 
     def _raw_run(self) -> ParametricRunConstructionConfig:
@@ -1886,13 +1902,9 @@ class ParametricRunValidationTests(unittest.TestCase):
         }
 
     def test_valid_parametric_run_loads(self) -> None:
-        tiles = self._make_run_tiles(
-            start_connects=["east"],
-            repeat_connects=["west", "east"],
-            end_connects=["west"],
-        )
-        raw = self._raw_run()
-        construction = build_construction(raw, tiles=tiles)
+        # Fully-painted tiles fit on the start|repeat, repeat|repeat, repeat|end seams.
+        tiles = self._make_run_tiles()
+        construction = build_construction(self._raw_run(), tiles=tiles)
         self.assertEqual(construction.id, "test.run")
         self.assertIsInstance(construction, ParametricRunConstruction)
         assert isinstance(construction, ParametricRunConstruction)
@@ -1902,49 +1914,55 @@ class ParametricRunValidationTests(unittest.TestCase):
         self.assertIsNotNone(construction.repeat_tile)
         self.assertIsNotNone(construction.end_tile)
 
-    def test_start_missing_forward_direction_fails(self) -> None:
-        tiles = self._make_run_tiles(
-            start_connects=[],
-            repeat_connects=["west", "east"],
-            end_connects=["west"],
-        )
+    def test_start_to_repeat_seam_mismatch_fails(self) -> None:
+        tiles = self._make_run_tiles(start_seams={"east": _MISMATCH_SEAM})
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(self._raw_run(), tiles=tiles)
-        self.assertIn("start_role", str(ctx.exception))
-        self.assertIn("east", str(ctx.exception))
+        self.assertIn("start_role to repeat_role", str(ctx.exception))
 
-    def test_repeat_missing_backward_direction_fails(self) -> None:
-        tiles = self._make_run_tiles(
-            start_connects=["east"],
-            repeat_connects=["east"],
-            end_connects=["west"],
-        )
+    def test_repeat_to_repeat_seam_mismatch_fails(self) -> None:
+        # start|repeat fits (start.east full vs repeat.west full); the repeat tile's
+        # own forward seam does not match its backward seam.
+        tiles = self._make_run_tiles(repeat_seams={"east": _MISMATCH_SEAM})
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(self._raw_run(), tiles=tiles)
-        self.assertIn("repeat_role", str(ctx.exception))
-        self.assertIn("west", str(ctx.exception))
+        self.assertIn("repeat_role to repeat_role", str(ctx.exception))
 
-    def test_repeat_missing_forward_direction_fails(self) -> None:
-        tiles = self._make_run_tiles(
-            start_connects=["east"],
-            repeat_connects=["west"],
-            end_connects=["west"],
-        )
+    def test_repeat_to_end_seam_mismatch_fails(self) -> None:
+        tiles = self._make_run_tiles(end_seams={"west": _MISMATCH_SEAM})
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(self._raw_run(), tiles=tiles)
-        self.assertIn("repeat_role", str(ctx.exception))
-        self.assertIn("east", str(ctx.exception))
+        self.assertIn("repeat_role to end_role", str(ctx.exception))
 
-    def test_end_missing_backward_direction_fails(self) -> None:
+    def test_interlocking_run_passes_via_complement_matcher(self) -> None:
+        # A tab/slot run where each forward edge is the complement of the backward
+        # edge it abuts: the complement matcher (D6) accepts it though equality would not.
+        top: tuple[bool, ...] = (True, True, True, True, False, False, False, False)
+        bottom: tuple[bool, ...] = (False, False, False, False, True, True, True, True)
         tiles = self._make_run_tiles(
-            start_connects=["east"],
-            repeat_connects=["west", "east"],
-            end_connects=[],
+            start_seams={"east": bottom},
+            repeat_seams={"west": top, "east": bottom},
+            end_seams={"west": top},
         )
+        construction = build_construction(self._raw_run(), tiles=tiles)
+        self.assertEqual(construction.id, "test.run")
+
+    def test_run_rejects_mismatch_even_when_connects_on_declared(self) -> None:
+        # Headline of the flip: declaring the connecting direction in connects_on on
+        # both pieces (what the old validator required and accepted) is no longer
+        # sufficient - the seam check rejects pieces whose silhouettes do not tile.
+        start = _make_tile(
+            "t:start", compose_group="kit", compose_role="start_role",
+            connects_on=["east"], seam_profiles={"east": _MISMATCH_SEAM},
+        )
+        repeat = _make_tile("t:repeat", compose_group="kit", compose_role="repeat_role", connects_on=["west", "east"])
+        end = _make_tile("t:end", compose_group="kit", compose_role="end_role", connects_on=["west"])
+        # The retired connects_on membership check would have passed:
+        self.assertIn("east", start.connects_on)
+        self.assertIn("west", repeat.connects_on)
         with self.assertRaises(ConstructionValidationError) as ctx:
-            build_construction(self._raw_run(), tiles=tiles)
-        self.assertIn("end_role", str(ctx.exception))
-        self.assertIn("west", str(ctx.exception))
+            build_construction(self._raw_run(), tiles=_make_tiles_dict(start, repeat, end))
+        self.assertIn("start_role to repeat_role", str(ctx.exception))
 
     def test_minimal8_horizontal_run_construction_loads_as_parametric_run(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")

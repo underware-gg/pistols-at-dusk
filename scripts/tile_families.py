@@ -18,6 +18,7 @@ from PIL import Image
 
 from _manifest_utils import GridBounds, bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
 from compatibility_family import CompatibilityFamilyPaths
+from seam_matching import MatchPolicy
 from seam_profiles import derive_side_masks
 from tile_normalisation import apply_transparent_key, transparent_key_for_sheet
 from tile_library import (
@@ -1082,8 +1083,41 @@ _OPPOSITE: dict[str, str] = {
 }
 
 
+DEFAULT_SEAM_MATCH_POLICY = MatchPolicy()
+
+
 class ConstructionValidationError(ValueError):
     pass
+
+
+def _assert_seam_fits(
+    *,
+    construction_id: str,
+    a: TileRecord,
+    a_side: str,
+    b: TileRecord,
+    b_side: str,
+    where: str,
+) -> None:
+    """Assert tile ``a``'s ``a_side`` seam fits tile ``b``'s ``b_side``."""
+    mask_a = a.seam_profiles.get(a_side) if a.seam_profiles is not None else None
+    mask_b = b.seam_profiles.get(b_side) if b.seam_profiles is not None else None
+    if mask_a is None or mask_b is None:
+        # Seam profiles are attached at family-build before constructions are
+        # validated; a missing profile here is a broken internal invariant.
+        raise ConstructionValidationError(
+            f"construction {construction_id!r} {where}: seam profile missing"
+            f" ({a.id!r}.{a_side} or {b.id!r}.{b_side}) - tiles must be seam-enriched before validation"
+        )
+    if DEFAULT_SEAM_MATCH_POLICY.fits(mask_a, mask_b):
+        return
+    scores = DEFAULT_SEAM_MATCH_POLICY.scores(mask_a, mask_b)
+    score_text = ", ".join(f"{name}={value:.3f}" for name, value in sorted(scores.items()))
+    raise ConstructionValidationError(
+        f"construction {construction_id!r} {where}: seams do not fit"
+        f" ({a.id!r}.{a_side} vs {b.id!r}.{b_side}; {score_text}). Fix the art so the"
+        f" pieces tile, or model this as a composite metatile rather than a dynamic run"
+    )
 
 
 def _validate_metatile_construction(construction: MetatileConstruction) -> None:
@@ -1140,34 +1174,21 @@ def _validate_parametric_run_construction(construction: ParametricRunConstructio
     start = construction.start_tile
     repeat = construction.repeat_tile
     end = construction.end_tile
-    axis = construction.axis
-    if axis == "x":
-        forward, backward = "east", "west"
-    else:
-        forward, backward = "south", "north"
-    # start must connect forward into repeat
-    if forward not in start.connects_on:
-        raise ConstructionValidationError(
-            f"construction {cid!r} start_role tile {start.id!r}"
-            f" must include {forward!r} in connects_on to connect with repeat tile"
-        )
-    if backward not in repeat.connects_on:
-        raise ConstructionValidationError(
-            f"construction {cid!r} repeat_role tile {repeat.id!r}"
-            f" must include {backward!r} in connects_on to connect with start tile"
-        )
-    # repeat must connect forward into repeat (repeat–repeat boundary)
-    if forward not in repeat.connects_on:
-        raise ConstructionValidationError(
-            f"construction {cid!r} repeat_role tile {repeat.id!r}"
-            f" must include {forward!r} in connects_on for repeat–repeat adjacency"
-        )
-    # repeat must connect forward into end
-    if backward not in end.connects_on:
-        raise ConstructionValidationError(
-            f"construction {cid!r} end_role tile {end.id!r}"
-            f" must include {backward!r} in connects_on to connect with repeat tile"
-        )
+    forward, backward = ("east", "west") if construction.axis == "x" else ("south", "north")
+    # The run lays out start | repeat ... repeat | end along the axis: each tile's
+    # forward seam abuts the next tile's backward seam.
+    _assert_seam_fits(
+        construction_id=cid, a=start, a_side=forward, b=repeat, b_side=backward,
+        where="start_role to repeat_role",
+    )
+    _assert_seam_fits(
+        construction_id=cid, a=repeat, a_side=forward, b=repeat, b_side=backward,
+        where="repeat_role to repeat_role",
+    )
+    _assert_seam_fits(
+        construction_id=cid, a=repeat, a_side=forward, b=end, b_side=backward,
+        where="repeat_role to end_role",
+    )
 
 
 def _validate_parametric_frame_construction(construction: ParametricFrameConstruction) -> None:
