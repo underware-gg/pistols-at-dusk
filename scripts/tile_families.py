@@ -23,6 +23,8 @@ from seam_profiles import derive_side_masks
 from tile_normalisation import apply_transparent_key, transparent_key_for_sheet
 from tile_library import (
     CellContentInset,
+    CompositeTileCell,
+    CompositeTileRecord,
     FRAME_FILL_MODES,
     MetatileConstruction,
     ParametricRunConstruction,
@@ -35,6 +37,7 @@ from tile_library import (
     EntityTemplateRecord,
     LoweredTileCell,
     Placeable,
+    PlaceableKind,
     PlaceableRef,
     TileFamilyVariant,
     TileFamilyHeader,
@@ -276,6 +279,14 @@ class MetatileConstructionConfig(TypedDict):
     expose_as_entity: NotRequired[bool]
 
 
+class CompositeTileConfig(TypedDict):
+    id: str
+    collection_id: str
+    cells: list[list[ConstructionCellConfig | str]]
+    expose_as_entity: NotRequired[bool]
+    tags: NotRequired[list[str]]
+
+
 class ParametricRunConstructionConfig(TypedDict):
     id: str
     collection_id: str
@@ -325,9 +336,15 @@ class AttachmentCanvasConfig(TypedDict):
     height: int
 
 
+class PlaceableRefConfig(TypedDict):
+    kind: PlaceableKind
+    id: str
+
+
 class ConstructionAttachmentVariantConfig(TypedDict):
     id: str
-    construction_id: str
+    construction_id: NotRequired[str]
+    placeable: NotRequired[PlaceableRefConfig]
     label: NotRequired[str]
     notes: NotRequired[str]
 
@@ -335,7 +352,8 @@ class ConstructionAttachmentVariantConfig(TypedDict):
 class ConstructionAttachmentSetConfig(TypedDict):
     id: str
     param: str
-    target_construction_ids: list[str]
+    target_construction_ids: NotRequired[list[str]]
+    target_placeables: NotRequired[list[PlaceableRefConfig]]
     canvas: AttachmentCanvasConfig
     variants: list[ConstructionAttachmentVariantConfig]
     required: NotRequired[bool]
@@ -550,6 +568,24 @@ def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
     return tuple(loaded)
 
 
+def load_composite_tile_manifest(path: Path) -> tuple[CompositeTileConfig, ...]:
+    raw_file = require_mapping(load_json(path), context=str(path))
+    check_required_keys(raw_file, ("composite_tiles",), context=str(path))
+    raw_list = require_list(raw_file["composite_tiles"], context=f"{path}: composite_tiles")
+    loaded: list[CompositeTileConfig] = []
+    seen_ids: set[str] = set()
+    for index, raw_item in enumerate(raw_list):
+        item_context = f"{path}: composite_tiles[{index}]"
+        item_mapping = require_mapping(raw_item, context=item_context)
+        check_required_keys(item_mapping, ("id", "collection_id", "cells"), context=item_context)
+        composite_id = str(item_mapping["id"])
+        if composite_id in seen_ids:
+            raise ValueError(f"Duplicate composite tile id in {path}: {composite_id!r}")
+        seen_ids.add(composite_id)
+        loaded.append(cast(CompositeTileConfig, item_mapping))
+    return tuple(loaded)
+
+
 def load_attachment_manifest(path: Path) -> tuple[ConstructionAttachmentSetConfig, ...]:
     raw_file = require_mapping(load_json(path), context=str(path))
     check_required_keys(raw_file, ("attachment_sets",), context=str(path))
@@ -559,11 +595,7 @@ def load_attachment_manifest(path: Path) -> tuple[ConstructionAttachmentSetConfi
     for index, raw_item in enumerate(raw_list):
         item_context = f"{path}: attachment_sets[{index}]"
         item_mapping = require_mapping(raw_item, context=item_context)
-        check_required_keys(
-            item_mapping,
-            ("id", "param", "target_construction_ids", "canvas", "variants"),
-            context=item_context,
-        )
+        check_required_keys(item_mapping, ("id", "param", "canvas", "variants"), context=item_context)
         attachment_id = str(item_mapping["id"])
         if attachment_id in seen_ids:
             raise ValueError(f"Duplicate attachment set id in {path}: {attachment_id!r}")
@@ -578,6 +610,9 @@ def load_family_catalog_sources(
     constructions_data: tuple[ConstructionConfig, ...] = ()
     if paths.constructions_path is not None:
         constructions_data = load_construction_manifest(paths.constructions_path)
+    composite_tiles_data: tuple[CompositeTileConfig, ...] = ()
+    if paths.composite_tiles_path is not None:
+        composite_tiles_data = load_composite_tile_manifest(paths.composite_tiles_path)
     attachments_data: tuple[ConstructionAttachmentSetConfig, ...] = ()
     if paths.attachments_path is not None:
         attachments_data = load_attachment_manifest(paths.attachments_path)
@@ -587,6 +622,7 @@ def load_family_catalog_sources(
         tiles_data=tuple(load_tile_manifest(paths.tiles_path)),
         aliases_data=MappingProxyType(dict(load_alias_manifest(paths.aliases_path))),
         constructions_data=constructions_data,
+        composite_tiles_data=composite_tiles_data,
         attachments_data=attachments_data,
     )
 
@@ -609,6 +645,7 @@ class FamilyCatalogSources:
     tiles_data: tuple[TileConfig, ...]
     aliases_data: Mapping[str, str]
     constructions_data: tuple[ConstructionConfig, ...]
+    composite_tiles_data: tuple[CompositeTileConfig, ...]
     attachments_data: tuple[ConstructionAttachmentSetConfig, ...]
 
 
@@ -1241,12 +1278,63 @@ def _resolve_role(
 
 
 def _parse_expose_as_entity(
-    raw: Mapping[str, object], construction_id: str, *, default: bool = True
+    raw: Mapping[str, object],
+    subject_id: str,
+    *,
+    subject: str = "construction",
+    default: bool = True,
 ) -> bool:
     expose_as_entity = raw.get("expose_as_entity", default)
     if not isinstance(expose_as_entity, bool):
-        raise ValueError(f"construction {construction_id!r} expose_as_entity must be a boolean")
+        raise ValueError(f"{subject} {subject_id!r} expose_as_entity must be a boolean")
     return expose_as_entity
+
+
+def _build_composite_tile(
+    raw: CompositeTileConfig,
+    *,
+    family_id: str,
+    tiles: dict[str, TileRecord],
+) -> CompositeTileRecord:
+    composite_id = str(raw["id"])
+    collection_id = str(raw["collection_id"])
+    raw_rows = raw["cells"]
+
+    if not raw_rows:
+        raise ValueError(f"composite tile {composite_id!r} has no rows in cells")
+
+    row_width = len(raw_rows[0])
+    for row_idx, raw_row in enumerate(raw_rows):
+        if len(raw_row) != row_width:
+            raise ValueError(
+                f"composite tile {composite_id!r} has ragged cells: "
+                f"row 0 has {row_width} columns, row {row_idx} has {len(raw_row)}"
+            )
+
+    resolved_rows: list[tuple[CompositeTileCell | None, ...]] = []
+    for y, raw_row in enumerate(raw_rows):
+        resolved_cells: list[CompositeTileCell | None] = []
+        for x, raw_cell in enumerate(raw_row):
+            if raw_cell == ".":
+                resolved_cells.append(None)
+                continue
+            if not isinstance(raw_cell, dict):
+                raise ValueError(
+                    f"composite tile {composite_id!r} cell must be a dict with 'role' or the string '.'"
+                )
+            role = str(raw_cell["role"])
+            tile = _resolve_role(role, construction_id=composite_id, collection_id=collection_id, tiles=tiles)
+            resolved_cells.append(CompositeTileCell(tile=tile, x=x, y=y, role=role))
+        resolved_rows.append(tuple(resolved_cells))
+
+    return CompositeTileRecord(
+        id=composite_id,
+        family_id=family_id,
+        collection_id=collection_id,
+        cells=tuple(resolved_rows),
+        tags=_tuple(raw.get("tags")),
+        expose_as_entity=_parse_expose_as_entity(raw, composite_id, subject="placeable"),
+    )
 
 
 def _build_metatile_construction(
@@ -2016,31 +2104,50 @@ def load_constructions_from_data(
     *,
     constructions_path: Path | None,
     tiles: dict[str, TileRecord],
-    source_layout: SourceLayoutIngestion | None,
 ) -> dict[str, Construction]:
     constructions: dict[str, Construction] = {}
     for raw_config in constructions_data:
         construction_id = str(raw_config["id"])
         constructions[construction_id] = build_construction(raw_config, tiles=tiles)
 
-    if source_layout is not None:
-        for collection in source_layout.source_collections.values():
-            for construction_id in collection.constructions:
-                if construction_id not in constructions:
-                    if constructions_path is None:
-                        raise ValueError(
-                            f"Ingestion collection {collection.id!r} references unknown construction "
-                            f"{construction_id!r}, but no constructions manifest was loaded"
-                        )
-                    raise ValueError(
-                        f"Ingestion collection {collection.id!r} references unknown construction "
-                        f"{construction_id!r} in {constructions_path}"
-                    )
     return constructions
 
 
-def _fixed_construction_bounds(construction: Construction, *, context: str) -> GridBounds:
-    return fixed_placeable_bounds(construction, context=context)
+def load_composite_tiles_from_data(
+    composite_tiles_data: tuple[CompositeTileConfig, ...],
+    *,
+    family_id: str,
+    tiles: dict[str, TileRecord],
+) -> dict[str, CompositeTileRecord]:
+    composite_tiles: dict[str, CompositeTileRecord] = {}
+    for raw_config in composite_tiles_data:
+        composite_id = str(raw_config["id"])
+        composite_tiles[composite_id] = _build_composite_tile(raw_config, family_id=family_id, tiles=tiles)
+
+    return composite_tiles
+
+
+def _validate_source_layout_construction_references(
+    *,
+    source_layout: SourceLayoutIngestion | None,
+    constructions: Mapping[str, Construction],
+    composite_tiles: Mapping[str, CompositeTileRecord],
+    constructions_path: Path | None,
+    composite_tiles_path: Path | None,
+) -> None:
+    if source_layout is not None:
+        for collection in source_layout.source_collections.values():
+            for construction_id in collection.constructions:
+                if construction_id not in constructions and construction_id not in composite_tiles:
+                    if constructions_path is None and composite_tiles_path is None:
+                        raise ValueError(
+                            f"Ingestion collection {collection.id!r} references unknown construction "
+                            f"{construction_id!r}, but no constructions or composite tiles manifest was loaded"
+                        )
+                    raise ValueError(
+                        f"Ingestion collection {collection.id!r} references unknown construction "
+                        f"{construction_id!r} in loaded constructions/composite tile manifests"
+                    )
 
 
 def _parse_attachment_param(
@@ -2069,6 +2176,53 @@ def _parse_attachment_target_ids(
     return tuple(str(value) for value in target_ids_raw)
 
 
+def _require_exactly_one(mapping: Mapping[str, object], first: str, second: str, *, context: str) -> None:
+    if (first in mapping) == (second in mapping):
+        raise ValueError(f"{context} must declare exactly one of {first} or {second}")
+
+
+def _parse_placeable_ref(raw: object, *, context: str) -> PlaceableRef:
+    mapping = require_mapping(raw, context=context)
+    check_required_keys(mapping, ("kind", "id"), context=context)
+    return PlaceableRef(kind=cast(PlaceableKind, str(mapping["kind"])), id=str(mapping["id"]))
+
+
+def _parse_attachment_target_refs(
+    raw: Mapping[str, object],
+    *,
+    attachment_id: str,
+    attachments_path: Path | None,
+) -> tuple[PlaceableRef, ...]:
+    _require_exactly_one(
+        raw,
+        "target_construction_ids",
+        "target_placeables",
+        context=f"attachment set {attachment_id!r}",
+    )
+    if "target_placeables" in raw:
+        target_refs_raw = require_list(
+            raw["target_placeables"],
+            context=f"{attachments_path or '<attachments>'}: attachment set {attachment_id} target_placeables",
+        )
+        if not target_refs_raw:
+            raise ValueError(f"attachment set {attachment_id!r} target_placeables must be a non-empty list")
+        return tuple(
+            _parse_placeable_ref(
+                raw_ref,
+                context=(
+                    f"{attachments_path or '<attachments>'}: attachment set {attachment_id} "
+                    f"target_placeables[{index}]"
+                ),
+            )
+            for index, raw_ref in enumerate(target_refs_raw)
+        )
+    return tuple(PlaceableRef.construction(target_id) for target_id in _parse_attachment_target_ids(
+        raw,
+        attachment_id=attachment_id,
+        attachments_path=attachments_path,
+    ))
+
+
 def _parse_attachment_canvas(
     raw: Mapping[str, object],
     *,
@@ -2094,22 +2248,25 @@ def _parse_attachment_canvas(
 def _validate_attachment_targets(
     *,
     attachment_id: str,
-    target_ids: tuple[str, ...],
+    target_refs: tuple[PlaceableRef, ...],
     canvas: GridBounds,
-    constructions: Mapping[str, Construction],
+    placeables: Mapping[PlaceableRef, Placeable],
 ) -> None:
-    for target_id in target_ids:
-        target_construction = constructions.get(target_id)
-        if target_construction is None:
-            raise ValueError(f"attachment set {attachment_id!r} references unknown target construction {target_id!r}")
-        target_bounds = _fixed_construction_bounds(
-            target_construction,
-            context=f"attachment set {attachment_id!r} target {target_id!r}",
+    for target_ref in target_refs:
+        target = placeables.get(target_ref)
+        if target is None:
+            raise ValueError(
+                f"attachment set {attachment_id!r} references unknown target placeable "
+                f"{target_ref.kind}:{target_ref.id!r}"
+            )
+        target_bounds = fixed_placeable_bounds(
+            target,
+            context=f"attachment set {attachment_id!r} target {target_ref.kind}:{target_ref.id!r}",
         )
         if not _bounds_inside(target_bounds, canvas):
             raise ValueError(
-                f"attachment set {attachment_id!r} canvas {canvas} must stay inside target construction "
-                f"{target_id!r} bounds {target_bounds}"
+                f"attachment set {attachment_id!r} canvas {canvas} must stay inside target placeable "
+                f"{target_ref.kind}:{target_ref.id!r} bounds {target_bounds}"
             )
 
 
@@ -2118,7 +2275,7 @@ def _parse_attachment_variants(
     *,
     attachment_id: str,
     attachments_path: Path | None,
-    constructions: Mapping[str, Construction],
+    placeables: Mapping[PlaceableRef, Placeable],
     canvas: GridBounds,
 ) -> Mapping[str, ConstructionAttachmentVariant]:
     raw_variants = require_list(
@@ -2131,29 +2288,41 @@ def _parse_attachment_variants(
     for index, raw_variant in enumerate(raw_variants):
         variant_context = f"attachment set {attachment_id!r} variants[{index}]"
         mapping = require_mapping(raw_variant, context=variant_context)
-        check_required_keys(mapping, ("id", "construction_id"), context=variant_context)
+        check_required_keys(mapping, ("id",), context=variant_context)
+        _require_exactly_one(mapping, "construction_id", "placeable", context=variant_context)
         variant_id = str(mapping["id"])
         if variant_id in variants:
             raise ValueError(f"attachment set {attachment_id!r} declares duplicate variant id {variant_id!r}")
-        construction_id = str(mapping["construction_id"])
-        variant_construction = constructions.get(construction_id)
-        if variant_construction is None:
-            raise ValueError(
-                f"attachment set {attachment_id!r} variant {variant_id!r} references unknown construction {construction_id!r}"
+        if "placeable" in mapping:
+            variant_ref = _parse_placeable_ref(
+                mapping["placeable"],
+                context=f"attachment set {attachment_id!r} variants[{index}].placeable",
             )
-        attachment_bounds = _fixed_construction_bounds(
-            variant_construction,
+            construction_id: str | None = None
+        else:
+            construction_id = str(mapping["construction_id"])
+            variant_ref = PlaceableRef.construction(construction_id)
+        variant_placeable = placeables.get(variant_ref)
+        if variant_placeable is None:
+            raise ValueError(
+                f"attachment set {attachment_id!r} variant {variant_id!r} references unknown placeable "
+                f"{variant_ref.kind}:{variant_ref.id!r}"
+            )
+        attachment_bounds = fixed_placeable_bounds(
+            variant_placeable,
             context=f"attachment set {attachment_id!r} variant {variant_id!r}",
         )
         if attachment_bounds.width > canvas.width or attachment_bounds.height > canvas.height:
             raise ValueError(
-                f"attachment set {attachment_id!r} variant {variant_id!r} construction {construction_id!r} "
+                f"attachment set {attachment_id!r} variant {variant_id!r} placeable {variant_ref.kind}:{variant_ref.id!r} "
                 f"size {attachment_bounds.width}x{attachment_bounds.height} exceeds canvas "
                 f"{canvas.width}x{canvas.height}"
             )
         variants[variant_id] = ConstructionAttachmentVariant(
             id=variant_id,
             construction_id=construction_id,
+            placeable_kind=variant_ref.kind,
+            placeable_id=variant_ref.id,
             label=cast(str | None, mapping.get("label")),
             notes=cast(str | None, mapping.get("notes")),
         )
@@ -2195,13 +2364,13 @@ def load_attachment_sets_from_data(
     attachments_data: tuple[ConstructionAttachmentSetConfig, ...],
     *,
     attachments_path: Path | None,
-    constructions: Mapping[str, Construction],
+    placeables: Mapping[PlaceableRef, Placeable],
 ) -> dict[str, ConstructionAttachmentSet]:
     attachment_sets: dict[str, ConstructionAttachmentSet] = {}
     for raw in attachments_data:
         attachment_id = str(raw["id"])
         param = _parse_attachment_param(raw, attachment_id=attachment_id)
-        target_ids = _parse_attachment_target_ids(
+        target_refs = _parse_attachment_target_refs(
             raw,
             attachment_id=attachment_id,
             attachments_path=attachments_path,
@@ -2213,15 +2382,15 @@ def load_attachment_sets_from_data(
         )
         _validate_attachment_targets(
             attachment_id=attachment_id,
-            target_ids=target_ids,
+            target_refs=target_refs,
             canvas=canvas,
-            constructions=constructions,
+            placeables=placeables,
         )
         variants = _parse_attachment_variants(
             raw,
             attachment_id=attachment_id,
             attachments_path=attachments_path,
-            constructions=constructions,
+            placeables=placeables,
             canvas=canvas,
         )
         default_variant_id = _parse_attachment_default_variant_id(
@@ -2235,7 +2404,7 @@ def load_attachment_sets_from_data(
             param=param,
             canvas=canvas,
             variants=variants,
-            target_construction_ids=target_ids,
+            target_placeable_refs=target_refs,
             required=_parse_attachment_required(raw, attachment_id=attachment_id),
             default_variant_id=default_variant_id,
             label=raw.get("label"),
@@ -2257,6 +2426,7 @@ class TileFamily:
         aliases: dict[str, str],
         tiles_by_sheet_cell: Mapping[tuple[int, int], TileRecord] | None = None,
         constructions: Mapping[str, Construction] | None = None,
+        composite_tiles: Mapping[str, CompositeTileRecord] | None = None,
         attachment_sets: Mapping[str, ConstructionAttachmentSet] | None = None,
     ) -> None:
         self.header = header
@@ -2274,6 +2444,9 @@ class TileFamily:
         )
         self.constructions: Mapping[str, Construction] = (
             MappingProxyType(dict(constructions)) if constructions is not None else MappingProxyType({})
+        )
+        self.composite_tiles: Mapping[str, CompositeTileRecord] = (
+            MappingProxyType(dict(composite_tiles)) if composite_tiles is not None else MappingProxyType({})
         )
         self.attachment_sets: Mapping[str, ConstructionAttachmentSet] = (
             MappingProxyType(dict(attachment_sets)) if attachment_sets is not None else MappingProxyType({})
@@ -2338,6 +2511,7 @@ class TileFamily:
             aliases=self.aliases,
             tiles_by_sheet_cell_index=self.tiles_by_sheet_cell,
             constructions=self.constructions,
+            composite_tiles=self.composite_tiles,
             attachment_sets=self.attachment_sets,
             attachment_sets_by_target=attachment_sets_by_target(self.attachment_sets),
         )
@@ -2470,12 +2644,31 @@ class TileFamily:
             catalog.constructions_data,
             constructions_path=catalog.paths.constructions_path,
             tiles=tiles,
-            source_layout=source_layout,
         )
+        composite_tiles = load_composite_tiles_from_data(
+            catalog.composite_tiles_data,
+            family_id=header.family_id,
+            tiles=tiles,
+        )
+        _validate_source_layout_construction_references(
+            source_layout=source_layout,
+            constructions=constructions,
+            composite_tiles=composite_tiles,
+            constructions_path=catalog.paths.constructions_path,
+            composite_tiles_path=catalog.paths.composite_tiles_path,
+        )
+        placeables: dict[PlaceableRef, Placeable] = {
+            **{PlaceableRef(kind="tile", id=tile_id): tile for tile_id, tile in tiles.items()},
+            **{PlaceableRef.construction(construction_id): construction for construction_id, construction in constructions.items()},
+            **{
+                PlaceableRef(kind="composite_tile", id=composite_id): composite
+                for composite_id, composite in composite_tiles.items()
+            },
+        }
         attachment_sets = load_attachment_sets_from_data(
             catalog.attachments_data,
             attachments_path=catalog.paths.attachments_path,
-            constructions=constructions,
+            placeables=placeables,
         )
 
         return cls(
@@ -2488,6 +2681,7 @@ class TileFamily:
             aliases=alias_map,
             tiles_by_sheet_cell=tiles_by_sheet_cell,
             constructions=constructions,
+            composite_tiles=composite_tiles,
             attachment_sets=attachment_sets,
         )
 

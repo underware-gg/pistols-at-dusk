@@ -448,6 +448,15 @@ def _load_compatibility_family_source(
                 if mapping.get("constructions") is not None
                 else None
             ),
+            composite_tiles_path=(
+                _load_file_reference(
+                    mapping["composite_tiles"],
+                    base_dir=compatibility_root,
+                    context=f"{context}.composite_tiles",
+                )
+                if mapping.get("composite_tiles") is not None
+                else None
+            ),
             attachments_path=(
                 _load_file_reference(mapping["attachments"], base_dir=compatibility_root, context=f"{context}.attachments")
                 if mapping.get("attachments") is not None

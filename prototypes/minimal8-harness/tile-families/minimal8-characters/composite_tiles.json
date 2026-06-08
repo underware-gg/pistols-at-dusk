@@ -1,0 +1,427 @@
+{
+  "composite_tiles": [
+    {
+      "id": "head_study.character.shared_body",
+      "collection_id": "head_study.character.shared_body",
+      "cells": [
+        [
+          ".",
+          "."
+        ],
+        [
+          ".",
+          "."
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.character.unique_full",
+      "collection_id": "head_study.character.unique_full",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.character.top_row_02_full",
+      "collection_id": "head_study.character.top_row_02_full",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.character.top_row_04_full",
+      "collection_id": "head_study.character.top_row_04_full",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.first_full",
+      "collection_id": "head_study.head.first_full",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.shared_alt",
+      "collection_id": "head_study.head.shared_alt",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.spare_01",
+      "collection_id": "head_study.head.spare_01",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.spare_02",
+      "collection_id": "head_study.head.spare_02",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.spare_03",
+      "collection_id": "head_study.head.spare_03",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.spare_04",
+      "collection_id": "head_study.head.spare_04",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "head_study.head.spare_05",
+      "collection_id": "head_study.head.spare_05",
+      "expose_as_entity": false,
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "medieval.row_1.set_01.variant_a",
+      "collection_id": "medieval.row_1.set_01.variant_a",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "medieval.row_1.set_02.variant_a",
+      "collection_id": "medieval.row_1.set_02.variant_a",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "medieval.row_1.set_04.variant_a",
+      "collection_id": "medieval.row_1.set_04.variant_a",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "scifi.row_1.set_03.variant_a",
+      "collection_id": "scifi.row_1.set_03.variant_a",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "scifi.row_3.set_01.variant_a",
+      "collection_id": "scifi.row_3.set_01.variant_a",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "middle_left"
+          },
+          {
+            "role": "middle_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    }
+  ]
+}

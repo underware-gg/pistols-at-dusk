@@ -6,9 +6,6 @@
       "required": true,
       "label": "Head study interchangeable heads",
       "notes": "Runtime attachment surface for the reviewed shared 2x3 body. Each variant is an exact reviewed 2x2 upper-body source canvas that overlays the shared lower body row.",
-      "target_construction_ids": [
-        "head_study.character.shared_body"
-      ],
       "canvas": {
         "x": 0,
         "y": 0,
@@ -18,38 +15,65 @@
       "variants": [
         {
           "id": "first_full",
-          "construction_id": "head_study.head.first_full",
-          "label": "Unique full figure head"
+          "label": "Unique full figure head",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.first_full"
+          }
         },
         {
           "id": "shared_alt",
-          "construction_id": "head_study.head.shared_alt",
-          "label": "Shared-body alternate head"
+          "label": "Shared-body alternate head",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.shared_alt"
+          }
         },
         {
           "id": "spare_01",
-          "construction_id": "head_study.head.spare_01",
-          "label": "Spare head 1"
+          "label": "Spare head 1",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.spare_01"
+          }
         },
         {
           "id": "spare_02",
-          "construction_id": "head_study.head.spare_02",
-          "label": "Spare head 2"
+          "label": "Spare head 2",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.spare_02"
+          }
         },
         {
           "id": "spare_03",
-          "construction_id": "head_study.head.spare_03",
-          "label": "Spare head 3"
+          "label": "Spare head 3",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.spare_03"
+          }
         },
         {
           "id": "spare_04",
-          "construction_id": "head_study.head.spare_04",
-          "label": "Spare head 4"
+          "label": "Spare head 4",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.spare_04"
+          }
         },
         {
           "id": "spare_05",
-          "construction_id": "head_study.head.spare_05",
-          "label": "Spare head 5"
+          "label": "Spare head 5",
+          "placeable": {
+            "kind": "composite_tile",
+            "id": "head_study.head.spare_05"
+          }
+        }
+      ],
+      "target_placeables": [
+        {
+          "kind": "composite_tile",
+          "id": "head_study.character.shared_body"
         }
       ]
     }

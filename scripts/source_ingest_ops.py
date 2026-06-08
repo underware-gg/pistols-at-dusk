@@ -24,6 +24,7 @@ from scene_templates import (
     TileRefToken,
 )
 from tile_library import (
+    CompositeTileRecord,
     Construction,
     EntityTemplateRecord,
     MetatileConstruction,
@@ -1814,6 +1815,33 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
     }
 
 
+def _public_composite_tile_entry(composite: CompositeTileRecord) -> dict[str, object]:
+    return {
+        "id": composite.id,
+        "collection_id": composite.collection_id,
+        "kind": composite.kind,
+        "expose_as_entity": composite.expose_as_entity,
+        "placement_anchor": composite.placement_anchor,
+        "tags": list(composite.tags),
+        "shape": {
+            "width": composite.width,
+            "height": composite.height,
+        },
+        "cells": [
+            [
+                None
+                if cell is None
+                else {
+                    "tile_id": cell.tile.id,
+                    "role": cell.role or cell.tile.compose_role,
+                }
+                for cell in row
+            ]
+            for row in composite.cells
+        ],
+    }
+
+
 def _public_entity_template_entry(template: EntityTemplateRecord) -> dict[str, object]:
     return template.to_payload()
 
@@ -2330,6 +2358,10 @@ def _build_public_construction_entries(
     return public_constructions
 
 
+def _build_public_composite_tile_entries(family: TileFamily) -> list[dict[str, object]]:
+    return [_public_composite_tile_entry(composite) for composite in family.composite_tiles.values()]
+
+
 def _build_public_collection_entries(
     family: TileFamily,
     tileset: GridTileset,
@@ -2402,6 +2434,7 @@ def _build_public_tile_pack_manifest(
     entity_templates: Sequence[dict[str, object]],
     source_layout_payload: dict[str, object] | None,
     public_collections: Sequence[dict[str, object]],
+    public_composite_tiles: Sequence[dict[str, object]],
     public_constructions: Sequence[dict[str, object]],
     art_convention: dict[str, object],
 ) -> dict[str, object]:
@@ -2426,6 +2459,7 @@ def _build_public_tile_pack_manifest(
             "source_regions": 0 if source_layout_payload is None else len(cast(list[object], source_layout_payload["regions"])),
             "source_clusters": 0 if source_layout_payload is None else len(cast(list[object], source_layout_payload["clusters"])),
             "source_collections": len(public_collections),
+            "composite_tiles": len(public_composite_tiles),
             "constructions": len(public_constructions),
         },
         "files": {
@@ -2439,6 +2473,7 @@ def _build_public_tile_pack_manifest(
             "sheet_annotated": "images/sheet_annotated.png",
             "tiles_contact_sheet": "images/tiles_contact_sheet.png",
             "collections_contact_sheet": None if not public_collections else "images/collections_contact_sheet.png",
+            "composite_tiles": None if not public_composite_tiles else "composite_tiles.json",
             "constructions_contact_sheet": None if not public_constructions else "images/constructions_contact_sheet.png",
             "constructions": None if not public_constructions else "constructions.json",
         },
@@ -2454,6 +2489,7 @@ def _write_public_tile_pack_payloads(
     entity_templates: Sequence[dict[str, object]],
     source_layout_payload: dict[str, object] | None,
     public_collections: Sequence[dict[str, object]],
+    public_composite_tiles: Sequence[dict[str, object]],
     public_constructions: Sequence[dict[str, object]],
 ) -> None:
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -2476,6 +2512,11 @@ def _write_public_tile_pack_payloads(
         )
         (output_dir / "source_collections.json").write_text(
             json.dumps(list(public_collections), indent=2) + "\n",
+            encoding="utf-8",
+        )
+    if public_composite_tiles:
+        (output_dir / "composite_tiles.json").write_text(
+            json.dumps(list(public_composite_tiles), indent=2) + "\n",
             encoding="utf-8",
         )
     if public_constructions:
@@ -2514,6 +2555,7 @@ def export_public_tile_pack(
         constructions_images_dir,
         scale=scale,
     )
+    public_composite_tiles = _build_public_composite_tile_entries(family)
     public_collections = _build_public_collection_entries(
         family,
         tileset,
@@ -2533,6 +2575,7 @@ def export_public_tile_pack(
         entity_templates=entity_templates,
         source_layout_payload=source_layout_payload,
         public_collections=public_collections,
+        public_composite_tiles=public_composite_tiles,
         public_constructions=public_constructions,
         art_convention=art_convention,
     )
@@ -2544,6 +2587,7 @@ def export_public_tile_pack(
         entity_templates=entity_templates,
         source_layout_payload=source_layout_payload,
         public_collections=public_collections,
+        public_composite_tiles=public_composite_tiles,
         public_constructions=public_constructions,
     )
 
@@ -2574,6 +2618,7 @@ def export_public_tile_pack(
         f"- tile_clusters: `{len(tile_clusters)}`",
         f"- entity_templates: `{len(entity_templates)}`",
         f"- source_collections: `{len(public_collections)}`",
+        f"- composite_tiles: `{len(public_composite_tiles)}`",
         f"- constructions: `{len(public_constructions)}`",
         "",
         "Files:",
@@ -2583,6 +2628,7 @@ def export_public_tile_pack(
         "- `tiles.csv`: flat spreadsheet-friendly view of the tiles",
         "- `tile_clusters.json`: semantic/taxonomic cluster metadata",
         "- `entity_templates.json`: derived runtime entity templates backed by placeables",
+        "- `composite_tiles.json`: resolved public composite tile records",
         "- `source_regions.json` / `source_clusters.json` / `source_collections.json`: source-sheet layout model",
         "- `images/sheet_annotated.png`: grid + region/cluster/collection overlay",
         "- `images/tiles_contact_sheet.png`: all exported tiles with labels",
@@ -3437,5 +3483,3 @@ def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> P
     )
     (output_dir / "README.md").write_text(readme + "\n", encoding="utf-8")
     return output_dir
-
-

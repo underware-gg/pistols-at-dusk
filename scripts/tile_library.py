@@ -1055,7 +1055,11 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             if template is not None:
                 templates.append(template)
         for composite in self.composite_tiles.values():
-            template = entity_template_from_placeable(composite)
+            composite_ref = PlaceableRef(kind="composite_tile", id=composite.id)
+            template = entity_template_from_placeable(
+                composite,
+                attachment_sets=self.attachment_sets_for_placeable(composite_ref),
+            )
             if template is not None:
                 templates.append(template)
         return templates

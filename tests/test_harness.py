@@ -25,6 +25,7 @@ import harness
 import tile_families
 import source_ingest_ops
 import layout_core
+from tile_library import PlaceableRef
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -2348,7 +2349,11 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertEqual(family.tile_height, 8)
         self.assertIsNotNone(family.source_layout)
 
-        attachment_sets = family.attachment_sets_for_construction("head_study.character.shared_body")
+        shared_body_ref = PlaceableRef(kind="composite_tile", id="head_study.character.shared_body")
+        self.assertIsNone(family.lookup_construction("head_study.character.shared_body"))
+        self.assertIsNotNone(family.lookup_placeable(shared_body_ref))
+
+        attachment_sets = family.attachment_sets_for_placeable(shared_body_ref)
         self.assertEqual(len(attachment_sets), 1)
         attachment_set = attachment_sets[0]
         self.assertEqual(attachment_set.param, "head")
@@ -2365,10 +2370,13 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             ),
         )
 
-        template = family.entity_template("head_study.character.shared_body")
+        template = family.entity_template_for_placeable(shared_body_ref)
         self.assertIsNotNone(template)
         assert template is not None
         self.assertEqual(template.id, "head_study.character.shared_body")
+        self.assertEqual(template.placeable_kind, "composite_tile")
+        self.assertEqual(template.placeable_id, "head_study.character.shared_body")
+        self.assertIsNone(template.construction_id)
         self.assertEqual(len(template.attachment_sets), 1)
         self.assertEqual(template.attachment_sets[0].param, "head")
         self.assertTrue(template.attachment_sets[0].required)
@@ -2376,7 +2384,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertEqual(template.attachment_sets[0].canvas.width, 2)
         self.assertEqual(template.attachment_sets[0].canvas.height, 2)
 
-        self.assertIsNone(family.entity_template("head_study.head.shared_alt"))
+        self.assertIsNone(family.entity_template_for_placeable(PlaceableRef(kind="composite_tile", id="head_study.head.shared_alt")))
 
     def test_characters_head_attachment_expands_requested_variant(self) -> None:
         project = layout_core.LayoutProject(
@@ -2386,9 +2394,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         self.assertIsNotNone(tile_library)
         assert tile_library is not None
 
-        stamps = harness.expand_entity_stamps(
+        stamps = harness.expand_placeable_stamps(
             tile_library,
-            "head_study.character.shared_body",
+            PlaceableRef(kind="composite_tile", id="head_study.character.shared_body"),
             x=5,
             y=7,
             context="test characters shared body",
@@ -2422,9 +2430,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         assert tile_library is not None
 
         with self.assertRaisesRegex(ValueError, "requires attachment param 'head'"):
-            harness.expand_entity_stamps(
+            harness.expand_placeable_stamps(
                 tile_library,
-                "head_study.character.shared_body",
+                PlaceableRef(kind="composite_tile", id="head_study.character.shared_body"),
                 x=0,
                 y=0,
                 context="test characters shared body",
@@ -2439,9 +2447,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         assert tile_library is not None
 
         with self.assertRaisesRegex(ValueError, "requested unknown variant 'missing'"):
-            harness.expand_entity_stamps(
+            harness.expand_placeable_stamps(
                 tile_library,
-                "head_study.character.shared_body",
+                PlaceableRef(kind="composite_tile", id="head_study.character.shared_body"),
                 x=0,
                 y=0,
                 context="test characters shared body",
@@ -2457,9 +2465,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         assert tile_library is not None
 
         with self.assertRaisesRegex(ValueError, "must be a non-empty string"):
-            harness.expand_entity_stamps(
+            harness.expand_placeable_stamps(
                 tile_library,
-                "head_study.character.shared_body",
+                PlaceableRef(kind="composite_tile", id="head_study.character.shared_body"),
                 x=0,
                 y=0,
                 context="test characters shared body",
@@ -2481,9 +2489,16 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 entry for entry in entity_templates if entry["id"] == "head_study.character.shared_body"
             )
 
-            self.assertEqual(shared_body["placeable_kind"], "construction")
+            composite_tiles = json.loads((output_dir / "composite_tiles.json").read_text(encoding="utf-8"))
+            exported_shared_body = next(
+                entry for entry in composite_tiles if entry["id"] == "head_study.character.shared_body"
+            )
+
+            self.assertEqual(exported_shared_body["kind"], "composite_tile")
+            self.assertEqual(exported_shared_body["shape"], {"width": 2, "height": 3})
+            self.assertEqual(shared_body["placeable_kind"], "composite_tile")
             self.assertEqual(shared_body["placeable_id"], "head_study.character.shared_body")
-            self.assertEqual(shared_body["construction_id"], "head_study.character.shared_body")
+            self.assertNotIn("construction_id", shared_body)
             self.assertEqual(len(shared_body["attachment_sets"]), 1)
             self.assertEqual(shared_body["attachment_sets"][0]["param"], "head")
             self.assertTrue(shared_body["attachment_sets"][0]["required"])

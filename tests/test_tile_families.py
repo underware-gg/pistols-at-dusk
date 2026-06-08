@@ -39,6 +39,7 @@ from tile_library import (
     lower_tile_asset_to_cells,
 )
 from tile_families import (
+    CompositeTileConfig,
     ConstructionConfig,
     ConstructionAttachmentSetConfig,
     ConstructionValidationError,
@@ -49,6 +50,7 @@ from tile_families import (
     compute_source_layout_coverage,
     detect_source_layout,
     load_attachment_sets_from_data,
+    load_composite_tiles_from_data,
 )
 
 
@@ -689,7 +691,7 @@ class TileFamilyLoadTests(unittest.TestCase):
             attachment_sets[0]["target_construction_ids"] = ["missing.target"]
             write_json(family_dir / "attachments.json", attachments)
 
-            with self.assertRaisesRegex(ValueError, "unknown target construction"):
+            with self.assertRaisesRegex(ValueError, "unknown target placeable"):
                 TileFamily.load(family_dir)
 
     def test_load_rejects_attachment_canvas_outside_target_bounds(self) -> None:
@@ -700,7 +702,7 @@ class TileFamilyLoadTests(unittest.TestCase):
             attachment_sets[0]["canvas"] = {"x": 1, "y": 0, "width": 1, "height": 1}
             write_json(family_dir / "attachments.json", attachments)
 
-            with self.assertRaisesRegex(ValueError, "must stay inside target construction"):
+            with self.assertRaisesRegex(ValueError, "must stay inside target placeable"):
                 TileFamily.load(family_dir)
 
     def test_load_rejects_attachment_set_with_no_variants(self) -> None:
@@ -735,7 +737,7 @@ class TileFamilyLoadTests(unittest.TestCase):
             variants[0]["construction_id"] = "missing.variant"
             write_json(family_dir / "attachments.json", attachments)
 
-            with self.assertRaisesRegex(ValueError, "references unknown construction"):
+            with self.assertRaisesRegex(ValueError, "references unknown placeable"):
                 TileFamily.load(family_dir)
 
     def test_load_rejects_attachment_variant_that_exceeds_canvas(self) -> None:
@@ -989,17 +991,17 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         # ui.column_4.cluster_01 (rows 4-15), not cluster_02 (rows 17-18).
         self.assertEqual(gold_frame.source_cluster_id, "ui.column_4.cluster_01")
 
-    def test_head_study_spare_03_construction_is_full_2x2(self) -> None:
+    def test_head_study_spare_03_composite_tile_is_full_2x2(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8-characters")
-        construction = family.constructions["head_study.head.spare_03"]
-        assert isinstance(construction, MetatileConstruction)
-        self.assertEqual(len(construction.cells), 2)
-        self.assertEqual(len(construction.cells[1]), 2)
-        self.assertIsNotNone(construction.cells[1][0])
-        self.assertIsNotNone(construction.cells[1][1])
+        composite = family.composite_tiles["head_study.head.spare_03"]
+        self.assertEqual(composite.kind, "composite_tile")
+        self.assertEqual(composite.width, 2)
+        self.assertEqual(composite.height, 2)
+        self.assertIsNotNone(composite.cells[1][0])
+        self.assertIsNotNone(composite.cells[1][1])
         roles = {
-            cell.compose_role
-            for row in construction.cells
+            cell.role
+            for row in composite.cells
             for cell in row
             if cell is not None
         }
@@ -1417,6 +1419,12 @@ class AttachmentLoaderTests(unittest.TestCase):
             run.id: run,
         }
 
+    def _placeables(self) -> dict[PlaceableRef, MetatileConstruction | ParametricRunConstruction]:
+        return {
+            PlaceableRef.construction(construction_id): construction
+            for construction_id, construction in self._constructions().items()
+        }
+
     def _attachment_config(
         self,
         *,
@@ -1436,7 +1444,7 @@ class AttachmentLoaderTests(unittest.TestCase):
             load_attachment_sets_from_data(
                 (self._attachment_config(target_construction_ids=["test.run"]),),
                 attachments_path=Path("attachments.json"),
-                constructions=self._constructions(),
+                placeables=self._placeables(),
             )
 
     def test_loader_rejects_parametric_run_variant_construction(self) -> None:
@@ -1444,7 +1452,53 @@ class AttachmentLoaderTests(unittest.TestCase):
             load_attachment_sets_from_data(
                 (self._attachment_config(variant_construction_id="test.run"),),
                 attachments_path=Path("attachments.json"),
-                constructions=self._constructions(),
+                placeables=self._placeables(),
+            )
+
+    def test_loader_rejects_attachment_set_with_legacy_and_placeable_targets(self) -> None:
+        config = self._attachment_config()
+        config["target_placeables"] = [{"kind": "construction", "id": "test.body"}]
+
+        with self.assertRaisesRegex(ValueError, "exactly one of target_construction_ids or target_placeables"):
+            load_attachment_sets_from_data(
+                (config,),
+                attachments_path=Path("attachments.json"),
+                placeables=self._placeables(),
+            )
+
+    def test_loader_rejects_attachment_set_without_target_identity(self) -> None:
+        config = dict(self._attachment_config())
+        config.pop("target_construction_ids")
+
+        with self.assertRaisesRegex(ValueError, "exactly one of target_construction_ids or target_placeables"):
+            load_attachment_sets_from_data(
+                (cast(ConstructionAttachmentSetConfig, config),),
+                attachments_path=Path("attachments.json"),
+                placeables=self._placeables(),
+            )
+
+    def test_loader_rejects_attachment_variant_with_legacy_and_placeable_fill(self) -> None:
+        config = self._attachment_config()
+        variants = cast(list[dict[str, object]], config["variants"])
+        variants[0]["placeable"] = {"kind": "construction", "id": "test.head.alt"}
+
+        with self.assertRaisesRegex(ValueError, "exactly one of construction_id or placeable"):
+            load_attachment_sets_from_data(
+                (config,),
+                attachments_path=Path("attachments.json"),
+                placeables=self._placeables(),
+            )
+
+    def test_loader_rejects_attachment_variant_without_fill_identity(self) -> None:
+        config = self._attachment_config()
+        variants = cast(list[dict[str, object]], config["variants"])
+        variants[0].pop("construction_id")
+
+        with self.assertRaisesRegex(ValueError, "exactly one of construction_id or placeable"):
+            load_attachment_sets_from_data(
+                (config,),
+                attachments_path=Path("attachments.json"),
+                placeables=self._placeables(),
             )
 
 
@@ -1511,6 +1565,85 @@ class ConstructionLoaderTests(unittest.TestCase):
                 TileFamily.load(family_dir)
             self.assertIn("sheet.region.collection_01", str(ctx.exception))
             self.assertIn("missing.construction", str(ctx.exception))
+
+    def test_collection_construction_reference_may_resolve_to_composite_tile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])
+            ingestion_path = family_dir / "ingestion.json"
+            ingestion = cast(dict[str, object], json.loads(ingestion_path.read_text(encoding="utf-8")))
+            collections = ingestion["collections"]
+            assert isinstance(collections, list)
+            assert isinstance(collections[0], dict)
+            collections[0]["constructions"] = ["test.composite"]
+            write_json(ingestion_path, ingestion)
+            tiles_path = family_dir / "tiles.json"
+            tiles = cast(list[dict[str, object]], json.loads(tiles_path.read_text(encoding="utf-8")))
+            tiles[0]["compose_group"] = "test.composite"
+            tiles[0]["compose_role"] = "single"
+            write_json(tiles_path, tiles)
+            write_json(
+                family_dir / "composite_tiles.json",
+                {
+                    "composite_tiles": [
+                        {
+                            "id": "test.composite",
+                            "collection_id": "test.composite",
+                            "cells": [[{"role": "single"}]],
+                        }
+                    ]
+                },
+            )
+
+            family = TileFamily.load(family_dir)
+
+            self.assertIn("test.composite", family.composite_tiles)
+            self.assertEqual(len(family.constructions), 0)
+
+
+class CompositeTileLoaderTests(unittest.TestCase):
+    def _raw_composite(self) -> dict[str, object]:
+        return {
+            "id": "test.composite",
+            "collection_id": "kit",
+            "cells": [[{"role": "single"}]],
+        }
+
+    def _tiles(self) -> dict[str, TileRecord]:
+        tile = _make_tile("test:single", compose_group="kit", compose_role="single")
+        return {tile.id: tile}
+
+    def test_composite_tile_loader_rejects_empty_cells(self) -> None:
+        raw = self._raw_composite()
+        raw["cells"] = []
+
+        with self.assertRaisesRegex(ValueError, "has no rows"):
+            load_composite_tiles_from_data(
+                (cast(CompositeTileConfig, raw),),
+                family_id="testfam",
+                tiles=self._tiles(),
+            )
+
+    def test_composite_tile_loader_rejects_ragged_cells(self) -> None:
+        raw = self._raw_composite()
+        raw["cells"] = [[{"role": "single"}], [{"role": "single"}, {"role": "single"}]]
+
+        with self.assertRaisesRegex(ValueError, "has ragged cells"):
+            load_composite_tiles_from_data(
+                (cast(CompositeTileConfig, raw),),
+                family_id="testfam",
+                tiles=self._tiles(),
+            )
+
+    def test_composite_tile_loader_rejects_non_dict_cell(self) -> None:
+        raw = self._raw_composite()
+        raw["cells"] = [[17]]
+
+        with self.assertRaisesRegex(ValueError, "cell must be a dict"):
+            load_composite_tiles_from_data(
+                (cast(CompositeTileConfig, raw),),
+                family_id="testfam",
+                tiles=self._tiles(),
+            )
 
 
 class TileLibraryRegistryTests(unittest.TestCase):

@@ -36,7 +36,8 @@
       "The approved source-layout ingestion map captures the sheet's coarse reviewed structure only: head study, medieval sets, sci-fi sets, monsters, and the excluded palette/byline strip.",
       "The first promoted runtime surface is the top-row head study: one shared 2x3 body target, one unique full figure, and 2x2 interchangeable head attachments derived from the reviewed source canvases.",
       "The broader sheet is still intentionally conservative. Outside the head study, it does not yet settle fine-grained swap metadata or the runtime representation of the large figures."
-    ]
+    ],
+    "composite_tiles": "composite_tiles.json"
   },
   "render_variants": [
     {
