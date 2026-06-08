@@ -33,6 +33,8 @@ from tile_library import (
     ConstructionAttachmentVariant,
     ConstructionAttachmentSet,
     EntityTemplateRecord,
+    LoweredTileCell,
+    Placeable,
     PlaceableRef,
     TileFamilyVariant,
     TileFamilyHeader,
@@ -2351,11 +2353,14 @@ class TileFamily:
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         return self.runtime_unit.entity_template(construction_id)
 
-    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Placeable | None:
         return self.runtime_unit.lookup_placeable(placeable_ref)
 
     def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
         return self.runtime_unit.entity_template_for_placeable(placeable_ref)
+
+    def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
+        return self.runtime_unit.lower_placeable_to_tile_cells(placeable_ref)
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
         return self.runtime_unit.entity_templates()

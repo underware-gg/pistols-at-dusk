@@ -18,6 +18,8 @@ import harness
 import scene_templates
 from scene_rules import SceneRuleEntityCandidate, SceneRulesetLibrary, SceneRulesetSpec
 from tile_library import (
+    CompositeTileCell,
+    CompositeTileRecord,
     Construction,
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
@@ -29,7 +31,11 @@ from tile_library import (
     ParametricRunConstruction,
     PlaceableRef,
     TileGenesis,
+    TileFamilyVariant,
+    TileLibraryPromotedMetadata,
+    TileLibraryUnit,
     TileRecord,
+    attachment_sets_by_target,
     entity_template_from_construction,
 )
 from _manifest_utils import GridBounds
@@ -1195,6 +1201,39 @@ def _make_tile_record(tile_id: str) -> TileRecord:
     )
 
 
+def _make_placeable_unit(
+    *,
+    tiles: tuple[TileRecord, ...],
+    composite_tiles: tuple[CompositeTileRecord, ...] = (),
+    variant_ids: tuple[str, ...] = ("base",),
+) -> TileLibraryUnit:
+    return TileLibraryUnit(
+        family_id="testfam",
+        tile_width=8,
+        tile_height=8,
+        render_step_width=None,
+        render_step_height=None,
+        default_variant_id="base",
+        promoted_metadata=TileLibraryPromotedMetadata(),
+        root=Path("."),
+        variants={
+            variant_id: TileFamilyVariant(
+                id=variant_id,
+                sheet_path=Path("sheet.png"),
+                transparent_mode="none",
+            )
+            for variant_id in variant_ids
+        },
+        tiles={tile.id: tile for tile in tiles},
+        aliases={},
+        tiles_by_sheet_cell_index={},
+        constructions={},
+        composite_tiles={composite.id: composite for composite in composite_tiles},
+        attachment_sets={},
+        attachment_sets_by_target=attachment_sets_by_target({}),
+    )
+
+
 class _FakeFamily:
     def __init__(
         self,
@@ -1243,6 +1282,9 @@ class _FakeFamily:
         if placeable_ref.kind != "construction":
             return None
         return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
+
+    def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> None:
+        return None
 
 
 def _make_fixture_family() -> _FakeFamily:
@@ -1482,6 +1524,170 @@ class EntityOpExpandStampsTests(unittest.TestCase):
                 y=9,
                 placeable_kind="construction",
                 placeable_id="test.fixture.other",
+            )
+
+    def test_scene_entity_request_resolves_atomic_tile_placeable(self) -> None:
+        tile = _make_tile_record("tile.a")
+        unit = _make_placeable_unit(tiles=(tile,))
+
+        entity = harness._resolve_scene_entity_request(  # type: ignore[attr-defined]
+            unit,
+            harness.SceneEntityRequest(
+                entity_id="fixture.tile",
+                source_template_id="fixture",
+                layer="actors",
+                x=8,
+                y=9,
+                placeable_kind="tile",
+                placeable_id="tile.a",
+            ),
+        )
+
+        self.assertEqual(entity.template.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+        self.assertEqual(entity.template.footprint.width, 1)
+        self.assertEqual(entity.template.footprint.height, 1)
+        self.assertEqual([(placement.ref, placement.x, placement.y) for placement in entity.tiles], [("tile.a", 8, 9)])
+        self.assertEqual([(cell.tile_id, cell.relative_x, cell.relative_y) for cell in entity.occupied_cells], [("tile.a", 0, 0)])
+
+    def test_scene_entity_request_resolves_composite_tile_placeable(self) -> None:
+        tile_a = _make_tile_record("tile.a")
+        tile_b = _make_tile_record("tile.b")
+        composite = CompositeTileRecord(
+            id="character.full",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (CompositeTileCell(tile=tile_a, x=0, y=0),),
+                (CompositeTileCell(tile=tile_b, x=0, y=1),),
+            ),
+        )
+        unit = _make_placeable_unit(tiles=(tile_a, tile_b), composite_tiles=(composite,))
+
+        entity = harness._resolve_scene_entity_request(  # type: ignore[attr-defined]
+            unit,
+            harness.SceneEntityRequest(
+                entity_id="fixture.character",
+                source_template_id="fixture",
+                layer="actors",
+                x=8,
+                y=9,
+                placeable_kind="composite_tile",
+                placeable_id="character.full",
+            ),
+        )
+
+        self.assertEqual(entity.template.placeable_ref, PlaceableRef(kind="composite_tile", id="character.full"))
+        self.assertEqual(entity.template.footprint.width, 1)
+        self.assertEqual(entity.template.footprint.height, 2)
+        self.assertEqual(
+            [(placement.ref, placement.x, placement.y) for placement in entity.tiles],
+            [("tile.a", 8, 9), ("tile.b", 8, 10)],
+        )
+        self.assertEqual(
+            [(cell.tile_id, cell.relative_x, cell.relative_y) for cell in entity.occupied_cells],
+            [("tile.a", 0, 0), ("tile.b", 0, 1)],
+        )
+
+    def test_expand_placeable_stamps_resolves_composite_tile_placeable(self) -> None:
+        tile_a = _make_tile_record("tile.a")
+        tile_b = _make_tile_record("tile.b")
+        composite = CompositeTileRecord(
+            id="character.full",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile_a, x=0, y=0), CompositeTileCell(tile=tile_b, x=1, y=0)),),
+        )
+        unit = _make_placeable_unit(tiles=(tile_a, tile_b), composite_tiles=(composite,))
+
+        stamps = harness.expand_placeable_stamps(
+            unit,
+            PlaceableRef(kind="composite_tile", id="character.full"),
+            x=4,
+            y=5,
+            context="test composite",
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [("tile.a", 4, 5), ("tile.b", 5, 5)],
+        )
+
+    def test_expand_placeable_stamps_resolves_atomic_tile_placeable(self) -> None:
+        tile = _make_tile_record("tile.a")
+        unit = _make_placeable_unit(tiles=(tile,))
+
+        stamps = harness.expand_placeable_stamps(
+            unit,
+            PlaceableRef(kind="tile", id="tile.a"),
+            x=4,
+            y=5,
+            context="test tile",
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [("tile.a", 4, 5)],
+        )
+
+    def test_expand_placeable_stamps_qualifies_atomic_tile_variant_refs(self) -> None:
+        tile = _make_tile_record("tile.a")
+        unit = _make_placeable_unit(tiles=(tile,), variant_ids=("base", "night"))
+
+        stamps = harness.expand_placeable_stamps(
+            unit,
+            PlaceableRef(kind="tile", id="tile.a"),
+            x=4,
+            y=5,
+            context="test tile variant",
+            variant_id="night",
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [("testfam@night:tile.a", 4, 5)],
+        )
+
+    def test_expand_placeable_stamps_qualifies_composite_tile_variant_refs(self) -> None:
+        tile_a = _make_tile_record("tile.a")
+        tile_b = _make_tile_record("tile.b")
+        composite = CompositeTileRecord(
+            id="character.full",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile_a, x=0, y=0), CompositeTileCell(tile=tile_b, x=1, y=0)),),
+        )
+        unit = _make_placeable_unit(
+            tiles=(tile_a, tile_b),
+            composite_tiles=(composite,),
+            variant_ids=("base", "night"),
+        )
+
+        stamps = harness.expand_placeable_stamps(
+            unit,
+            PlaceableRef(kind="composite_tile", id="character.full"),
+            x=4,
+            y=5,
+            context="test composite variant",
+            variant_id="night",
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [("testfam@night:tile.a", 4, 5), ("testfam@night:tile.b", 5, 5)],
+        )
+
+    def test_expand_placeable_stamps_rejects_unknown_tile_variant_with_context(self) -> None:
+        tile = _make_tile_record("tile.a")
+        unit = _make_placeable_unit(tiles=(tile,))
+
+        with self.assertRaisesRegex(ValueError, "Unknown variant 'missing'.*placeable tile:'tile.a'"):
+            harness.expand_placeable_stamps(
+                unit,
+                PlaceableRef(kind="tile", id="tile.a"),
+                x=4,
+                y=5,
+                context="test tile variant",
+                variant_id="missing",
             )
 
     def test_scene_rule_entity_candidate_allows_non_construction_placeable_without_fake_construction(self) -> None:

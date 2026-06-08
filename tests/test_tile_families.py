@@ -18,12 +18,22 @@ if str(SCRIPTS_DIR) not in sys.path:
 from seam_matching import MatchPolicy
 from tile_library import (
     CellContentInset,
+    CompositeTileCell,
+    CompositeTileRecord,
+    PlaceableRef,
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     TileGenesis,
     TileLibraryRegistry,
+    TileLibraryPromotedMetadata,
+    TileFamilyVariant,
+    TileLibraryUnit,
     TileRecord,
+    attachment_sets_by_target,
+    connection_surface_for_placeable,
+    entity_template_from_placeable,
+    lower_tile_asset_to_cells,
 )
 from tile_families import (
     ConstructionConfig,
@@ -1230,11 +1240,15 @@ _FULL_SEAM: tuple[bool, ...] = (True,) * 8
 def _make_tile(
     tile_id: str,
     *,
+    family_id: str = "testfam",
     compose_group: str | None = None,
     compose_role: str | None = None,
     connects_on: list[str] | None = None,
     requires_exposed_on: list[str] | None = None,
     seam_profiles: dict[str, tuple[bool, ...]] | None = None,
+    affordances: tuple[str, ...] = (),
+    state_group: str | None = None,
+    animation_group: str | None = None,
 ) -> TileRecord:
     # Default every side to a fully-painted contact line, so two unspecified tiles
     # butt-join cleanly (equality 1.0); a test that wants a mismatch overrides the
@@ -1244,7 +1258,7 @@ def _make_tile(
         profiles.update(seam_profiles)
     return TileRecord(
         id=tile_id,
-        family_id="testfam",
+        family_id=family_id,
         layer="map",
         category="tile",
         transparent=False,
@@ -1252,14 +1266,51 @@ def _make_tile(
         genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0),
         compose_group=compose_group,
         compose_role=compose_role,
+        state_group=state_group,
+        animation_group=animation_group,
         connects_on=tuple(connects_on or []),
         seam_profiles=profiles,
         requires_exposed_on=tuple(requires_exposed_on or []),
+        affordances=affordances,
     )
 
 
 def _make_tiles_dict(*tiles: TileRecord) -> dict[str, TileRecord]:
     return {t.id: t for t in tiles}
+
+
+def _make_runtime_unit(
+    *,
+    family_id: str,
+    tiles: tuple[TileRecord, ...],
+    composite_tiles: tuple[CompositeTileRecord, ...] = (),
+    variant_ids: tuple[str, ...] = ("base",),
+) -> TileLibraryUnit:
+    return TileLibraryUnit(
+        family_id=family_id,
+        tile_width=8,
+        tile_height=8,
+        render_step_width=None,
+        render_step_height=None,
+        default_variant_id="base",
+        promoted_metadata=TileLibraryPromotedMetadata(),
+        root=Path("."),
+        variants={
+            variant_id: TileFamilyVariant(
+                id=variant_id,
+                sheet_path=Path("sheet.png"),
+                transparent_mode="none",
+            )
+            for variant_id in variant_ids
+        },
+        tiles={tile.id: tile for tile in tiles},
+        aliases={},
+        tiles_by_sheet_cell_index={},
+        constructions={},
+        attachment_sets={},
+        attachment_sets_by_target=attachment_sets_by_target({}),
+        composite_tiles={composite.id: composite for composite in composite_tiles},
+    )
 
 
 class TileGenesisTests(unittest.TestCase):
@@ -1478,6 +1529,254 @@ class TileLibraryRegistryTests(unittest.TestCase):
             self.assertTrue(hasattr(family, "source_layout"))
             self.assertFalse(hasattr(unit, "source_layout"))
             self.assertEqual(unit.family_id, family.family_id)
+
+    def test_composite_tile_record_validates_grid_and_lowers_cells(self) -> None:
+        tile_a = _make_tile("tile.a", compose_role="body", affordances=("sit",))
+        tile_b = _make_tile("tile.b", compose_role="head", affordances=("look",))
+        composite = CompositeTileRecord(
+            id="character.full",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (CompositeTileCell(tile=tile_a, x=0, y=0),),
+                (CompositeTileCell(tile=tile_b, x=0, y=1),),
+            ),
+        )
+
+        lowered = lower_tile_asset_to_cells(composite)
+
+        self.assertEqual(composite.width, 1)
+        self.assertEqual(composite.height, 2)
+        self.assertEqual([(cell.tile.id, cell.x, cell.y) for cell in lowered], [("tile.a", 0, 0), ("tile.b", 0, 1)])
+
+    def test_composite_tile_record_rejects_mismatched_cell_coordinates(self) -> None:
+        tile = _make_tile("tile.a")
+
+        with self.assertRaisesRegex(ValueError, "cell coordinate must match grid position"):
+            CompositeTileRecord(
+                id="bad.composite",
+                family_id="testfam",
+                collection_id="characters",
+                cells=((CompositeTileCell(tile=tile, x=1, y=0),),),
+            )
+
+    def test_composite_tile_record_rejects_non_rectangular_grid(self) -> None:
+        tile = _make_tile("tile.a")
+
+        with self.assertRaisesRegex(ValueError, "rectangular grid"):
+            CompositeTileRecord(
+                id="bad.composite",
+                family_id="testfam",
+                collection_id="characters",
+                cells=((CompositeTileCell(tile=tile, x=0, y=0),), ()),
+            )
+
+    def test_composite_tile_record_rejects_empty_grid(self) -> None:
+        with self.assertRaisesRegex(ValueError, "non-empty rectangular grid"):
+            CompositeTileRecord(
+                id="bad.composite",
+                family_id="testfam",
+                collection_id="characters",
+                cells=(),
+            )
+
+    def test_composite_tile_record_rejects_all_empty_cells(self) -> None:
+        with self.assertRaisesRegex(ValueError, "contain at least one tile"):
+            CompositeTileRecord(
+                id="bad.composite",
+                family_id="testfam",
+                collection_id="characters",
+                cells=((None,),),
+            )
+
+    def test_composite_tile_record_rejects_cross_family_cells(self) -> None:
+        tile = _make_tile("tile.a", family_id="otherfam")
+
+        with self.assertRaisesRegex(ValueError, "same family"):
+            CompositeTileRecord(
+                id="bad.composite",
+                family_id="testfam",
+                collection_id="characters",
+                cells=((CompositeTileCell(tile=tile, x=0, y=0),),),
+            )
+
+    def test_entity_template_projects_atomic_tile_placeable(self) -> None:
+        tile = _make_tile(
+            "tile.a",
+            compose_role="seat",
+            affordances=("sit",),
+            state_group="chair",
+            animation_group="idle",
+        )
+
+        template = entity_template_from_placeable(tile)
+
+        self.assertIsNotNone(template)
+        assert template is not None
+        self.assertEqual(template.id, "tile.a")
+        self.assertEqual(template.kind, "tile")
+        self.assertEqual(template.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+        self.assertEqual(template.construction_id, None)
+        self.assertEqual(template.footprint.mode, "fixed")
+        self.assertEqual(template.footprint.width, 1)
+        self.assertEqual(template.footprint.height, 1)
+        self.assertEqual(template.compose_roles, ("seat",))
+        self.assertEqual(template.affordances, ("sit",))
+        self.assertEqual(template.state_groups, ("chair",))
+        self.assertEqual(template.animation_groups, ("idle",))
+
+    def test_entity_template_projects_composite_tile_placeable_metadata(self) -> None:
+        tile_a = _make_tile("tile.a", compose_role="body", affordances=("stand",), state_group="character")
+        tile_b = _make_tile("tile.b", compose_role="head", affordances=("look",), animation_group="blink")
+        composite = CompositeTileRecord(
+            id="character.full",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (CompositeTileCell(tile=tile_a, x=0, y=0),),
+                (CompositeTileCell(tile=tile_b, x=0, y=1),),
+            ),
+        )
+
+        template = entity_template_from_placeable(composite)
+
+        self.assertIsNotNone(template)
+        assert template is not None
+        self.assertEqual(template.id, "character.full")
+        self.assertEqual(template.kind, "composite_tile")
+        self.assertEqual(template.placeable_ref, PlaceableRef(kind="composite_tile", id="character.full"))
+        self.assertEqual(template.construction_id, None)
+        self.assertEqual(template.footprint.mode, "fixed")
+        self.assertEqual(template.footprint.width, 1)
+        self.assertEqual(template.footprint.height, 2)
+        self.assertEqual(template.compose_roles, ("body", "head"))
+        self.assertEqual(template.affordances, ("look", "stand"))
+        self.assertEqual(template.state_groups, ("character",))
+        self.assertEqual(template.animation_groups, ("blink",))
+
+    def test_entity_template_omits_non_exposed_composite_placeable(self) -> None:
+        tile = _make_tile("tile.a")
+        composite = CompositeTileRecord(
+            id="character.head",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile, x=0, y=0),),),
+            expose_as_entity=False,
+        )
+        unit = _make_runtime_unit(family_id="testfam", tiles=(tile,), composite_tiles=(composite,))
+
+        self.assertIsNone(entity_template_from_placeable(composite))
+        self.assertEqual(unit.entity_templates(), [])
+
+    def test_connection_surface_for_atomic_tile_uses_one_segment_per_side(self) -> None:
+        tile = _make_tile(
+            "tile.a",
+            seam_profiles={
+                "north": (True, False),
+                "south": (False, True),
+                "east": (True, True),
+                "west": (False, False),
+            },
+        )
+
+        surface = connection_surface_for_placeable(tile)
+
+        north = surface.segments("north")
+        self.assertEqual(len(north), 1)
+        self.assertEqual(north[0].offset, 0)
+        self.assertEqual(north[0].local_x, 0)
+        self.assertEqual(north[0].local_y, 0)
+        self.assertEqual(north[0].tile_id, "tile.a")
+        self.assertEqual(north[0].mask, (True, False))
+
+    def test_connection_surface_for_composite_tile_uses_outer_perimeter_only(self) -> None:
+        tile_a = _make_tile("tile.a")
+        tile_b = _make_tile("tile.b")
+        tile_c = _make_tile("tile.c")
+        tile_d = _make_tile("tile.d")
+        composite = CompositeTileRecord(
+            id="block.2x2",
+            family_id="testfam",
+            collection_id="blocks",
+            cells=(
+                (CompositeTileCell(tile=tile_a, x=0, y=0), CompositeTileCell(tile=tile_b, x=1, y=0)),
+                (CompositeTileCell(tile=tile_c, x=0, y=1), CompositeTileCell(tile=tile_d, x=1, y=1)),
+            ),
+        )
+
+        surface = connection_surface_for_placeable(composite)
+
+        self.assertEqual([(segment.offset, segment.tile_id) for segment in surface.segments("north")], [(0, "tile.a"), (1, "tile.b")])
+        self.assertEqual([(segment.offset, segment.tile_id) for segment in surface.segments("south")], [(0, "tile.c"), (1, "tile.d")])
+        self.assertEqual([(segment.offset, segment.tile_id) for segment in surface.segments("west")], [(0, "tile.a"), (1, "tile.c")])
+        self.assertEqual([(segment.offset, segment.tile_id) for segment in surface.segments("east")], [(0, "tile.b"), (1, "tile.d")])
+
+    def test_connection_surface_for_sparse_composite_keeps_distinct_local_edges(self) -> None:
+        tile_a = _make_tile("tile.a")
+        tile_b = _make_tile("tile.b")
+        composite = CompositeTileRecord(
+            id="sparse.column",
+            family_id="testfam",
+            collection_id="blocks",
+            cells=(
+                (CompositeTileCell(tile=tile_a, x=0, y=0),),
+                (None,),
+                (CompositeTileCell(tile=tile_b, x=0, y=2),),
+            ),
+        )
+
+        surface = connection_surface_for_placeable(composite)
+
+        self.assertEqual(
+            [(segment.offset, segment.local_x, segment.local_y, segment.tile_id) for segment in surface.segments("north")],
+            [(0, 0, 0, "tile.a"), (0, 0, 2, "tile.b")],
+        )
+
+    def test_registry_resolves_composite_tile_placeables_per_kind(self) -> None:
+        tile = _make_tile("shared.id")
+        composite = CompositeTileRecord(
+            id="shared.id",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile, x=0, y=0),),),
+        )
+        registry = TileLibraryRegistry.from_units(
+            [_make_runtime_unit(family_id="testfam", tiles=(tile,), composite_tiles=(composite,))]
+        )
+
+        tile_placeable = registry.lookup_placeable(PlaceableRef(kind="tile", id="shared.id"))
+        composite_placeable = registry.lookup_placeable(PlaceableRef(kind="composite_tile", id="shared.id"))
+
+        self.assertIs(tile_placeable, tile)
+        self.assertIs(composite_placeable, composite)
+        composite_template = registry.entity_template_for_placeable(PlaceableRef(kind="composite_tile", id="shared.id"))
+        self.assertIsNotNone(composite_template)
+        assert composite_template is not None
+        self.assertEqual(composite_template.placeable_ref, PlaceableRef(kind="composite_tile", id="shared.id"))
+
+    def test_registry_rejects_duplicate_composite_tile_ids_per_kind(self) -> None:
+        tile_a = _make_tile("tile.a", family_id="family.a")
+        tile_b = _make_tile("tile.b", family_id="family.b")
+        composite_a = CompositeTileRecord(
+            id="character.full",
+            family_id="family.a",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile_a, x=0, y=0),),),
+        )
+        composite_b = CompositeTileRecord(
+            id="character.full",
+            family_id="family.b",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=tile_b, x=0, y=0),),),
+        )
+
+        with self.assertRaisesRegex(ValueError, "Duplicate composite tile id across tile library units"):
+            TileLibraryRegistry.from_units(
+                [
+                    _make_runtime_unit(family_id="family.a", tiles=(tile_a,), composite_tiles=(composite_a,)),
+                    _make_runtime_unit(family_id="family.b", tiles=(tile_b,), composite_tiles=(composite_b,)),
+                ]
+            )
 
     def test_family_load_rejects_intra_family_alias_tile_id_collision(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

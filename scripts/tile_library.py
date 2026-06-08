@@ -21,8 +21,10 @@ from _manifest_utils import GridBounds, require_mapping, resolve_path
 from tile_metadata import ModuleContextValue, RenderTraits
 
 
+Side: TypeAlias = Literal["north", "south", "east", "west"]
 PlaceableKind: TypeAlias = Literal["tile", "composite_tile", "construction"]
 EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "metatile", "parametric_run", "parametric_frame"]
+SIDES: tuple[Side, ...] = ("north", "south", "east", "west")
 
 
 @dataclass(frozen=True)
@@ -412,6 +414,10 @@ class TileLibraryPromotedMetadata:
 EMPTY_TILE_LIBRARY_PROMOTED_METADATA = TileLibraryPromotedMetadata()
 
 
+def _empty_composite_tiles() -> Mapping[str, CompositeTileRecord]:
+    return {}
+
+
 @dataclass(frozen=True)
 class SheetCell:
     col: int
@@ -506,6 +512,78 @@ class TileRecord:
 
 
 @dataclass(frozen=True)
+class CompositeTileCell:
+    tile: TileRecord
+    x: int
+    y: int
+    role: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.x < 0 or self.y < 0:
+            raise ValueError("CompositeTileCell coordinates must be non-negative")
+
+
+@dataclass(frozen=True)
+class CompositeTileRecord:
+    id: str
+    family_id: str
+    collection_id: str
+    cells: tuple[tuple[CompositeTileCell | None, ...], ...]
+    tags: tuple[str, ...] = ()
+    expose_as_entity: bool = True
+    placement_anchor: Literal["top_left"] = "top_left"
+    kind: Literal["composite_tile"] = "composite_tile"
+
+    def __post_init__(self) -> None:
+        if self.id == "":
+            raise ValueError("CompositeTileRecord.id must not be empty")
+        if self.family_id == "":
+            raise ValueError("CompositeTileRecord.family_id must not be empty")
+        if self.collection_id == "":
+            raise ValueError("CompositeTileRecord.collection_id must not be empty")
+        if not self.cells:
+            raise ValueError("CompositeTileRecord.cells must be a non-empty rectangular grid")
+        width = len(self.cells[0])
+        if width == 0:
+            raise ValueError("CompositeTileRecord.cells must be a non-empty rectangular grid")
+        found_cell = False
+        for y, row in enumerate(self.cells):
+            if len(row) != width:
+                raise ValueError("CompositeTileRecord.cells must be a rectangular grid")
+            for x, cell in enumerate(row):
+                if cell is None:
+                    continue
+                found_cell = True
+                if cell.x != x or cell.y != y:
+                    raise ValueError("CompositeTileRecord cell coordinate must match grid position")
+                if cell.tile.family_id != self.family_id:
+                    raise ValueError("CompositeTileRecord cells must belong to the same family")
+        if not found_cell:
+            raise ValueError("CompositeTileRecord.cells must contain at least one tile")
+        object.__setattr__(self, "tags", tuple(self.tags))
+
+    @property
+    def width(self) -> int:
+        return len(self.cells[0])
+
+    @property
+    def height(self) -> int:
+        return len(self.cells)
+
+    def lowered_cells(self) -> tuple[CompositeTileCell, ...]:
+        return tuple(cell for row in self.cells for cell in row if cell is not None)
+
+    def cell_at(self, x: int, y: int) -> CompositeTileCell | None:
+        if x < 0 or y < 0 or y >= self.height or x >= self.width:
+            return None
+        return self.cells[y][x]
+
+
+TileAsset: TypeAlias = Union[TileRecord, CompositeTileRecord]
+Placeable: TypeAlias = Union[TileRecord, CompositeTileRecord, Construction]
+
+
+@dataclass(frozen=True)
 class ResolvedFamilyTile:
     family_id: str
     variant_id: str
@@ -527,6 +605,60 @@ class ResolvedFamilyTile:
         return f"{self.family_id}:{self.sheet_col},{self.sheet_row}"
 
 
+@dataclass(frozen=True)
+class LoweredTileCell:
+    tile: TileRecord
+    x: int
+    y: int
+    role: str | None = None
+
+
+@dataclass(frozen=True)
+class SeamSegment:
+    side: Side
+    offset: int
+    mask: tuple[bool, ...]
+    local_x: int
+    local_y: int
+    tile_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.side not in SIDES:
+            raise ValueError(f"SeamSegment.side is invalid: {self.side!r}")
+        if self.offset < 0:
+            raise ValueError("SeamSegment.offset must be non-negative")
+        if self.local_x < 0 or self.local_y < 0:
+            raise ValueError("SeamSegment local coordinates must be non-negative")
+        if not self.mask:
+            raise ValueError("SeamSegment.mask must not be empty")
+        object.__setattr__(self, "mask", tuple(self.mask))
+
+
+@dataclass(frozen=True)
+class ConnectionSurface:
+    segments_by_side: Mapping[Side, tuple[SeamSegment, ...]]
+
+    def __post_init__(self) -> None:
+        segments_by_side: dict[Side, tuple[SeamSegment, ...]] = {}
+        for side in SIDES:
+            segments = tuple(self.segments_by_side.get(side, ()))
+            last_key: tuple[int, int, int] | None = None
+            for index, segment in enumerate(segments):
+                if segment.side != side:
+                    raise ValueError(f"ConnectionSurface segment for side {side!r} has side {segment.side!r}")
+                key = (segment.offset, segment.local_y, segment.local_x)
+                if index > 0 and last_key is not None and key < last_key:
+                    raise ValueError(f"ConnectionSurface segments for side {side!r} must be sorted")
+                if key == last_key:
+                    raise ValueError(f"ConnectionSurface segments for side {side!r} must not duplicate a local edge")
+                last_key = key
+            segments_by_side[side] = segments
+        object.__setattr__(self, "segments_by_side", MappingProxyType(segments_by_side))
+
+    def segments(self, side: Side) -> tuple[SeamSegment, ...]:
+        return self.segments_by_side[side]
+
+
 class RuntimeConstructionCatalog(Protocol):
     def lookup_construction(self, construction_id: str) -> Construction | None:
         ...
@@ -534,10 +666,13 @@ class RuntimeConstructionCatalog(Protocol):
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         ...
 
-    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Placeable | None:
         ...
 
     def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        ...
+
+    def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
         ...
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
@@ -582,6 +717,110 @@ def entity_template_for_construction(
     return entity_template_from_construction(construction, attachment_sets=attachment_sets)
 
 
+def _sorted_unique(values: Iterable[str | None]) -> tuple[str, ...]:
+    return tuple(sorted({value for value in values if value}))
+
+
+def lower_tile_asset_to_cells(placeable: TileRecord | CompositeTileRecord) -> tuple[LoweredTileCell, ...]:
+    if isinstance(placeable, TileRecord):
+        return (LoweredTileCell(tile=placeable, x=0, y=0, role=placeable.compose_role),)
+    return tuple(
+        LoweredTileCell(
+            tile=cell.tile,
+            x=cell.x,
+            y=cell.y,
+            role=cell.role if cell.role is not None else cell.tile.compose_role,
+        )
+        for cell in placeable.lowered_cells()
+    )
+
+
+def _fixed_footprint_for_placeable(placeable: TileRecord | CompositeTileRecord) -> EntityFootprintSpec:
+    if isinstance(placeable, TileRecord):
+        width, height = 1, 1
+    else:
+        width, height = placeable.width, placeable.height
+    return EntityFootprintSpec(mode="fixed", width=width, height=height)
+
+
+def entity_template_from_placeable(placeable: TileRecord | CompositeTileRecord) -> EntityTemplateRecord | None:
+    if isinstance(placeable, CompositeTileRecord) and not placeable.expose_as_entity:
+        return None
+    lowered_cells = lower_tile_asset_to_cells(placeable)
+    tiles = tuple(cell.tile for cell in lowered_cells)
+    if isinstance(placeable, TileRecord):
+        placeable_kind: PlaceableKind = "tile"
+        collection_id = placeable.category
+        template_kind: EntityTemplateKind = "tile"
+    else:
+        placeable_kind = "composite_tile"
+        collection_id = placeable.collection_id
+        template_kind = "composite_tile"
+    return EntityTemplateRecord(
+        id=placeable.id,
+        collection_id=collection_id,
+        kind=template_kind,
+        placement_anchor="top_left",
+        compose_roles=_sorted_unique(cell.role for cell in lowered_cells),
+        affordances=_sorted_unique(affordance for tile in tiles for affordance in tile.affordances),
+        state_groups=_sorted_unique(tile.state_group for tile in tiles),
+        animation_groups=_sorted_unique(tile.animation_group for tile in tiles),
+        footprint=_fixed_footprint_for_placeable(placeable),
+        placeable_kind=placeable_kind,
+        placeable_id=placeable.id,
+    )
+
+
+def _tile_seam_segment(tile: TileRecord, side: Side, *, offset: int, local_x: int, local_y: int) -> SeamSegment:
+    if tile.seam_profiles is None or side not in tile.seam_profiles:
+        raise ValueError(f"tile {tile.id!r} seam profile missing side {side!r}")
+    return SeamSegment(
+        side=side,
+        offset=offset,
+        mask=tile.seam_profiles[side],
+        local_x=local_x,
+        local_y=local_y,
+        tile_id=tile.id,
+    )
+
+
+def _connection_surface_for_tile(tile: TileRecord) -> ConnectionSurface:
+    return ConnectionSurface(
+        {
+            "north": (_tile_seam_segment(tile, "north", offset=0, local_x=0, local_y=0),),
+            "south": (_tile_seam_segment(tile, "south", offset=0, local_x=0, local_y=0),),
+            "east": (_tile_seam_segment(tile, "east", offset=0, local_x=0, local_y=0),),
+            "west": (_tile_seam_segment(tile, "west", offset=0, local_x=0, local_y=0),),
+        }
+    )
+
+
+def _connection_surface_for_composite_tile(composite: CompositeTileRecord) -> ConnectionSurface:
+    segments: dict[Side, list[SeamSegment]] = {side: [] for side in SIDES}
+    for cell in composite.lowered_cells():
+        x, y = cell.x, cell.y
+        if composite.cell_at(x, y - 1) is None:
+            segments["north"].append(_tile_seam_segment(cell.tile, "north", offset=x, local_x=x, local_y=y))
+        if composite.cell_at(x, y + 1) is None:
+            segments["south"].append(_tile_seam_segment(cell.tile, "south", offset=x, local_x=x, local_y=y))
+        if composite.cell_at(x - 1, y) is None:
+            segments["west"].append(_tile_seam_segment(cell.tile, "west", offset=y, local_x=x, local_y=y))
+        if composite.cell_at(x + 1, y) is None:
+            segments["east"].append(_tile_seam_segment(cell.tile, "east", offset=y, local_x=x, local_y=y))
+    return ConnectionSurface(
+        {
+            side: tuple(sorted(side_segments, key=lambda segment: (segment.offset, segment.local_y, segment.local_x)))
+            for side, side_segments in segments.items()
+        }
+    )
+
+
+def connection_surface_for_placeable(placeable: TileRecord | CompositeTileRecord) -> ConnectionSurface:
+    if isinstance(placeable, TileRecord):
+        return _connection_surface_for_tile(placeable)
+    return _connection_surface_for_composite_tile(placeable)
+
+
 @dataclass(frozen=True, slots=True)
 class TileLibraryUnit(RuntimeConstructionCatalog):
     family_id: str
@@ -599,6 +838,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     constructions: Mapping[str, Construction] = field(repr=False)
     attachment_sets: Mapping[str, ConstructionAttachmentSet] = field(repr=False)
     attachment_sets_by_target: Mapping[str, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
+    composite_tiles: Mapping[str, CompositeTileRecord] = field(default_factory=_empty_composite_tiles, repr=False)
 
     @property
     def variant_ids(self) -> tuple[str, ...]:
@@ -638,15 +878,26 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             attachment_sets=self.attachment_sets_for_construction(construction_id),
         )
 
-    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
-        if placeable_ref.kind != "construction":
-            return None
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Placeable | None:
+        if placeable_ref.kind == "tile":
+            return self.tile_record(placeable_ref.id)
+        if placeable_ref.kind == "composite_tile":
+            return self.composite_tiles.get(placeable_ref.id)
         return self.lookup_construction(placeable_ref.id)
 
     def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
-        if placeable_ref.kind != "construction":
+        placeable = self.lookup_placeable(placeable_ref)
+        if placeable is None:
             return None
+        if isinstance(placeable, (TileRecord, CompositeTileRecord)):
+            return entity_template_from_placeable(placeable)
         return self.entity_template(placeable_ref.id)
+
+    def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
+        placeable = self.lookup_placeable(placeable_ref)
+        if isinstance(placeable, (TileRecord, CompositeTileRecord)):
+            return lower_tile_asset_to_cells(placeable)
+        return None
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         return self.attachment_sets_by_target.get(construction_id, ())
@@ -659,7 +910,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     ) -> str | None:
         if construction_id not in self.constructions:
             return None
-        self.variant(variant_id)
+        self._validate_variant_for_ref(variant_id, context=f"construction {construction_id!r}")
         return self.runtime_tileset_id(variant_id)
 
     def runtime_tileset_id_for_placeable(
@@ -668,14 +919,29 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
         *,
         variant_id: str | None = None,
     ) -> str | None:
-        if placeable_ref.kind != "construction":
+        if self.lookup_placeable(placeable_ref) is None:
             return None
-        return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
+        self._validate_variant_for_ref(
+            variant_id,
+            context=f"placeable {placeable_ref.kind}:{placeable_ref.id!r}",
+        )
+        return self.runtime_tileset_id(variant_id)
+
+    def _validate_variant_for_ref(self, variant_id: str | None, *, context: str) -> None:
+        try:
+            _ = self.variant(variant_id)
+        except KeyError as exc:
+            resolved_variant_id = variant_id or self.default_variant_id
+            raise ValueError(f"Unknown variant {resolved_variant_id!r} for {context}") from exc
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
         templates: list[EntityTemplateRecord] = []
         for construction in self.constructions.values():
             template = self.entity_template(construction.id)
+            if template is not None:
+                templates.append(template)
+        for composite in self.composite_tiles.values():
+            template = entity_template_from_placeable(composite)
             if template is not None:
                 templates.append(template)
         return templates
@@ -723,6 +989,7 @@ class LoadedTileLibraryUnit:
 class TileLibraryRegistry(RuntimeConstructionCatalog):
     loaded_units_by_id: Mapping[str, LoadedTileLibraryUnit] = field(repr=False)
     construction_entries_by_id: Mapping[str, tuple[str, Construction]] = field(repr=False)
+    composite_tile_entries_by_id: Mapping[str, tuple[str, CompositeTileRecord]] = field(repr=False)
     alias_unit_ids: Mapping[str, str] = field(repr=False)
     tile_unit_ids: Mapping[str, str] = field(repr=False)
     tile_width: int
@@ -741,6 +1008,7 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
     def from_loaded_units(cls, loaded_units: Iterable[LoadedTileLibraryUnit]) -> TileLibraryRegistry:
         loaded_units_by_id: dict[str, LoadedTileLibraryUnit] = {}
         construction_entries_by_id: dict[str, tuple[str, Construction]] = {}
+        composite_tile_entries_by_id: dict[str, tuple[str, CompositeTileRecord]] = {}
         alias_unit_ids: dict[str, str] = {}
         tile_unit_ids: dict[str, str] = {}
         common_tile_width: int | None = None
@@ -789,6 +1057,14 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
                         f"owned by {existing_construction[0]!r} and {unit.family_id!r}"
                     )
                 construction_entries_by_id[construction_id] = (unit.family_id, construction)
+            for composite_id, composite in unit.composite_tiles.items():
+                existing_composite = composite_tile_entries_by_id.get(composite_id)
+                if existing_composite is not None:
+                    raise ValueError(
+                        f"Duplicate composite tile id across tile library units: {composite_id!r} "
+                        f"owned by {existing_composite[0]!r} and {unit.family_id!r}"
+                    )
+                composite_tile_entries_by_id[composite_id] = (unit.family_id, composite)
             for alias in unit.aliases:
                 existing_alias_owner = alias_unit_ids.get(alias)
                 if existing_alias_owner is not None:
@@ -813,6 +1089,7 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
         return cls(
             loaded_units_by_id=MappingProxyType(dict(loaded_units_by_id)),
             construction_entries_by_id=MappingProxyType(dict(construction_entries_by_id)),
+            composite_tile_entries_by_id=MappingProxyType(dict(composite_tile_entries_by_id)),
             alias_unit_ids=MappingProxyType(dict(alias_unit_ids)),
             tile_unit_ids=MappingProxyType(dict(tile_unit_ids)),
             tile_width=common_tile_width,
@@ -840,6 +1117,20 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
             return None
         unit_id, _construction = entry
         return self.loaded_units_by_id[unit_id].unit
+
+    def unit_for_composite_tile(self, composite_id: str) -> TileLibraryUnit | None:
+        entry = self.composite_tile_entries_by_id.get(composite_id)
+        if entry is None:
+            return None
+        unit_id, _composite = entry
+        return self.loaded_units_by_id[unit_id].unit
+
+    def _owner_for(self, placeable_ref: PlaceableRef) -> TileLibraryUnit | None:
+        if placeable_ref.kind == "tile":
+            return self.tile_owner(placeable_ref.id)
+        if placeable_ref.kind == "composite_tile":
+            return self.unit_for_composite_tile(placeable_ref.id)
+        return self.unit_for_construction(placeable_ref.id)
 
     def alias_owner(self, alias: str) -> TileLibraryUnit | None:
         unit_id = self.alias_unit_ids.get(alias)
@@ -912,15 +1203,17 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
             return None
         return unit.entity_template(construction_id)
 
-    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
-        if placeable_ref.kind != "construction":
-            return None
-        return self.lookup_construction(placeable_ref.id)
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Placeable | None:
+        owner = self._owner_for(placeable_ref)
+        return None if owner is None else owner.lookup_placeable(placeable_ref)
 
     def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
-        if placeable_ref.kind != "construction":
-            return None
-        return self.entity_template(placeable_ref.id)
+        owner = self._owner_for(placeable_ref)
+        return None if owner is None else owner.entity_template_for_placeable(placeable_ref)
+
+    def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
+        owner = self._owner_for(placeable_ref)
+        return None if owner is None else owner.lower_placeable_to_tile_cells(placeable_ref)
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         unit = self.unit_for_construction(construction_id)
@@ -937,8 +1230,7 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
         unit = self.unit_for_construction(construction_id)
         if unit is None:
             return None
-        unit.variant(variant_id)
-        return unit.runtime_tileset_id(variant_id)
+        return unit.runtime_tileset_id_for_construction(construction_id, variant_id=variant_id)
 
     def runtime_tileset_id_for_placeable(
         self,
@@ -946,9 +1238,8 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
         *,
         variant_id: str | None = None,
     ) -> str | None:
-        if placeable_ref.kind != "construction":
-            return None
-        return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
+        unit = self._owner_for(placeable_ref)
+        return None if unit is None else unit.runtime_tileset_id_for_placeable(placeable_ref, variant_id=variant_id)
 
 
 def resolve_tile_image_override_path(*, root: Path, image_override: str, variant_id: str) -> Path:
@@ -1107,9 +1398,6 @@ def entity_template_from_construction(
     attachment_sets: Iterable[ConstructionAttachmentSet] = (),
 ) -> EntityTemplateRecord:
     tiles = _construction_tiles(construction)
-
-    def _sorted_unique(values: Iterable[str | None]) -> tuple[str, ...]:
-        return tuple(sorted({value for value in values if value}))
 
     return EntityTemplateRecord(
         id=construction.id,
