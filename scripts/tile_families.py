@@ -33,6 +33,7 @@ from tile_library import (
     ConstructionAttachmentVariant,
     ConstructionAttachmentSet,
     EntityTemplateRecord,
+    PlaceableRef,
     TileFamilyVariant,
     TileFamilyHeader,
     TileLibraryPromotedMetadata,
@@ -2350,11 +2351,33 @@ class TileFamily:
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         return self.runtime_unit.entity_template(construction_id)
 
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+        return self.runtime_unit.lookup_placeable(placeable_ref)
+
+    def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        return self.runtime_unit.entity_template_for_placeable(placeable_ref)
+
     def entity_templates(self) -> list[EntityTemplateRecord]:
         return self.runtime_unit.entity_templates()
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         return self.runtime_unit.attachment_sets_for_construction(construction_id)
+
+    def runtime_tileset_id_for_construction(
+        self,
+        construction_id: str,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        return self.runtime_unit.runtime_tileset_id_for_construction(construction_id, variant_id=variant_id)
+
+    def runtime_tileset_id_for_placeable(
+        self,
+        placeable_ref: PlaceableRef,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        return self.runtime_unit.runtime_tileset_id_for_placeable(placeable_ref, variant_id=variant_id)
 
     @classmethod
     def from_catalog_sources(

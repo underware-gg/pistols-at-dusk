@@ -621,6 +621,9 @@ class TileFamilyLoadTests(unittest.TestCase):
             template = family.entity_template("test.body")
             self.assertIsNotNone(template)
             assert template is not None
+            self.assertEqual(template.placeable_kind, "construction")
+            self.assertEqual(template.placeable_id, "test.body")
+            self.assertEqual(template.construction_id, "test.body")
             self.assertEqual(len(template.attachment_sets), 1)
             self.assertTrue(template.attachment_sets[0].required)
             self.assertEqual(template.attachment_sets[0].variant_ids, ("alt",))
@@ -1185,6 +1188,9 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         table = family.entity_template("indoors.table.kit.square_2x2")
         self.assertIsNotNone(table)
         assert table is not None
+        self.assertEqual(table.placeable_kind, "construction")
+        self.assertEqual(table.placeable_id, "indoors.table.kit.square_2x2")
+        self.assertEqual(table.construction_id, "indoors.table.kit.square_2x2")
         self.assertEqual(table.collection_id, "indoors.table.kit")
         self.assertEqual(table.kind, "metatile")
         self.assertEqual(table.placement_anchor, "top_left")

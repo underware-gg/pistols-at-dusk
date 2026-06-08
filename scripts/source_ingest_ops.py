@@ -2582,7 +2582,7 @@ def export_public_tile_pack(
         "- `tiles.json`: one public semantic record per tile",
         "- `tiles.csv`: flat spreadsheet-friendly view of the tiles",
         "- `tile_clusters.json`: semantic/taxonomic cluster metadata",
-        "- `entity_templates.json`: derived runtime entity templates backed by constructions",
+        "- `entity_templates.json`: derived runtime entity templates backed by placeables",
         "- `source_regions.json` / `source_clusters.json` / `source_collections.json`: source-sheet layout model",
         "- `images/sheet_annotated.png`: grid + region/cluster/collection overlay",
         "- `images/tiles_contact_sheet.png`: all exported tiles with labels",

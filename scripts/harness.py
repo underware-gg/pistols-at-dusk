@@ -37,6 +37,7 @@ from tile_library import (
     FrameCornerSlot,
     ParametricFrameConstruction,
     ParametricRunConstruction,
+    PlaceableRef,
     RuntimeConstructionCatalog,
     TileGenesis,
     TileRecord,
@@ -580,10 +581,35 @@ def expand_entity_stamps(
     params: Mapping[str, object] | None = None,
     variant_id: str | None = None,
 ) -> list[StampOp]:
-    construction = tile_library.lookup_construction(construction_id)
+    return expand_placeable_stamps(
+        tile_library,
+        PlaceableRef.construction(construction_id),
+        x,
+        y,
+        context=context,
+        params=params,
+        variant_id=variant_id,
+    )
+
+
+def expand_placeable_stamps(
+    tile_library: RuntimeConstructionCatalog,
+    placeable_ref: PlaceableRef,
+    x: int,
+    y: int,
+    *,
+    context: str,
+    params: Mapping[str, object] | None = None,
+    variant_id: str | None = None,
+) -> list[StampOp]:
+    construction = tile_library.lookup_placeable(placeable_ref)
     if construction is None:
+        if placeable_ref.kind == "construction":
+            raise ValueError(
+                f"Unknown construction {placeable_ref.id!r} ({context})"
+            )
         raise ValueError(
-            f"Unknown construction {construction_id!r} ({context})"
+            f"Unknown placeable {placeable_ref.kind}:{placeable_ref.id!r} ({context})"
         )
     resolved_params = {} if params is None else dict(params)
     placements = _entity_tile_placements(
@@ -591,7 +617,7 @@ def expand_entity_stamps(
         construction,
         x,
         y,
-        construction_id=construction_id,
+        construction_id=placeable_ref.id,
         context=context,
         params=resolved_params,
         variant_id=variant_id,
@@ -606,15 +632,25 @@ def _resolve_scene_entity_request(
     tile_library: RuntimeConstructionCatalog,
     request: SceneEntityRequest,
 ) -> EntityInstance:
-    construction = tile_library.lookup_construction(request.construction_id)
+    placeable_ref = request.placeable_ref
+    construction = tile_library.lookup_placeable(placeable_ref)
     if construction is None:
+        if placeable_ref.kind == "construction":
+            raise ValueError(
+                f"Unknown construction {placeable_ref.id!r} (scene entity {request.entity_id!r})"
+            )
         raise ValueError(
-            f"Unknown construction {request.construction_id!r} (scene entity {request.entity_id!r})"
+            f"Unknown placeable {placeable_ref.kind}:{placeable_ref.id!r} "
+            f"(scene entity {request.entity_id!r})"
         )
-    template = tile_library.entity_template(request.construction_id)
+    template = tile_library.entity_template_for_placeable(placeable_ref)
     if template is None:
+        if placeable_ref.kind == "construction":
+            raise ValueError(
+                f"Unable to derive entity template for construction {placeable_ref.id!r}"
+            )
         raise ValueError(
-            f"Unable to derive entity template for construction {request.construction_id!r}"
+            f"Unable to derive entity template for placeable {placeable_ref.kind}:{placeable_ref.id!r}"
         )
     params = {} if request.params is None else dict(request.params)
     placements = tuple(
@@ -623,7 +659,7 @@ def _resolve_scene_entity_request(
             construction,
             request.x,
             request.y,
-            construction_id=request.construction_id,
+            construction_id=placeable_ref.id,
             context=f"scene entity {request.entity_id!r}",
             params=params,
             variant_id=request.variant_id,

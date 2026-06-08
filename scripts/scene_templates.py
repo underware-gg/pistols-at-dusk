@@ -17,6 +17,7 @@ from scene_rules import (
     SceneRulesetLibrary,
     SceneRuleStampCandidate,
 )
+from tile_library import PlaceableKind, PlaceableRef
 
 
 TileRefToken: TypeAlias = Union[str, int, None, dict[str, object], list["TileRefToken"]]
@@ -309,12 +310,35 @@ def _empty_scene_layers() -> SceneLayers:
 class SceneEntityRequest:
     entity_id: str
     source_template_id: str
-    construction_id: str
     layer: str
     x: int
     y: int
+    construction_id: str | None = None
     params: dict[str, object] | None = None
     variant_id: str | None = None
+    placeable_kind: PlaceableKind = "construction"
+    placeable_id: str | None = None
+
+    def __post_init__(self) -> None:
+        resolved_placeable_id = self.placeable_id
+        if resolved_placeable_id is None and self.construction_id is not None:
+            resolved_placeable_id = self.construction_id
+        if resolved_placeable_id is None:
+            raise ValueError("SceneEntityRequest.placeable_id is required when construction_id is absent")
+        if self.construction_id is not None and (
+            self.placeable_kind != "construction" or self.construction_id != resolved_placeable_id
+        ):
+            raise ValueError(
+                "SceneEntityRequest.construction_id is only valid for matching construction placeables"
+            )
+        object.__setattr__(self, "placeable_id", resolved_placeable_id)
+
+    @property
+    def placeable_ref(self) -> PlaceableRef:
+        placeable_id = self.placeable_id
+        if placeable_id is None:
+            raise RuntimeError("SceneEntityRequest.placeable_id was not normalised")
+        return PlaceableRef(kind=self.placeable_kind, id=placeable_id)
 
 
 @dataclass(frozen=True)
@@ -1201,12 +1225,14 @@ def _shift_scene_entity(entity: SceneEntityRequest, *, dx: int, dy: int) -> Scen
     return SceneEntityRequest(
         entity_id=entity.entity_id,
         source_template_id=entity.source_template_id,
-        construction_id=entity.construction_id,
         layer=entity.layer,
         x=entity.x + dx,
         y=entity.y + dy,
+        construction_id=entity.construction_id,
         params=None if entity.params is None else dict(entity.params),
         variant_id=entity.variant_id,
+        placeable_kind=entity.placeable_kind,
+        placeable_id=entity.placeable_id,
     )
 
 
@@ -1455,11 +1481,13 @@ def expand_data_scene(
                         SceneEntityRequest(
                             entity_id=".".join((*chosen_scope, "entity")),
                             source_template_id=template_spec.template_id,
-                            construction_id=chosen.construction_id,
                             layer=layer,
                             x=slot_x,
                             y=slot_y,
+                            construction_id=chosen.construction_id,
                             params=None if chosen.params is None else dict(chosen.params),
+                            placeable_kind=chosen.placeable_kind,
+                            placeable_id=chosen.placeable_id,
                         )
                     )
                     continue
@@ -1580,6 +1608,8 @@ def expand_data_scene(
                     y=y,
                     params=None if entity_params is None else dict(entity_params),
                     variant_id=entity_variant_id,
+                    placeable_kind="construction",
+                    placeable_id=construction_id,
                 )
             )
             continue

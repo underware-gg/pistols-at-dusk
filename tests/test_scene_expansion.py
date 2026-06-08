@@ -16,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import harness
 import scene_templates
+from scene_rules import SceneRuleEntityCandidate, SceneRulesetLibrary, SceneRulesetSpec
 from tile_library import (
     Construction,
     ConstructionAttachmentSet,
@@ -26,6 +27,7 @@ from tile_library import (
     MetatileConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
+    PlaceableRef,
     TileGenesis,
     TileRecord,
     entity_template_from_construction,
@@ -1225,6 +1227,23 @@ class _FakeFamily:
             return None
         return f"testfam@{variant_id or 'base'}"
 
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.lookup_construction(placeable_ref.id)
+
+    def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.entity_template(placeable_ref.id)
+
+    def runtime_tileset_id_for_placeable(
+        self, placeable_ref: PlaceableRef, *, variant_id: str | None = None
+    ) -> str | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
+
 
 def _make_fixture_family() -> _FakeFamily:
     tile_a = _make_tile_record("testfam:all:0,0")
@@ -1407,6 +1426,94 @@ class EntityOpExpandStampsTests(unittest.TestCase):
             [(placement.ref, placement.x, placement.y) for placement in entity.tiles],
             [("testfam:all:0,0", 8, 9), ("testfam:all:1,0", 8, 9)],
         )
+        self.assertEqual(entity.template.placeable_kind, "construction")
+        self.assertEqual(entity.template.placeable_id, "test.fixture.body")
+        self.assertEqual(entity.template.construction_id, "test.fixture.body")
+
+    def test_scene_entity_request_exposes_canonical_construction_placeable(self) -> None:
+        request = harness.SceneEntityRequest(
+            entity_id="fixture.body",
+            source_template_id="fixture",
+            construction_id="test.fixture.body",
+            layer="actors",
+            x=8,
+            y=9,
+        )
+
+        self.assertEqual(request.placeable_kind, "construction")
+        self.assertEqual(request.placeable_id, "test.fixture.body")
+        self.assertEqual(request.placeable_ref, PlaceableRef(kind="construction", id="test.fixture.body"))
+
+    def test_scene_entity_request_allows_non_construction_placeable_without_fake_construction(self) -> None:
+        request = harness.SceneEntityRequest(
+            entity_id="fixture.tile",
+            source_template_id="fixture",
+            layer="actors",
+            x=8,
+            y=9,
+            placeable_kind="tile",
+            placeable_id="tile.a",
+        )
+
+        self.assertIsNone(request.construction_id)
+        self.assertEqual(request.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+
+    def test_scene_entity_request_defaults_legacy_construction_to_placeable(self) -> None:
+        request = harness.SceneEntityRequest(
+            entity_id="fixture.body",
+            source_template_id="fixture",
+            construction_id="test.fixture.body",
+            layer="actors",
+            x=8,
+            y=9,
+        )
+
+        self.assertEqual(request.placeable_kind, "construction")
+        self.assertEqual(request.placeable_id, "test.fixture.body")
+
+    def test_scene_entity_request_rejects_mismatched_compatibility_construction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "construction_id is only valid"):
+            harness.SceneEntityRequest(
+                entity_id="fixture.body",
+                source_template_id="fixture",
+                construction_id="test.fixture.body",
+                layer="actors",
+                x=8,
+                y=9,
+                placeable_kind="construction",
+                placeable_id="test.fixture.other",
+            )
+
+    def test_scene_rule_entity_candidate_allows_non_construction_placeable_without_fake_construction(self) -> None:
+        candidate = SceneRuleEntityCandidate(
+            candidate_id="tile",
+            weight=1.0,
+            placeable_kind="tile",
+            placeable_id="tile.a",
+        )
+
+        self.assertIsNone(candidate.construction_id)
+        self.assertEqual(candidate.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+
+    def test_scene_rule_entity_candidate_defaults_legacy_construction_to_placeable(self) -> None:
+        candidate = SceneRuleEntityCandidate(
+            candidate_id="body",
+            weight=1.0,
+            construction_id="test.fixture.body",
+        )
+
+        self.assertEqual(candidate.placeable_kind, "construction")
+        self.assertEqual(candidate.placeable_id, "test.fixture.body")
+
+    def test_scene_rule_entity_candidate_rejects_mismatched_compatibility_construction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "construction_id is only valid"):
+            SceneRuleEntityCandidate(
+                candidate_id="body",
+                weight=1.0,
+                construction_id="test.fixture.body",
+                placeable_kind="construction",
+                placeable_id="test.fixture.other",
+            )
 
     def test_scene_entity_request_selects_variant_tileset(self) -> None:
         family = _make_fixture_family()
@@ -1519,6 +1626,69 @@ class EntityOpDataSceneTests(unittest.TestCase):
         )
 
         self.assertIsNone(expanded.entities[0].variant_id)
+
+    def test_populate_slots_forwards_candidate_placeable_identity_to_entity_request(self) -> None:
+        spec_raw: dict[str, Any] = {
+            "template_id": "slot_entity_test",
+            "description": "populate_slots entity forwarding fixture",
+            "parameters": {
+                "x": {"type": "int", "required": True, "description": "Left tile coordinate."},
+                "y": {"type": "int", "required": True, "description": "Top tile coordinate."},
+            },
+            "slot_groups": {
+                "targets": [{"id": "target", "x": {"param": "x"}, "y": {"param": "y"}, "layer": "actors"}],
+            },
+            "ops": [
+                {
+                    "kind": "populate_slots",
+                    "ruleset": "sample",
+                    "catalogue": "entities",
+                    "slot_group": "targets",
+                    "seed": 1,
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "slot_entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            spec = scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+        runtime = scene_templates.SceneTemplateRuntime(
+            pattern_dimensions=lambda ref: (1, 1),
+            centered_pattern_x=lambda ref, x, width: x,
+            scene_rules_library=SceneRulesetLibrary(
+                root=Path("."),
+                specs={
+                    "sample": SceneRulesetSpec(
+                        ruleset_id="sample",
+                        description="Synthetic in-memory ruleset.",
+                        catalogues={
+                            "entities": (
+                                SceneRuleEntityCandidate(
+                                    candidate_id="tile_candidate",
+                                    weight=1.0,
+                                    placeable_kind="tile",
+                                    placeable_id="tile.a",
+                                ),
+                            ),
+                        },
+                    ),
+                },
+            ),
+        )
+        expanded = scene_templates.expand_data_scene(
+            {"template": "slot_entity_test", "x": 4, "y": 2},
+            spec,
+            runtime=runtime,
+        )
+
+        self.assertEqual(len(expanded.entities), 1)
+        entity = expanded.entities[0]
+        self.assertIsNone(entity.construction_id)
+        self.assertEqual(entity.placeable_kind, "tile")
+        self.assertEqual(entity.placeable_id, "tile.a")
+        self.assertEqual(entity.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
 
     def test_entity_op_preserves_explicit_entity_id(self) -> None:
         spec_raw = self._data_scene_with_entity()

@@ -7,6 +7,8 @@ from typing import TypedDict, Union, cast
 
 from typing_extensions import TypeAlias
 
+from tile_library import PlaceableKind, PlaceableRef
+
 
 TileRefToken: TypeAlias = Union[str, int, None, dict[str, object], list["TileRefToken"]]
 
@@ -26,9 +28,32 @@ class SceneRuleStampCandidate:
 class SceneRuleEntityCandidate:
     candidate_id: str
     weight: float
-    construction_id: str
+    construction_id: str | None = None
     layer: str | None = None
     params: dict[str, object] | None = None
+    placeable_kind: PlaceableKind = "construction"
+    placeable_id: str | None = None
+
+    def __post_init__(self) -> None:
+        resolved_placeable_id = self.placeable_id
+        if resolved_placeable_id is None and self.construction_id is not None:
+            resolved_placeable_id = self.construction_id
+        if resolved_placeable_id is None:
+            raise ValueError("SceneRuleEntityCandidate.placeable_id is required when construction_id is absent")
+        if self.construction_id is not None and (
+            self.placeable_kind != "construction" or self.construction_id != resolved_placeable_id
+        ):
+            raise ValueError(
+                "SceneRuleEntityCandidate.construction_id is only valid for matching construction placeables"
+            )
+        object.__setattr__(self, "placeable_id", resolved_placeable_id)
+
+    @property
+    def placeable_ref(self) -> PlaceableRef:
+        placeable_id = self.placeable_id
+        if placeable_id is None:
+            raise RuntimeError("SceneRuleEntityCandidate.placeable_id was not normalised")
+        return PlaceableRef(kind=self.placeable_kind, id=placeable_id)
 
 
 @dataclass(frozen=True)
@@ -203,6 +228,8 @@ def _load_scene_rule_candidate(
             construction_id=construction_id,
             layer=layer,
             params=None if params is None else dict(params),
+            placeable_kind="construction",
+            placeable_id=construction_id,
         )
     if candidate_kind == "scene":
         scene_id = _require_string(candidate.get("scene"), context=f"{context} scene")

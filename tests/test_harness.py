@@ -2481,6 +2481,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 entry for entry in entity_templates if entry["id"] == "head_study.character.shared_body"
             )
 
+            self.assertEqual(shared_body["placeable_kind"], "construction")
+            self.assertEqual(shared_body["placeable_id"], "head_study.character.shared_body")
+            self.assertEqual(shared_body["construction_id"], "head_study.character.shared_body")
             self.assertEqual(len(shared_body["attachment_sets"]), 1)
             self.assertEqual(shared_body["attachment_sets"][0]["param"], "head")
             self.assertTrue(shared_body["attachment_sets"][0]["required"])

@@ -21,6 +21,32 @@ from _manifest_utils import GridBounds, require_mapping, resolve_path
 from tile_metadata import ModuleContextValue, RenderTraits
 
 
+PlaceableKind: TypeAlias = Literal["tile", "composite_tile", "construction"]
+EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "metatile", "parametric_run", "parametric_frame"]
+
+
+@dataclass(frozen=True)
+class PlaceableRef:
+    kind: PlaceableKind
+    id: str
+
+    def __post_init__(self) -> None:
+        if self.kind not in ("tile", "composite_tile", "construction"):
+            raise ValueError(f"PlaceableRef.kind is invalid: {self.kind!r}")
+        if self.id == "":
+            raise ValueError("PlaceableRef.id must not be empty")
+
+    @classmethod
+    def construction(cls, construction_id: str) -> PlaceableRef:
+        return cls(kind="construction", id=construction_id)
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "id": self.id,
+        }
+
+
 PHYSICAL_TILE_RE = re.compile(r"^(?P<family>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$")
 VARIANT_TILE_RE = re.compile(
     r"^(?P<family>[a-z0-9_.-]+)@(?P<variant>[a-z0-9_.-]+):(?P<col>\d+),(?P<row>\d+)$"
@@ -271,21 +297,47 @@ class EntityFootprintSpec:
 @dataclass(frozen=True)
 class EntityTemplateRecord:
     id: str
-    construction_id: str
     collection_id: str
-    kind: Literal["metatile", "parametric_run", "parametric_frame"]
+    kind: EntityTemplateKind
     placement_anchor: Literal["top_left"]
     compose_roles: tuple[str, ...]
     affordances: tuple[str, ...]
     state_groups: tuple[str, ...]
     animation_groups: tuple[str, ...]
     footprint: EntityFootprintSpec
+    placeable_kind: PlaceableKind = "construction"
+    placeable_id: str | None = None
+    construction_id: str | None = None
     attachment_sets: tuple[EntityAttachmentSetRecord, ...] = ()
 
+    def __post_init__(self) -> None:
+        resolved_placeable_id = self.placeable_id
+        if resolved_placeable_id is None and self.placeable_kind == "construction":
+            resolved_placeable_id = self.construction_id
+        if resolved_placeable_id is None:
+            raise ValueError("EntityTemplateRecord.placeable_id is required for non-construction placeables")
+        if resolved_placeable_id == "":
+            raise ValueError("EntityTemplateRecord.placeable_id must not be empty")
+        object.__setattr__(self, "placeable_id", resolved_placeable_id)
+        if self.construction_id is not None and (
+            self.placeable_kind != "construction" or self.construction_id != resolved_placeable_id
+        ):
+            raise ValueError(
+                "EntityTemplateRecord.construction_id is only valid for matching construction placeables"
+            )
+
+    @property
+    def placeable_ref(self) -> PlaceableRef:
+        placeable_id = self.placeable_id
+        if placeable_id is None:
+            raise RuntimeError("EntityTemplateRecord.placeable_id was not normalised")
+        return PlaceableRef(kind=self.placeable_kind, id=placeable_id)
+
     def to_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "id": self.id,
-            "construction_id": self.construction_id,
+            "placeable_kind": self.placeable_kind,
+            "placeable_id": self.placeable_id,
             "collection_id": self.collection_id,
             "kind": self.kind,
             "placement_anchor": self.placement_anchor,
@@ -296,6 +348,9 @@ class EntityTemplateRecord:
             "footprint": self.footprint.to_payload(),
             "attachment_sets": [attachment_set.to_payload() for attachment_set in self.attachment_sets],
         }
+        if self.construction_id is not None:
+            payload["construction_id"] = self.construction_id
+        return payload
 
 
 @dataclass(frozen=True)
@@ -479,12 +534,26 @@ class RuntimeConstructionCatalog(Protocol):
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         ...
 
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+        ...
+
+    def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        ...
+
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         ...
 
     def runtime_tileset_id_for_construction(
         self,
         construction_id: str,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        ...
+
+    def runtime_tileset_id_for_placeable(
+        self,
+        placeable_ref: PlaceableRef,
         *,
         variant_id: str | None = None,
     ) -> str | None:
@@ -569,6 +638,16 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             attachment_sets=self.attachment_sets_for_construction(construction_id),
         )
 
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.lookup_construction(placeable_ref.id)
+
+    def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.entity_template(placeable_ref.id)
+
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         return self.attachment_sets_by_target.get(construction_id, ())
 
@@ -582,6 +661,16 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             return None
         self.variant(variant_id)
         return self.runtime_tileset_id(variant_id)
+
+    def runtime_tileset_id_for_placeable(
+        self,
+        placeable_ref: PlaceableRef,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
         templates: list[EntityTemplateRecord] = []
@@ -823,6 +912,16 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
             return None
         return unit.entity_template(construction_id)
 
+    def lookup_placeable(self, placeable_ref: PlaceableRef) -> Construction | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.lookup_construction(placeable_ref.id)
+
+    def entity_template_for_placeable(self, placeable_ref: PlaceableRef) -> EntityTemplateRecord | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.entity_template(placeable_ref.id)
+
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         unit = self.unit_for_construction(construction_id)
         if unit is None:
@@ -840,6 +939,16 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
             return None
         unit.variant(variant_id)
         return unit.runtime_tileset_id(variant_id)
+
+    def runtime_tileset_id_for_placeable(
+        self,
+        placeable_ref: PlaceableRef,
+        *,
+        variant_id: str | None = None,
+    ) -> str | None:
+        if placeable_ref.kind != "construction":
+            return None
+        return self.runtime_tileset_id_for_construction(placeable_ref.id, variant_id=variant_id)
 
 
 def resolve_tile_image_override_path(*, root: Path, image_override: str, variant_id: str) -> Path:
@@ -1004,7 +1113,6 @@ def entity_template_from_construction(
 
     return EntityTemplateRecord(
         id=construction.id,
-        construction_id=construction.id,
         collection_id=construction.collection_id,
         kind=construction.kind,
         placement_anchor="top_left",
@@ -1013,7 +1121,8 @@ def entity_template_from_construction(
         state_groups=_sorted_unique(tile.state_group for tile in tiles),
         animation_groups=_sorted_unique(tile.animation_group for tile in tiles),
         footprint=_construction_footprint_spec(construction),
+        placeable_kind="construction",
+        placeable_id=construction.id,
+        construction_id=construction.id,
         attachment_sets=tuple(attachment_set.to_entity_record() for attachment_set in attachment_sets),
     )
-
-

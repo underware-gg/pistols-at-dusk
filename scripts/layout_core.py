@@ -860,14 +860,25 @@ class LayoutProject:
                         scene_template_library.require(candidate.scene_id)
                         continue
                     if tile_library_registry is None:
+                        if candidate.construction_id is not None:
+                            raise ValueError(
+                                f"{context} references construction {candidate.construction_id!r}, "
+                                "but the project has no tile family loaded"
+                            )
                         raise ValueError(
-                            f"{context} references construction {candidate.construction_id!r}, "
+                            f"{context} references placeable "
+                            f"{candidate.placeable_ref.kind}:{candidate.placeable_ref.id!r}, "
                             "but the project has no tile family loaded"
                         )
-                    if tile_library_registry.lookup_construction(candidate.construction_id) is None:
+                    if tile_library_registry.lookup_placeable(candidate.placeable_ref) is None:
+                        if candidate.construction_id is not None:
+                            raise ValueError(
+                                f"{context} references unknown construction "
+                                f"{candidate.construction_id!r}"
+                            )
                         raise ValueError(
-                            f"{context} references unknown construction "
-                            f"{candidate.construction_id!r}"
+                            f"{context} references unknown placeable "
+                            f"{candidate.placeable_ref.kind}:{candidate.placeable_ref.id!r}"
                         )
 
     def get_tileset(self, tileset_id: str) -> GridTileset:
