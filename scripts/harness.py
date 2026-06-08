@@ -279,7 +279,7 @@ def _construction_tile_placements(
 
 def _attachment_tile_placements(
     tile_library: RuntimeConstructionCatalog,
-    construction_id: str,
+    placeable_ref: PlaceableRef,
     x: int,
     y: int,
     *,
@@ -288,6 +288,7 @@ def _attachment_tile_placements(
     variant_id: str | None = None,
 ) -> list[EntityTilePlacement]:
     def _resolve_attachment_variant_id(attachment_set: ConstructionAttachmentSet) -> str | None:
+        target_description = f"{placeable_ref.kind} {placeable_ref.id!r}"
         if attachment_set.param in params:
             raw_variant_id: object = params[attachment_set.param]
         elif attachment_set.default_variant_id is not None:
@@ -295,19 +296,19 @@ def _attachment_tile_placements(
         elif attachment_set.required:
             raise ValueError(
                 f"{context} requires attachment param {attachment_set.param!r} "
-                f"for construction {construction_id!r}"
+                f"for {target_description}"
             )
         else:
             return None
         if not isinstance(raw_variant_id, str) or raw_variant_id == "":
             raise ValueError(
-                f"{context} attachment param {attachment_set.param!r} for construction "
-                f"{construction_id!r} must be a non-empty string"
+                f"{context} attachment param {attachment_set.param!r} for {target_description} "
+                "must be a non-empty string"
             )
         return raw_variant_id
 
     placements: list[EntityTilePlacement] = []
-    for attachment_set in tile_library.attachment_sets_for_construction(construction_id):
+    for attachment_set in tile_library.attachment_sets_for_placeable(placeable_ref):
         raw_variant_id = _resolve_attachment_variant_id(attachment_set)
         if raw_variant_id is None:
             continue
@@ -315,20 +316,19 @@ def _attachment_tile_placements(
         if variant is None:
             available = ", ".join(sorted(attachment_set.variants.keys())) or "<none>"
             raise ValueError(
-                f"{context} attachment param {attachment_set.param!r} for construction {construction_id!r} "
+                f"{context} attachment param {attachment_set.param!r} for "
+                f"{placeable_ref.kind} {placeable_ref.id!r} "
                 f"requested unknown variant {raw_variant_id!r}; available: {available}"
             )
-        attachment = tile_library.lookup_construction(variant.construction_id)
-        if attachment is None:
+        if tile_library.lookup_placeable(variant.placeable_ref) is None:
             raise ValueError(
-                f"{context} attachment set {attachment_set.id!r} references unknown construction "
-                f"{variant.construction_id!r}"
+                f"{context} attachment set {attachment_set.id!r} references unknown placeable "
+                f"{variant.placeable_ref.kind}:{variant.placeable_ref.id!r}"
             )
         placements.extend(
-            _construction_tile_placements(
+            _base_placeable_tile_placements(
                 tile_library,
-                attachment,
-                variant.construction_id,
+                variant.placeable_ref,
                 x + attachment_set.canvas.x,
                 y + attachment_set.canvas.y,
                 context=f"{context} attachment {attachment_set.id!r} variant {raw_variant_id!r}",
@@ -336,41 +336,6 @@ def _attachment_tile_placements(
                 variant_id=variant_id,
             )
         )
-    return placements
-
-
-def _entity_tile_placements(
-    tile_library: RuntimeConstructionCatalog,
-    construction: Construction,
-    x: int,
-    y: int,
-    *,
-    construction_id: str,
-    context: str,
-    params: Mapping[str, object],
-    variant_id: str | None = None,
-) -> list[EntityTilePlacement]:
-    placements = _construction_tile_placements(
-        tile_library,
-        construction,
-        construction_id,
-        x,
-        y,
-        context=context,
-        params=params,
-        variant_id=variant_id,
-    )
-    placements.extend(
-        _attachment_tile_placements(
-            tile_library,
-            construction_id,
-            x,
-            y,
-            context=context,
-            params=params,
-            variant_id=variant_id,
-        )
-    )
     return placements
 
 
@@ -626,7 +591,7 @@ def _fixed_placeable_tile_placements(
     )
 
 
-def _placeable_tile_placements(
+def _base_placeable_tile_placements(
     tile_library: RuntimeConstructionCatalog,
     placeable_ref: PlaceableRef,
     x: int,
@@ -655,17 +620,53 @@ def _placeable_tile_placements(
     if construction is None:
         raise ValueError(f"Unknown construction {placeable_ref.id!r} ({context})")
     return tuple(
-        _entity_tile_placements(
+        _construction_tile_placements(
             tile_library,
             construction,
+            placeable_ref.id,
             x,
             y,
-            construction_id=placeable_ref.id,
             context=context,
             params={} if params is None else dict(params),
             variant_id=variant_id,
         )
     )
+
+
+def _placeable_tile_placements(
+    tile_library: RuntimeConstructionCatalog,
+    placeable_ref: PlaceableRef,
+    x: int,
+    y: int,
+    *,
+    context: str,
+    params: Mapping[str, object] | None = None,
+    variant_id: str | None = None,
+) -> tuple[EntityTilePlacement, ...]:
+    resolved_params = {} if params is None else dict(params)
+    placements = list(
+        _base_placeable_tile_placements(
+            tile_library,
+            placeable_ref,
+            x,
+            y,
+            context=context,
+            params=resolved_params,
+            variant_id=variant_id,
+        )
+    )
+    placements.extend(
+        _attachment_tile_placements(
+            tile_library,
+            placeable_ref,
+            x,
+            y,
+            context=context,
+            params=resolved_params,
+            variant_id=variant_id,
+        )
+    )
+    return tuple(placements)
 
 
 def expand_placeable_stamps(

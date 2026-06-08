@@ -1205,8 +1205,10 @@ def _make_placeable_unit(
     *,
     tiles: tuple[TileRecord, ...],
     composite_tiles: tuple[CompositeTileRecord, ...] = (),
+    attachment_sets: tuple[ConstructionAttachmentSet, ...] = (),
     variant_ids: tuple[str, ...] = ("base",),
 ) -> TileLibraryUnit:
+    attachment_sets_by_id = {attachment_set.id: attachment_set for attachment_set in attachment_sets}
     return TileLibraryUnit(
         family_id="testfam",
         tile_width=8,
@@ -1229,8 +1231,8 @@ def _make_placeable_unit(
         tiles_by_sheet_cell_index={},
         constructions={},
         composite_tiles={composite.id: composite for composite in composite_tiles},
-        attachment_sets={},
-        attachment_sets_by_target=attachment_sets_by_target({}),
+        attachment_sets=attachment_sets_by_id,
+        attachment_sets_by_target=attachment_sets_by_target(attachment_sets_by_id),
     )
 
 
@@ -1249,6 +1251,11 @@ class _FakeFamily:
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         return self._attachment_sets.get(construction_id, ())
+
+    def attachment_sets_for_placeable(self, placeable_ref: PlaceableRef) -> tuple[ConstructionAttachmentSet, ...]:
+        if placeable_ref.kind != "construction":
+            return ()
+        return self.attachment_sets_for_construction(placeable_ref.id)
 
     def entity_template(self, construction_id: str) -> EntityTemplateRecord | None:
         construction = self.lookup_construction(construction_id)
@@ -1689,6 +1696,75 @@ class EntityOpExpandStampsTests(unittest.TestCase):
                 context="test tile variant",
                 variant_id="missing",
             )
+
+    def test_expand_placeable_stamps_applies_composite_attachment_fill(self) -> None:
+        body_left = _make_tile_record("body.left")
+        body_right = _make_tile_record("body.right")
+        head_left = _make_tile_record("head.left")
+        head_right = _make_tile_record("head.right")
+        body = CompositeTileRecord(
+            id="character.body",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (None, None),
+                (None, None),
+                (
+                    CompositeTileCell(tile=body_left, x=0, y=2),
+                    CompositeTileCell(tile=body_right, x=1, y=2),
+                ),
+            ),
+        )
+        head = CompositeTileRecord(
+            id="character.head.alt",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (
+                    CompositeTileCell(tile=head_left, x=0, y=0),
+                    CompositeTileCell(tile=head_right, x=1, y=0),
+                ),
+            ),
+            expose_as_entity=False,
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=0, y=0, width=2, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            variants={
+                "alt": ConstructionAttachmentVariant(
+                    id="alt",
+                    placeable_kind="composite_tile",
+                    placeable_id="character.head.alt",
+                )
+            },
+            required=True,
+        )
+        unit = _make_placeable_unit(
+            tiles=(body_left, body_right, head_left, head_right),
+            composite_tiles=(body, head),
+            attachment_sets=(attachment_set,),
+        )
+
+        stamps = harness.expand_placeable_stamps(
+            unit,
+            PlaceableRef(kind="composite_tile", id="character.body"),
+            x=4,
+            y=5,
+            context="test composite attachment",
+            params={"head": "alt"},
+        )
+
+        self.assertEqual(
+            [(cast(str, stamp["ref"]), stamp["x"], stamp["y"]) for stamp in stamps],
+            [
+                ("body.left", 4, 7),
+                ("body.right", 5, 7),
+                ("head.left", 4, 5),
+                ("head.right", 5, 5),
+            ],
+        )
 
     def test_scene_rule_entity_candidate_allows_non_construction_placeable_without_fake_construction(self) -> None:
         candidate = SceneRuleEntityCandidate(

@@ -15,13 +15,16 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from _manifest_utils import GridBounds
 from seam_matching import MatchPolicy
 from tile_library import (
     CellContentInset,
     CompositeTileCell,
     CompositeTileRecord,
-    PlaceableRef,
+    ConstructionAttachmentSet,
+    ConstructionAttachmentVariant,
     MetatileConstruction,
+    PlaceableRef,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     TileGenesis,
@@ -638,6 +641,12 @@ class TileFamilyLoadTests(unittest.TestCase):
             self.assertTrue(template.attachment_sets[0].required)
             self.assertEqual(template.attachment_sets[0].variant_ids, ("alt",))
             self.assertEqual([entry.id for entry in family.entity_templates()], ["test.body"])
+            attachment_set = family.attachment_sets_for_construction("test.body")[0]
+            self.assertEqual(attachment_set.target_placeable_refs, (PlaceableRef.construction("test.body"),))
+            variant = attachment_set.variant("alt")
+            self.assertIsNotNone(variant)
+            assert variant is not None
+            self.assertEqual(variant.placeable_ref, PlaceableRef.construction("test.head.alt"))
 
     def test_load_rejects_non_boolean_expose_as_entity(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1284,8 +1293,10 @@ def _make_runtime_unit(
     family_id: str,
     tiles: tuple[TileRecord, ...],
     composite_tiles: tuple[CompositeTileRecord, ...] = (),
+    attachment_sets: tuple[ConstructionAttachmentSet, ...] = (),
     variant_ids: tuple[str, ...] = ("base",),
 ) -> TileLibraryUnit:
+    attachment_sets_by_id = {attachment_set.id: attachment_set for attachment_set in attachment_sets}
     return TileLibraryUnit(
         family_id=family_id,
         tile_width=8,
@@ -1307,8 +1318,8 @@ def _make_runtime_unit(
         aliases={},
         tiles_by_sheet_cell_index={},
         constructions={},
-        attachment_sets={},
-        attachment_sets_by_target=attachment_sets_by_target({}),
+        attachment_sets=attachment_sets_by_id,
+        attachment_sets_by_target=attachment_sets_by_target(attachment_sets_by_id),
         composite_tiles={composite.id: composite for composite in composite_tiles},
     )
 
@@ -1421,7 +1432,7 @@ class AttachmentLoaderTests(unittest.TestCase):
         }
 
     def test_loader_rejects_parametric_run_target_construction(self) -> None:
-        with self.assertRaisesRegex(ValueError, "must reference a fixed metatile construction, not parametric_run"):
+        with self.assertRaisesRegex(ValueError, "must reference a fixed placeable, not parametric_run"):
             load_attachment_sets_from_data(
                 (self._attachment_config(target_construction_ids=["test.run"]),),
                 attachments_path=Path("attachments.json"),
@@ -1429,7 +1440,7 @@ class AttachmentLoaderTests(unittest.TestCase):
             )
 
     def test_loader_rejects_parametric_run_variant_construction(self) -> None:
-        with self.assertRaisesRegex(ValueError, "must reference a fixed metatile construction, not parametric_run"):
+        with self.assertRaisesRegex(ValueError, "must reference a fixed placeable, not parametric_run"):
             load_attachment_sets_from_data(
                 (self._attachment_config(variant_construction_id="test.run"),),
                 attachments_path=Path("attachments.json"),
@@ -1667,6 +1678,254 @@ class TileLibraryRegistryTests(unittest.TestCase):
 
         self.assertIsNone(entity_template_from_placeable(composite))
         self.assertEqual(unit.entity_templates(), [])
+
+    def test_runtime_unit_projects_composite_attachment_set_on_entity_template(self) -> None:
+        body_tile = _make_tile("body.tile")
+        head_tile = _make_tile("head.tile")
+        body = CompositeTileRecord(
+            id="character.body",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=body_tile, x=0, y=0),),),
+        )
+        head = CompositeTileRecord(
+            id="character.head",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=head_tile, x=0, y=0),),),
+            expose_as_entity=False,
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=0, y=0, width=1, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            variants={
+                "alt": ConstructionAttachmentVariant(
+                    id="alt",
+                    placeable_kind="composite_tile",
+                    placeable_id="character.head",
+                )
+            },
+            required=True,
+        )
+        unit = _make_runtime_unit(
+            family_id="testfam",
+            tiles=(body_tile, head_tile),
+            composite_tiles=(body, head),
+            attachment_sets=(attachment_set,),
+        )
+
+        template = unit.entity_template_for_placeable(PlaceableRef(kind="composite_tile", id="character.body"))
+
+        self.assertIsNotNone(template)
+        assert template is not None
+        self.assertEqual(len(template.attachment_sets), 1)
+        self.assertEqual(template.attachment_sets[0].param, "head")
+        self.assertEqual(unit.attachment_sets_for_placeable(PlaceableRef(kind="composite_tile", id="character.body")), (attachment_set,))
+
+    def test_attachment_variant_rejects_compatibility_construction_mismatch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "construction_id is only valid"):
+            ConstructionAttachmentVariant(
+                id="bad",
+                construction_id="construction.head",
+                placeable_kind="composite_tile",
+                placeable_id="character.head",
+            )
+
+    def test_attachment_variant_requires_placeable_id_for_non_construction_placeable(self) -> None:
+        with self.assertRaisesRegex(ValueError, "placeable_id is required"):
+            ConstructionAttachmentVariant(
+                id="bad",
+                placeable_kind="composite_tile",
+            )
+
+    def test_attachment_variant_rejects_empty_placeable_id(self) -> None:
+        with self.assertRaisesRegex(ValueError, "placeable_id must not be empty"):
+            ConstructionAttachmentVariant(
+                id="bad",
+                placeable_kind="composite_tile",
+                placeable_id="",
+            )
+
+    def test_attachment_set_rejects_compatibility_target_mismatch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "target_construction_ids is only valid"):
+            ConstructionAttachmentSet(
+                id="bad.targets",
+                param="head",
+                canvas=GridBounds(x=0, y=0, width=1, height=1),
+                variants={
+                    "alt": ConstructionAttachmentVariant(
+                        id="alt",
+                        placeable_kind="composite_tile",
+                        placeable_id="character.head",
+                    )
+                },
+                target_construction_ids=("construction.body",),
+                target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            )
+
+    def test_attachment_set_requires_target_placeables(self) -> None:
+        with self.assertRaisesRegex(ValueError, "target_placeable_refs must not be empty"):
+            ConstructionAttachmentSet(
+                id="bad.targets",
+                param="head",
+                canvas=GridBounds(x=0, y=0, width=1, height=1),
+                variants={
+                    "alt": ConstructionAttachmentVariant(
+                        id="alt",
+                        placeable_kind="composite_tile",
+                        placeable_id="character.head",
+                    )
+                },
+            )
+
+    def test_runtime_unit_rejects_unknown_attachment_target_placeable(self) -> None:
+        head_tile = _make_tile("head.tile")
+        head = CompositeTileRecord(
+            id="character.head",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=head_tile, x=0, y=0),),),
+            expose_as_entity=False,
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=0, y=0, width=1, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="missing.body"),),
+            variants={
+                "alt": ConstructionAttachmentVariant(
+                    id="alt",
+                    placeable_kind="composite_tile",
+                    placeable_id="character.head",
+                )
+            },
+            required=True,
+        )
+
+        with self.assertRaisesRegex(ValueError, "unknown target placeable"):
+            _make_runtime_unit(
+                family_id="testfam",
+                tiles=(head_tile,),
+                composite_tiles=(head,),
+                attachment_sets=(attachment_set,),
+            )
+
+    def test_runtime_unit_rejects_unknown_attachment_fill_placeable(self) -> None:
+        body_tile = _make_tile("body.tile")
+        body = CompositeTileRecord(
+            id="character.body",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=body_tile, x=0, y=0),),),
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=0, y=0, width=1, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            variants={
+                "alt": ConstructionAttachmentVariant(
+                    id="alt",
+                    placeable_kind="composite_tile",
+                    placeable_id="missing.head",
+                )
+            },
+            required=True,
+        )
+
+        with self.assertRaisesRegex(ValueError, "references unknown placeable"):
+            _make_runtime_unit(
+                family_id="testfam",
+                tiles=(body_tile,),
+                composite_tiles=(body,),
+                attachment_sets=(attachment_set,),
+            )
+
+    def test_runtime_unit_rejects_composite_attachment_fill_that_exceeds_canvas(self) -> None:
+        body_tile = _make_tile("body.tile")
+        head_left = _make_tile("head.left")
+        head_right = _make_tile("head.right")
+        body = CompositeTileRecord(
+            id="character.body",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=body_tile, x=0, y=0),),),
+        )
+        wide_head = CompositeTileRecord(
+            id="character.head.wide",
+            family_id="testfam",
+            collection_id="characters",
+            cells=(
+                (
+                    CompositeTileCell(tile=head_left, x=0, y=0),
+                    CompositeTileCell(tile=head_right, x=1, y=0),
+                ),
+            ),
+            expose_as_entity=False,
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=0, y=0, width=1, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            variants={
+                "wide": ConstructionAttachmentVariant(
+                    id="wide",
+                    placeable_kind="composite_tile",
+                    placeable_id="character.head.wide",
+                )
+            },
+            required=True,
+        )
+
+        with self.assertRaisesRegex(ValueError, "exceeds canvas"):
+            _make_runtime_unit(
+                family_id="testfam",
+                tiles=(body_tile, head_left, head_right),
+                composite_tiles=(body, wide_head),
+                attachment_sets=(attachment_set,),
+            )
+
+    def test_runtime_unit_rejects_composite_attachment_canvas_outside_target(self) -> None:
+        body_tile = _make_tile("body.tile")
+        head_tile = _make_tile("head.tile")
+        body = CompositeTileRecord(
+            id="character.body",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=body_tile, x=0, y=0),),),
+        )
+        head = CompositeTileRecord(
+            id="character.head",
+            family_id="testfam",
+            collection_id="characters",
+            cells=((CompositeTileCell(tile=head_tile, x=0, y=0),),),
+            expose_as_entity=False,
+        )
+        attachment_set = ConstructionAttachmentSet(
+            id="character.body.heads",
+            param="head",
+            canvas=GridBounds(x=1, y=0, width=1, height=1),
+            target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.body"),),
+            variants={
+                "alt": ConstructionAttachmentVariant(
+                    id="alt",
+                    placeable_kind="composite_tile",
+                    placeable_id="character.head",
+                )
+            },
+            required=True,
+        )
+
+        with self.assertRaisesRegex(ValueError, "must stay inside target placeable"):
+            _make_runtime_unit(
+                family_id="testfam",
+                tiles=(body_tile, head_tile),
+                composite_tiles=(body, head),
+                attachment_sets=(attachment_set,),
+            )
 
     def test_connection_surface_for_atomic_tile_uses_one_segment_per_side(self) -> None:
         tile = _make_tile(

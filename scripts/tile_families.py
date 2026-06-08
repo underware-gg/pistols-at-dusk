@@ -46,6 +46,7 @@ from tile_library import (
     TileRecord,
     ResolvedFamilyTile,
     attachment_sets_by_target,
+    fixed_placeable_bounds,
     resolve_tile_image_override_path,
     TileLibraryUnit,
 )
@@ -2039,13 +2040,7 @@ def load_constructions_from_data(
 
 
 def _fixed_construction_bounds(construction: Construction, *, context: str) -> GridBounds:
-    if isinstance(construction, ParametricRunConstruction):
-        raise ValueError(f"{context} must reference a fixed metatile construction, not parametric_run {construction.id!r}")
-    if isinstance(construction, ParametricFrameConstruction):
-        raise ValueError(f"{context} must reference a fixed metatile construction, not parametric_frame {construction.id!r}")
-    width = len(construction.cells[0]) if construction.cells else 0
-    height = len(construction.cells)
-    return GridBounds(x=0, y=0, width=width, height=height)
+    return fixed_placeable_bounds(construction, context=context)
 
 
 def _parse_attachment_param(
@@ -2238,9 +2233,9 @@ def load_attachment_sets_from_data(
         attachment_sets[attachment_id] = ConstructionAttachmentSet(
             id=attachment_id,
             param=param,
-            target_construction_ids=target_ids,
             canvas=canvas,
             variants=variants,
+            target_construction_ids=target_ids,
             required=_parse_attachment_required(raw, attachment_id=attachment_id),
             default_variant_id=default_variant_id,
             label=raw.get("label"),
@@ -2283,7 +2278,7 @@ class TileFamily:
         self.attachment_sets: Mapping[str, ConstructionAttachmentSet] = (
             MappingProxyType(dict(attachment_sets)) if attachment_sets is not None else MappingProxyType({})
         )
-        self.attachment_sets_by_target: Mapping[str, tuple[ConstructionAttachmentSet, ...]] = (
+        self.attachment_sets_by_target: Mapping[PlaceableRef, tuple[ConstructionAttachmentSet, ...]] = (
             attachment_sets_by_target(self.attachment_sets)
         )
 
@@ -2364,6 +2359,9 @@ class TileFamily:
 
     def entity_templates(self) -> list[EntityTemplateRecord]:
         return self.runtime_unit.entity_templates()
+
+    def attachment_sets_for_placeable(self, placeable_ref: PlaceableRef) -> tuple[ConstructionAttachmentSet, ...]:
+        return self.runtime_unit.attachment_sets_for_placeable(placeable_ref)
 
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         return self.runtime_unit.attachment_sets_for_construction(construction_id)

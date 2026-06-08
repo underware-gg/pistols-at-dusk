@@ -17,7 +17,7 @@ from typing import Iterable, Literal, Mapping, Protocol, Union
 
 from typing_extensions import TypeAlias
 
-from _manifest_utils import GridBounds, require_mapping, resolve_path
+from _manifest_utils import GridBounds, bounds_inside, require_mapping, resolve_path
 from tile_metadata import ModuleContextValue, RenderTraits
 
 
@@ -210,22 +210,67 @@ Construction: TypeAlias = Union[
 @dataclass(frozen=True)
 class ConstructionAttachmentVariant:
     id: str
-    construction_id: str
+    construction_id: str | None = None
+    placeable_kind: PlaceableKind = "construction"
+    placeable_id: str | None = None
     label: str | None = None
     notes: str | None = None
+
+    def __post_init__(self) -> None:
+        resolved_placeable_id = self.placeable_id
+        if resolved_placeable_id is None and self.placeable_kind == "construction":
+            resolved_placeable_id = self.construction_id
+        if resolved_placeable_id is None:
+            raise ValueError("ConstructionAttachmentVariant.placeable_id is required for non-construction placeables")
+        if resolved_placeable_id == "":
+            raise ValueError("ConstructionAttachmentVariant.placeable_id must not be empty")
+        object.__setattr__(self, "placeable_id", resolved_placeable_id)
+        if self.construction_id is not None and (
+            self.placeable_kind != "construction" or self.construction_id != resolved_placeable_id
+        ):
+            raise ValueError(
+                "ConstructionAttachmentVariant.construction_id is only valid for matching construction placeables"
+            )
+        if self.construction_id is None and self.placeable_kind == "construction":
+            object.__setattr__(self, "construction_id", resolved_placeable_id)
+
+    @property
+    def placeable_ref(self) -> PlaceableRef:
+        placeable_id = self.placeable_id
+        if placeable_id is None:
+            raise RuntimeError("ConstructionAttachmentVariant.placeable_id was not normalised")
+        return PlaceableRef(kind=self.placeable_kind, id=placeable_id)
 
 
 @dataclass(frozen=True)
 class ConstructionAttachmentSet:
     id: str
     param: str
-    target_construction_ids: tuple[str, ...]
     canvas: GridBounds
     variants: Mapping[str, ConstructionAttachmentVariant] = field(repr=False)
+    target_construction_ids: tuple[str, ...] = ()
+    target_placeable_refs: tuple[PlaceableRef, ...] = ()
     required: bool = False
     default_variant_id: str | None = None
     label: str | None = None
     notes: str | None = None
+
+    def __post_init__(self) -> None:
+        target_placeable_refs = self.target_placeable_refs
+        if not target_placeable_refs and self.target_construction_ids:
+            target_placeable_refs = tuple(PlaceableRef.construction(target_id) for target_id in self.target_construction_ids)
+        if not target_placeable_refs:
+            raise ValueError("ConstructionAttachmentSet.target_placeable_refs must not be empty")
+        object.__setattr__(self, "target_placeable_refs", tuple(target_placeable_refs))
+        construction_ids = tuple(ref.id for ref in target_placeable_refs if ref.kind == "construction")
+        if self.target_construction_ids:
+            if any(ref.kind != "construction" for ref in target_placeable_refs) or tuple(self.target_construction_ids) != construction_ids:
+                raise ValueError(
+                    "ConstructionAttachmentSet.target_construction_ids is only valid for matching construction placeables"
+                )
+        else:
+            object.__setattr__(self, "target_construction_ids", construction_ids)
+        object.__setattr__(self, "variants", MappingProxyType(dict(self.variants)))
 
     def variant(self, variant_id: str) -> ConstructionAttachmentVariant | None:
         return self.variants.get(variant_id)
@@ -675,6 +720,9 @@ class RuntimeConstructionCatalog(Protocol):
     def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
         ...
 
+    def attachment_sets_for_placeable(self, placeable_ref: PlaceableRef) -> tuple[ConstructionAttachmentSet, ...]:
+        ...
+
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
         ...
 
@@ -697,12 +745,12 @@ class RuntimeConstructionCatalog(Protocol):
 
 def attachment_sets_by_target(
     attachment_sets: Mapping[str, ConstructionAttachmentSet],
-) -> Mapping[str, tuple[ConstructionAttachmentSet, ...]]:
-    indexed: dict[str, list[ConstructionAttachmentSet]] = defaultdict(list)
+) -> Mapping[PlaceableRef, tuple[ConstructionAttachmentSet, ...]]:
+    indexed: dict[PlaceableRef, list[ConstructionAttachmentSet]] = defaultdict(list)
     for attachment_set in attachment_sets.values():
-        for target_id in attachment_set.target_construction_ids:
-            indexed[target_id].append(attachment_set)
-    return MappingProxyType({target_id: tuple(values) for target_id, values in indexed.items()})
+        for target_ref in attachment_set.target_placeable_refs:
+            indexed[target_ref].append(attachment_set)
+    return MappingProxyType({target_ref: tuple(values) for target_ref, values in indexed.items()})
 
 
 def entity_template_for_construction(
@@ -735,15 +783,31 @@ def lower_tile_asset_to_cells(placeable: TileRecord | CompositeTileRecord) -> tu
     )
 
 
-def _fixed_footprint_for_placeable(placeable: TileRecord | CompositeTileRecord) -> EntityFootprintSpec:
+def fixed_placeable_bounds(placeable: Placeable, *, context: str) -> GridBounds:
     if isinstance(placeable, TileRecord):
-        width, height = 1, 1
-    else:
-        width, height = placeable.width, placeable.height
+        return GridBounds(x=0, y=0, width=1, height=1)
+    if isinstance(placeable, CompositeTileRecord):
+        return GridBounds(x=0, y=0, width=placeable.width, height=placeable.height)
+    if isinstance(placeable, ParametricRunConstruction):
+        raise ValueError(f"{context} must reference a fixed placeable, not parametric_run {placeable.id!r}")
+    if isinstance(placeable, ParametricFrameConstruction):
+        raise ValueError(f"{context} must reference a fixed placeable, not parametric_frame {placeable.id!r}")
+    width = len(placeable.cells[0]) if placeable.cells else 0
+    height = len(placeable.cells)
+    return GridBounds(x=0, y=0, width=width, height=height)
+
+
+def _fixed_footprint_for_tile_asset(placeable: TileRecord | CompositeTileRecord) -> EntityFootprintSpec:
+    bounds = fixed_placeable_bounds(placeable, context=f"placeable {placeable.id!r}")
+    width, height = bounds.width, bounds.height
     return EntityFootprintSpec(mode="fixed", width=width, height=height)
 
 
-def entity_template_from_placeable(placeable: TileRecord | CompositeTileRecord) -> EntityTemplateRecord | None:
+def entity_template_from_placeable(
+    placeable: TileRecord | CompositeTileRecord,
+    *,
+    attachment_sets: Iterable[ConstructionAttachmentSet] = (),
+) -> EntityTemplateRecord | None:
     if isinstance(placeable, CompositeTileRecord) and not placeable.expose_as_entity:
         return None
     lowered_cells = lower_tile_asset_to_cells(placeable)
@@ -765,9 +829,10 @@ def entity_template_from_placeable(placeable: TileRecord | CompositeTileRecord) 
         affordances=_sorted_unique(affordance for tile in tiles for affordance in tile.affordances),
         state_groups=_sorted_unique(tile.state_group for tile in tiles),
         animation_groups=_sorted_unique(tile.animation_group for tile in tiles),
-        footprint=_fixed_footprint_for_placeable(placeable),
+        footprint=_fixed_footprint_for_tile_asset(placeable),
         placeable_kind=placeable_kind,
         placeable_id=placeable.id,
+        attachment_sets=tuple(attachment_set.to_entity_record() for attachment_set in attachment_sets),
     )
 
 
@@ -837,8 +902,12 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     tiles_by_sheet_cell_index: Mapping[tuple[int, int], TileRecord] = field(repr=False)
     constructions: Mapping[str, Construction] = field(repr=False)
     attachment_sets: Mapping[str, ConstructionAttachmentSet] = field(repr=False)
-    attachment_sets_by_target: Mapping[str, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
+    attachment_sets_by_target: Mapping[PlaceableRef, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
     composite_tiles: Mapping[str, CompositeTileRecord] = field(default_factory=_empty_composite_tiles, repr=False)
+
+    def __post_init__(self) -> None:
+        for attachment_set in self.attachment_sets.values():
+            self._validate_attachment_set(attachment_set)
 
     @property
     def variant_ids(self) -> tuple[str, ...]:
@@ -890,7 +959,10 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
         if placeable is None:
             return None
         if isinstance(placeable, (TileRecord, CompositeTileRecord)):
-            return entity_template_from_placeable(placeable)
+            return entity_template_from_placeable(
+                placeable,
+                attachment_sets=self.attachment_sets_for_placeable(placeable_ref),
+            )
         return self.entity_template(placeable_ref.id)
 
     def lower_placeable_to_tile_cells(self, placeable_ref: PlaceableRef) -> tuple[LoweredTileCell, ...] | None:
@@ -899,8 +971,50 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             return lower_tile_asset_to_cells(placeable)
         return None
 
+    def attachment_sets_for_placeable(self, placeable_ref: PlaceableRef) -> tuple[ConstructionAttachmentSet, ...]:
+        return self.attachment_sets_by_target.get(placeable_ref, ())
+
     def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
-        return self.attachment_sets_by_target.get(construction_id, ())
+        return self.attachment_sets_for_placeable(PlaceableRef.construction(construction_id))
+
+    def _validate_attachment_set(self, attachment_set: ConstructionAttachmentSet) -> None:
+        for target_ref in attachment_set.target_placeable_refs:
+            target = self.lookup_placeable(target_ref)
+            if target is None:
+                raise ValueError(
+                    f"attachment set {attachment_set.id!r} references unknown target placeable "
+                    f"{target_ref.kind}:{target_ref.id!r}"
+                )
+            target_bounds = fixed_placeable_bounds(
+                target,
+                context=f"attachment set {attachment_set.id!r} target {target_ref.kind}:{target_ref.id!r}",
+            )
+            if not bounds_inside(target_bounds, attachment_set.canvas):
+                raise ValueError(
+                    f"attachment set {attachment_set.id!r} canvas {attachment_set.canvas} must stay inside target "
+                    f"placeable {target_ref.kind}:{target_ref.id!r} bounds {target_bounds}"
+                )
+        for variant in attachment_set.variants.values():
+            fill = self.lookup_placeable(variant.placeable_ref)
+            if fill is None:
+                raise ValueError(
+                    f"attachment set {attachment_set.id!r} variant {variant.id!r} references unknown placeable "
+                    f"{variant.placeable_ref.kind}:{variant.placeable_ref.id!r}"
+                )
+            fill_bounds = fixed_placeable_bounds(
+                fill,
+                context=(
+                    f"attachment set {attachment_set.id!r} variant {variant.id!r} "
+                    f"{variant.placeable_ref.kind}:{variant.placeable_ref.id!r}"
+                ),
+            )
+            if fill_bounds.width > attachment_set.canvas.width or fill_bounds.height > attachment_set.canvas.height:
+                raise ValueError(
+                    f"attachment set {attachment_set.id!r} variant {variant.id!r} placeable "
+                    f"{variant.placeable_ref.kind}:{variant.placeable_ref.id!r} size "
+                    f"{fill_bounds.width}x{fill_bounds.height} exceeds canvas "
+                    f"{attachment_set.canvas.width}x{attachment_set.canvas.height}"
+                )
 
     def runtime_tileset_id_for_construction(
         self,
@@ -1215,11 +1329,14 @@ class TileLibraryRegistry(RuntimeConstructionCatalog):
         owner = self._owner_for(placeable_ref)
         return None if owner is None else owner.lower_placeable_to_tile_cells(placeable_ref)
 
-    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
-        unit = self.unit_for_construction(construction_id)
+    def attachment_sets_for_placeable(self, placeable_ref: PlaceableRef) -> tuple[ConstructionAttachmentSet, ...]:
+        unit = self._owner_for(placeable_ref)
         if unit is None:
             return ()
-        return unit.attachment_sets_for_construction(construction_id)
+        return unit.attachment_sets_for_placeable(placeable_ref)
+
+    def attachment_sets_for_construction(self, construction_id: str) -> tuple[ConstructionAttachmentSet, ...]:
+        return self.attachment_sets_for_placeable(PlaceableRef.construction(construction_id))
 
     def runtime_tileset_id_for_construction(
         self,
