@@ -65,7 +65,7 @@
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"param": "x"},
       "y": {"param": "y"},
       "params": {"width": {"param": "width"}, "height": {"param": "height"}}
@@ -74,16 +74,16 @@
       "kind": "fill",
       "layer": {"bind": "room_layer"},
       "ref": "@courtyard_floor",
-      "x": {"add": [{"param": "x"}, 2]},
-      "y": {"add": [{"param": "y"}, 2]},
-      "width": {"sub": [{"param": "width"}, 4]},
-      "height": {"sub": [{"param": "height"}, 4]}
+      "x": {"add": [{"param": "x"}, 1]},
+      "y": {"add": [{"param": "y"}, 1]},
+      "width": {"sub": [{"param": "width"}, 2]},
+      "height": {"sub": [{"param": "height"}, 2]}
     },
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
       "when_present": "stem",
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"bind": "stem_x"},
       "y": {"bind": "stem_y"},
       "params": {"width": {"bind": "stem_width"}, "height": {"bind": "stem_height"}}
@@ -93,10 +93,10 @@
       "layer": {"bind": "room_layer"},
       "when_present": "stem",
       "ref": "@corridor_floor",
-      "x": {"add": [{"bind": "stem_x"}, 2]},
-      "y": {"add": [{"bind": "stem_y"}, 2]},
-      "width": {"sub": [{"bind": "stem_width"}, 4]},
-      "height": {"sub": [{"bind": "stem_height"}, 4]}
+      "x": {"add": [{"bind": "stem_x"}, 1]},
+      "y": {"add": [{"bind": "stem_y"}, 1]},
+      "width": {"sub": [{"bind": "stem_width"}, 2]},
+      "height": {"sub": [{"bind": "stem_height"}, 2]}
     },
     {
       "kind": "stamp",

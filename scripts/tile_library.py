@@ -541,6 +541,7 @@ class TileFamilyHeader:
     siblings_share_semantics: bool | None
     notes: tuple[str, ...] | None
     default_variant_id: str
+    runtime_flippable: bool
     cell_content_inset: CellContentInset = field(default_factory=CellContentInset)
 
     def __post_init__(self) -> None:
@@ -1012,6 +1013,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     render_step_width: int | None
     render_step_height: int | None
     default_variant_id: str
+    runtime_flippable: bool
     promoted_metadata: TileLibraryPromotedMetadata = field(repr=False)
     root: Path = field(repr=False)
     variants: Mapping[str, TileFamilyVariant] = field(repr=False)

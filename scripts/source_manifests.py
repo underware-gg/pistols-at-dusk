@@ -57,6 +57,7 @@ class CompatibilityFamilySource:
     render_step_height: int | None = None
     siblings_share_semantics: bool | None = None
     cell_content_inset: CellContentInset | None = None
+    runtime_flippable: bool | None = None
     notes: tuple[str, ...] = ()
 
 
@@ -482,6 +483,11 @@ def _load_compatibility_family_source(
         cell_content_inset=(
             CellContentInset.from_mapping(mapping["cell_content_inset"], context=f"{context}.cell_content_inset")
             if mapping.get("cell_content_inset") is not None
+            else None
+        ),
+        runtime_flippable=(
+            _require_bool(mapping["runtime_flippable"], context=f"{context}.runtime_flippable")
+            if mapping.get("runtime_flippable") is not None
             else None
         ),
         notes=_optional_notes(mapping, context=context),

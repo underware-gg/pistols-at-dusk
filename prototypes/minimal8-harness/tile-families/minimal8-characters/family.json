@@ -11,6 +11,7 @@
   },
   "siblings_share_semantics": true,
   "default_variant_id": "2bit_colored",
+  "runtime_flippable": false,
   "notes": [
     "The Characters sheet stays on the same authoritative 8x8 source grid as Minimal 8, but it is dominated by multi-cell figures, busts, and small accessory fragments rather than one-cell environment tiles.",
     "Large actors from this sheet should normally reach runtime through reviewed constructions or another explicit multi-cell composition surface, not by pretending the whole figure is a single tile.",

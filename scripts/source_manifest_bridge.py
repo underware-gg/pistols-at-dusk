@@ -207,6 +207,13 @@ def _build_bridged_family_inputs(
                 if compatibility.cell_content_inset is not None
                 else legacy_header.cell_content_inset
             ),
+            # The staged source manifest owns runtime flip safety too; fall back
+            # to the transitional family bundle only while the bridge is quiet.
+            runtime_flippable=(
+                compatibility.runtime_flippable
+                if compatibility.runtime_flippable is not None
+                else legacy_header.runtime_flippable
+            ),
         ),
         promoted_metadata=TileLibraryPromotedMetadata(
             source_pack_id=pack.id,

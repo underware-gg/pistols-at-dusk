@@ -228,17 +228,20 @@ tileset's `constructions.json` beside `fixed` and `parametric_run` (see
 [docs/architecture/construction-system.md](../../docs/architecture/construction-system.md)).
 A frame kit binds tiles to the nine border roles (corners, edges, optional
 fill), supports per-slot flip-derivation and fat (NxM) corners, and renders at
-any size. The Minimal 8 kits include `ui.frame.gold_room` (fat 2x2 gold
-corners), `ui.frame.glyph_stone` (single-tile glyph corners), and the party
-menu's `ui.frame.outer_screen` / `ui.frame.inner_window`.
+any size. The active Minimal 8 kits include the `ui.frame.gold.*` variants,
+the `ui.frame.less_ornate.*` variants, and the party menu's
+`ui.frame.outer_screen` / `ui.frame.inner_window`. Runtime-flipped Minimal 8
+frames such as the former `ui.frame.gold_room` and `ui.frame.glyph_stone` are
+parked until synthetic, gutter-honouring flipped tiles are authored under the
+role-aware construction grammar design.
 
 A layout or scene places a frame through the `entity` op, supplying the size via
 `params`; the floor is a separate `fill` op inset by the corner extent:
 
 ```json
-{ "kind": "entity", "construction": "ui.frame.gold_room", "x": 13, "y": 9,
+{ "kind": "entity", "construction": "ui.frame.gold.smooth", "x": 13, "y": 9,
   "params": { "width": 27, "height": 16 } },
-{ "kind": "fill", "ref": "@temple_floor_sparse", "x": 15, "y": 11, "width": 23, "height": 12 }
+{ "kind": "fill", "ref": "@temple_floor_sparse", "x": 14, "y": 10, "width": 25, "height": 14 }
 ```
 
 This is the same construction/entity pipeline used for furniture and actors —

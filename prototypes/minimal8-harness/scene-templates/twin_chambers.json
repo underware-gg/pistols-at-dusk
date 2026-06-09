@@ -124,7 +124,7 @@
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"bind": "left_x"},
       "y": {"param": "y"},
       "params": {"width": {"bind": "left_width"}, "height": {"param": "height"}}
@@ -133,15 +133,15 @@
       "kind": "fill",
       "layer": {"bind": "room_layer"},
       "ref": "@courtyard_floor",
-      "x": {"add": [{"bind": "left_x"}, 2]},
-      "y": {"add": [{"param": "y"}, 2]},
-      "width": {"sub": [{"bind": "left_width"}, 4]},
-      "height": {"sub": [{"param": "height"}, 4]}
+      "x": {"add": [{"bind": "left_x"}, 1]},
+      "y": {"add": [{"param": "y"}, 1]},
+      "width": {"sub": [{"bind": "left_width"}, 2]},
+      "height": {"sub": [{"param": "height"}, 2]}
     },
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"bind": "right_x"},
       "y": {"param": "y"},
       "params": {"width": {"bind": "right_width"}, "height": {"param": "height"}}
@@ -150,16 +150,16 @@
       "kind": "fill",
       "layer": {"bind": "room_layer"},
       "ref": "@courtyard_floor",
-      "x": {"add": [{"bind": "right_x"}, 2]},
-      "y": {"add": [{"param": "y"}, 2]},
-      "width": {"sub": [{"bind": "right_width"}, 4]},
-      "height": {"sub": [{"param": "height"}, 4]}
+      "x": {"add": [{"bind": "right_x"}, 1]},
+      "y": {"add": [{"param": "y"}, 1]},
+      "width": {"sub": [{"bind": "right_width"}, 2]},
+      "height": {"sub": [{"param": "height"}, 2]}
     },
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
       "when_present": "bridge_box_enabled",
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"bind": "bridge_x"},
       "y": {"bind": "bridge_y"},
       "params": {"width": {"bind": "bridge_width"}, "height": {"bind": "bridge_height"}}
@@ -169,10 +169,10 @@
       "layer": {"bind": "room_layer"},
       "when_present": "bridge_box_enabled",
       "ref": "@corridor_floor",
-      "x": {"add": [{"bind": "bridge_x"}, 2]},
-      "y": {"add": [{"bind": "bridge_y"}, 2]},
-      "width": {"sub": [{"bind": "bridge_width"}, 4]},
-      "height": {"sub": [{"bind": "bridge_height"}, 4]}
+      "x": {"add": [{"bind": "bridge_x"}, 1]},
+      "y": {"add": [{"bind": "bridge_y"}, 1]},
+      "width": {"sub": [{"bind": "bridge_width"}, 2]},
+      "height": {"sub": [{"bind": "bridge_height"}, 2]}
     },
     {
       "kind": "stamp",

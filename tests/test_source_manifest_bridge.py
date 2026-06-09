@@ -214,6 +214,7 @@ def make_bridged_source_pack(root: Path) -> Path:
                 "render_step_height": 8,
                 "siblings_share_semantics": True,
                 "cell_content_inset": {"top": 1, "right": 1},
+                "runtime_flippable": False,
                 "notes": ["Bridge-only compatibility note that should not leak into TileFamily.notes."],
             },
             "render_variants": [
@@ -285,6 +286,7 @@ def write_minimal8_source_wrapper(root: Path) -> Path:
                 "aliases": "aliases.json",
                 "clusters": "clusters.json",
                 "constructions": "constructions.json",
+                "runtime_flippable": family_payload.get("runtime_flippable", True),
                 **(
                     {"render_step_width": render_defaults["render_step_width"]}
                     if "render_step_width" in render_defaults
@@ -336,6 +338,8 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertTrue(family.siblings_share_semantics)
             # The cell-content inset is owned by the staged source manifest (ADR 0008).
             self.assertEqual(family.header.cell_content_inset, CellContentInset(top=1, right=1))
+            self.assertFalse(family.header.runtime_flippable)
+            self.assertFalse(family.runtime_unit.runtime_flippable)
             self.assertEqual(family.notes, ("Legacy overworld compatibility note.",))
             promoted_metadata = family.runtime_unit.promoted_metadata
             self.assertEqual(promoted_metadata.source_pack_id, "demo-pack")
@@ -450,6 +454,18 @@ class SourceManifestBridgeTests(unittest.TestCase):
                 {"right": 99},
             )
             with self.assertRaisesRegex(ValueError, r"cell_content_inset.*tile width"):
+                load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+
+    def test_bridge_rejects_non_boolean_runtime_flippable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pack_path = make_bridged_source_pack(Path(temp_dir))
+            set_json_value(
+                pack_path.parent / "tilesheets" / "overworld.json",
+                ["compatibility_family", "runtime_flippable"],
+                "false",
+            )
+
+            with self.assertRaisesRegex(ValueError, r"runtime_flippable must be a boolean"):
                 load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
     def test_bridge_rejects_logical_tilesheet_without_compatibility_family(self) -> None:
@@ -594,6 +610,8 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(bridged.render_step_width, legacy.render_step_width)
             self.assertEqual(bridged.render_step_height, legacy.render_step_height)
             self.assertEqual(bridged.default_variant_id, legacy.default_variant_id)
+            self.assertEqual(bridged.header.runtime_flippable, legacy.header.runtime_flippable)
+            self.assertEqual(bridged.runtime_unit.runtime_flippable, legacy.runtime_unit.runtime_flippable)
             self.assertEqual(bridged.notes, legacy.notes)
             self.assertEqual(bridged.variants, legacy.variants)
             self.assertEqual(bridged.tiles, legacy.tiles)
@@ -636,6 +654,8 @@ class SourceManifestBridgeTests(unittest.TestCase):
         self.assertEqual(bridged.render_step_width, legacy.render_step_width)
         self.assertEqual(bridged.render_step_height, legacy.render_step_height)
         self.assertEqual(bridged.default_variant_id, legacy.default_variant_id)
+        self.assertEqual(bridged.header.runtime_flippable, legacy.header.runtime_flippable)
+        self.assertEqual(bridged.runtime_unit.runtime_flippable, legacy.runtime_unit.runtime_flippable)
         self.assertEqual(bridged.notes, legacy.notes)
         self.assertEqual(bridged.variants, legacy.variants)
         self.assertEqual(bridged.tiles, legacy.tiles)

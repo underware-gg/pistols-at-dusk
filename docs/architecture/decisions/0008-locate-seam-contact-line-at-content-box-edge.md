@@ -1,7 +1,8 @@
 # 0008 - Locate the Seam Contact Line at the Content-Box Edge via a Declared Cell-Content Inset
 
-- Status: accepted
+- Status: extended
 - Extends: [0007](0007-adopt-three-axis-tile-compatibility-and-build-seam-profiles.md)
+- Extended by: [0010](0010-runtime-flippability-and-role-aware-frame-seams.md)
 
 ## Context
 

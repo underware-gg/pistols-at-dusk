@@ -68,7 +68,7 @@
     {
       "kind": "entity",
       "layer": {"bind": "room_layer"},
-      "construction": "ui.frame.glyph_stone",
+      "construction": "ui.frame.gold.gap",
       "x": {"param": "x"},
       "y": {"param": "y"},
       "params": {"width": {"param": "width"}, "height": {"param": "height"}}
@@ -86,7 +86,7 @@
       "kind": "entity",
       "layer": {"bind": "room_layer"},
       "when_present": "inner_box_enabled",
-      "construction": "ui.frame.gold_room",
+      "construction": "ui.frame.gold.smooth",
       "x": {"bind": "inner_x"},
       "y": {"bind": "inner_y"},
       "params": {"width": {"bind": "inner_width"}, "height": {"bind": "inner_height"}}
@@ -96,10 +96,10 @@
       "layer": {"bind": "room_layer"},
       "when_present": "inner_box_enabled",
       "ref": "@courtyard_floor",
-      "x": {"add": [{"bind": "inner_x"}, 2]},
-      "y": {"add": [{"bind": "inner_y"}, 2]},
-      "width": {"sub": [{"bind": "inner_width"}, 4]},
-      "height": {"sub": [{"bind": "inner_height"}, 4]}
+      "x": {"add": [{"bind": "inner_x"}, 1]},
+      "y": {"add": [{"bind": "inner_y"}, 1]},
+      "width": {"sub": [{"bind": "inner_width"}, 2]},
+      "height": {"sub": [{"bind": "inner_height"}, 2]}
     },
     {
       "kind": "stamp",

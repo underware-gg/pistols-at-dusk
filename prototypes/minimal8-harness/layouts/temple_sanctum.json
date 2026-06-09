@@ -84,7 +84,7 @@
       "ops": [
         {
           "kind": "entity",
-          "construction": "ui.frame.gold_room",
+          "construction": "ui.frame.gold.smooth",
           "x": 13,
           "y": 9,
           "params": { "width": 27, "height": 16 }
@@ -92,10 +92,10 @@
         {
           "kind": "fill",
           "ref": "@temple_floor_sparse",
-          "x": 15,
-          "y": 11,
-          "width": 23,
-          "height": 12
+          "x": 14,
+          "y": 10,
+          "width": 25,
+          "height": 14
         }
       ]
     },

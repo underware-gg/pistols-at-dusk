@@ -49,14 +49,23 @@ from tile_families import (
     ConstructionValidationError,
     ParametricRunConstructionConfig,
     TileFamily,
-    build_construction,
     compute_non_empty_tile_mask,
     compute_source_layout_coverage,
     detect_source_layout,
     load_attachment_sets_from_data,
     load_construction_manifest,
     load_composite_tiles_from_data,
+    build_construction as _build_construction,
 )
+
+
+def build_construction(
+    raw: ConstructionConfig,
+    *,
+    tiles: dict[str, TileRecord],
+    runtime_flippable: bool = True,
+) -> FixedConstruction | ParametricRunConstruction | ParametricFrameConstruction:
+    return _build_construction(raw, tiles=tiles, runtime_flippable=runtime_flippable)
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -1309,6 +1318,7 @@ def _make_runtime_unit(
         render_step_width=None,
         render_step_height=None,
         default_variant_id="base",
+        runtime_flippable=True,
         promoted_metadata=TileLibraryPromotedMetadata(),
         root=Path("."),
         variants={
@@ -3072,6 +3082,53 @@ class ParametricFrameConstructionBuildTests(unittest.TestCase):
         self.assertEqual(construction.width_param, "width")
         self.assertEqual(construction.height_param, "height")
 
+    def test_build_rejects_runtime_flip_on_non_flippable_family(self) -> None:
+        cases: tuple[tuple[str, str, dict[str, object]], ...] = (
+            (
+                "corner",
+                r"construction 'ui\.frame\.gold\.smooth' corner 'tr' uses runtime flip on non-flippable family",
+                {"corners": {"tr": {"role": "corner_tr", "flip_x": True}}},
+            ),
+            (
+                "edge",
+                r"construction 'ui\.frame\.gold\.smooth' slot 'edge_top' uses runtime flip on non-flippable family",
+                {"edges": {"top": {"fill_mode": "repeat", "flip_x": True}}},
+            ),
+            (
+                "fill",
+                r"construction 'ui\.frame\.gold\.smooth' slot 'fill' uses runtime flip on non-flippable family",
+                {"fill": {"fill_mode": "repeat", "flip_y": True}},
+            ),
+        )
+        for name, message, override in cases:
+            with self.subTest(name=name):
+                raw = self._full_raw()
+                raw.update(override)
+                with self.assertRaisesRegex(ValueError, message):
+                    build_construction(raw, tiles=self._frame_tiles(), runtime_flippable=False)  # type: ignore[arg-type]
+
+    def test_build_rejects_non_boolean_frame_flip(self) -> None:
+        raw = self._full_raw()
+        raw["corners"] = {"tr": {"role": "corner_tr", "flip_x": "true"}}
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"construction 'ui\.frame\.gold\.smooth' corner 'tr' flip_x must be a boolean",
+        ):
+            build_construction(raw, tiles=self._frame_tiles())  # type: ignore[arg-type]
+
+    def test_minimal8_declares_runtime_flips_disabled(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+
+        self.assertFalse(family.header.runtime_flippable)
+        self.assertFalse(family.runtime_unit.runtime_flippable)
+
+    def test_minimal8_parks_runtime_flip_dependent_frames(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+
+        self.assertIsNone(family.lookup_construction("ui.frame.gold_room"))
+        self.assertIsNone(family.lookup_construction("ui.frame.glyph_stone"))
+
     def test_project_parametric_frame_places_thin_frame_at_multiple_sizes(self) -> None:
         construction = build_construction(self._full_raw(), tiles=self._frame_tiles())  # type: ignore[arg-type]
         assert isinstance(construction, ParametricFrameConstruction)
@@ -3187,6 +3244,16 @@ class SeamProfileDerivationTests(unittest.TestCase):
             family_json["cell_content_inset"] = {"right": [1]}  # not an int
             write_json(family_dir / "family.json", family_json)
             with self.assertRaisesRegex(ValueError, "cell_content_inset"):
+                TileFamily.load(family_dir)
+
+    def test_invalid_family_runtime_flippable_fails_with_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            family_dir = make_family_dir(Path(tmp), cluster_ids=["cluster.valid"])
+            family_json = cast(dict[str, object], json.loads((family_dir / "family.json").read_text(encoding="utf-8")))
+            family_json["runtime_flippable"] = "false"
+            write_json(family_dir / "family.json", family_json)
+
+            with self.assertRaisesRegex(ValueError, "runtime_flippable must be a boolean"):
                 TileFamily.load(family_dir)
 
     def test_negative_family_inset_fails(self) -> None:

@@ -100,6 +100,7 @@ class FamilyManifest(TypedDict):
     default_variant_id: NotRequired[str]
     ingestion_spec: NotRequired[str]
     cell_content_inset: NotRequired[Mapping[str, int]]
+    runtime_flippable: NotRequired[bool]
 
 
 class IngestionBoundsConfig(TypedDict):
@@ -451,6 +452,7 @@ def load_family_header_from_manifest(
     cell_content_inset = CellContentInset.from_mapping(
         family_data.get("cell_content_inset"), context=f"{root}: family cell_content_inset"
     )
+    runtime_flippable = _parse_family_runtime_flippable(family_data, root=root)
     return TileFamilyHeader(
         root=root,
         family_id=str(family_data["family_id"]),
@@ -467,6 +469,7 @@ def load_family_header_from_manifest(
         ),
         default_variant_id=default_variant_id,
         cell_content_inset=cell_content_inset,
+        runtime_flippable=runtime_flippable,
     )
 
 
@@ -1364,10 +1367,39 @@ def _parse_expose_as_entity(
     subject: str = "construction",
     default: bool = True,
 ) -> bool:
-    expose_as_entity = raw.get("expose_as_entity", default)
-    if not isinstance(expose_as_entity, bool):
-        raise ValueError(f"{subject} {subject_id!r} expose_as_entity must be a boolean")
-    return expose_as_entity
+    return _parse_optional_bool(
+        raw,
+        "expose_as_entity",
+        context=f"{subject} {subject_id!r}",
+        default=default,
+    )
+
+
+def _parse_optional_bool(raw: Mapping[str, object], key: str, *, context: str, default: bool = False) -> bool:
+    value = raw.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{context} {key} must be a boolean")
+    return value
+
+
+def _parse_family_runtime_flippable(family_data: Mapping[str, object], *, root: Path) -> bool:
+    return _parse_optional_bool(
+        family_data,
+        "runtime_flippable",
+        context=f"{root}: family",
+        default=True,
+    )
+
+
+def _reject_runtime_flip_on_non_flippable(
+    flip_x: bool,
+    flip_y: bool,
+    runtime_flippable: bool,
+    *,
+    context: str,
+) -> None:
+    if (flip_x or flip_y) and not runtime_flippable:
+        raise ValueError(f"{context} uses runtime flip on non-flippable family")
 
 
 def _build_composite_tile(
@@ -1538,6 +1570,7 @@ def _frame_slot(
     construction_id: str,
     collection_id: str,
     tiles: dict[str, TileRecord],
+    runtime_flippable: bool,
 ) -> FrameSlot:
     if not isinstance(raw_slot, Mapping):
         raise ValueError(
@@ -1551,8 +1584,9 @@ def _frame_slot(
             f"construction {construction_id!r} slot {role!r} has invalid fill_mode {fill_mode!r}; "
             f"expected one of {FRAME_FILL_MODES}"
         )
-    flip_x = bool(slot_mapping.get("flip_x", False))
-    flip_y = bool(slot_mapping.get("flip_y", False))
+    context = f"construction {construction_id!r} slot {role!r}"
+    flip_x = _parse_optional_bool(slot_mapping, "flip_x", context=context)
+    flip_y = _parse_optional_bool(slot_mapping, "flip_y", context=context)
     raw_tile = slot_mapping.get("tile")
     if raw_tile is not None:
         tile_id = str(raw_tile)
@@ -1564,6 +1598,12 @@ def _frame_slot(
         # (e.g. edge_right resolves edge_left's tile, then flips it).
         resolve_role = str(slot_mapping.get("role", role))
         tile = _resolve_role(resolve_role, construction_id=construction_id, collection_id=collection_id, tiles=tiles)
+    _reject_runtime_flip_on_non_flippable(
+        flip_x,
+        flip_y,
+        runtime_flippable,
+        context=context,
+    )
     return FrameSlot(tile=tile, fill_mode=fill_mode, flip_x=flip_x, flip_y=flip_y)
 
 
@@ -1574,6 +1614,7 @@ def _frame_corner_slot(
     construction_id: str,
     collection_id: str,
     tiles: dict[str, TileRecord],
+    runtime_flippable: bool,
 ) -> FrameCornerSlot:
     """Resolve one corner slot.
 
@@ -1600,8 +1641,15 @@ def _frame_corner_slot(
             f"'role'/'cells' and optional flip_x/flip_y; got {type(raw_corner).__name__}"
         )
     corner_cfg = cast(Mapping[str, object], raw_corner)
-    flip_x = bool(corner_cfg.get("flip_x", False))
-    flip_y = bool(corner_cfg.get("flip_y", False))
+    context = f"construction {construction_id!r} corner {key!r}"
+    flip_x = _parse_optional_bool(corner_cfg, "flip_x", context=context)
+    flip_y = _parse_optional_bool(corner_cfg, "flip_y", context=context)
+    _reject_runtime_flip_on_non_flippable(
+        flip_x,
+        flip_y,
+        runtime_flippable,
+        context=context,
+    )
     raw_tile = corner_cfg.get("tile")
     if raw_tile is not None:
         # Direct tile reference — lets a kit borrow another kit's corner art
@@ -1636,6 +1684,7 @@ def _build_parametric_frame_construction(
     raw: ParametricFrameConstructionConfig,
     *,
     tiles: dict[str, TileRecord],
+    runtime_flippable: bool,
 ) -> ParametricFrameConstruction:
     construction_id = raw["id"]
     collection_id = raw["collection_id"]
@@ -1648,21 +1697,36 @@ def _build_parametric_frame_construction(
         corner_items = [(key, None) for key in raw_corners]
     for key, raw_corner in corner_items:
         corners[f"corner_{key}"] = _frame_corner_slot(
-            key, raw_corner, construction_id=construction_id, collection_id=collection_id, tiles=tiles
+            key,
+            raw_corner,
+            construction_id=construction_id,
+            collection_id=collection_id,
+            tiles=tiles,
+            runtime_flippable=runtime_flippable,
         )
 
     edges: dict[str, FrameSlot] = {}
     for key, raw_slot in (raw.get("edges") or {}).items():
         role = f"edge_{key}"
         edges[role] = _frame_slot(
-            raw_slot, role=role, construction_id=construction_id, collection_id=collection_id, tiles=tiles
+            raw_slot,
+            role=role,
+            construction_id=construction_id,
+            collection_id=collection_id,
+            tiles=tiles,
+            runtime_flippable=runtime_flippable,
         )
 
     fill: FrameSlot | None = None
     raw_fill = raw.get("fill")
     if raw_fill is not None:
         fill = _frame_slot(
-            raw_fill, role="fill", construction_id=construction_id, collection_id=collection_id, tiles=tiles
+            raw_fill,
+            role="fill",
+            construction_id=construction_id,
+            collection_id=collection_id,
+            tiles=tiles,
+            runtime_flippable=runtime_flippable,
         )
 
     construction = ParametricFrameConstruction(
@@ -1685,6 +1749,7 @@ def build_construction(
     raw: ConstructionConfig,
     *,
     tiles: dict[str, TileRecord],
+    runtime_flippable: bool,
 ) -> Construction:
     kind = raw["kind"]
     if kind == "fixed":
@@ -1692,7 +1757,11 @@ def build_construction(
     if kind == "parametric_run":
         return _build_parametric_run_construction(cast(ParametricRunConstructionConfig, raw), tiles=tiles)
     if kind == "parametric_frame":
-        return _build_parametric_frame_construction(cast(ParametricFrameConstructionConfig, raw), tiles=tiles)
+        return _build_parametric_frame_construction(
+            cast(ParametricFrameConstructionConfig, raw),
+            tiles=tiles,
+            runtime_flippable=runtime_flippable,
+        )
     raise ValueError(f"construction {raw['id']!r} has unsupported kind {kind!r}")
 
 
@@ -2223,11 +2292,16 @@ def load_constructions_from_data(
     *,
     constructions_path: Path | None,
     tiles: dict[str, TileRecord],
+    runtime_flippable: bool,
 ) -> dict[str, Construction]:
     constructions: dict[str, Construction] = {}
     for raw_config in constructions_data:
         construction_id = str(raw_config["id"])
-        constructions[construction_id] = build_construction(raw_config, tiles=tiles)
+        constructions[construction_id] = build_construction(
+            raw_config,
+            tiles=tiles,
+            runtime_flippable=runtime_flippable,
+        )
 
     return constructions
 
@@ -2466,10 +2540,7 @@ def _parse_attachment_required(
     *,
     attachment_id: str,
 ) -> bool:
-    required = raw.get("required", False)
-    if not isinstance(required, bool):
-        raise ValueError(f"attachment set {attachment_id!r} required must be a boolean")
-    return required
+    return _parse_optional_bool(raw, "required", context=f"attachment set {attachment_id!r}")
 
 
 def load_attachment_sets_from_data(
@@ -2616,6 +2687,7 @@ class TileFamily:
             render_step_width=self.render_step_width,
             render_step_height=self.render_step_height,
             default_variant_id=self.default_variant_id,
+            runtime_flippable=self.header.runtime_flippable,
             promoted_metadata=self.promoted_metadata,
             root=self.root,
             variants=self.variants,
@@ -2756,6 +2828,7 @@ class TileFamily:
             catalog.constructions_data,
             constructions_path=catalog.paths.constructions_path,
             tiles=tiles,
+            runtime_flippable=header.runtime_flippable,
         )
         composite_tiles = load_composite_tiles_from_data(
             catalog.composite_tiles_data,

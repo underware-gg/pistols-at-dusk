@@ -489,44 +489,6 @@
       },
       "min_width": 6,
       "min_height": 4
-    },
-    {
-      "id": "ui.frame.gold_room",
-      "collection_id": "ui.frame.gold_room",
-      "kind": "parametric_frame",
-      "corners": {
-        "tl": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]] },
-        "tr": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_x": true },
-        "bl": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_y": true },
-        "br": { "cells": [["minimal8:ui:6,3", "minimal8:ui:7,3"], ["minimal8:ui:6,4", "minimal8:ui:7,4"]], "flip_x": true, "flip_y": true }
-      },
-      "edges": {
-        "top": { "tile": "minimal8:ui:2,3" },
-        "bottom": { "tile": "minimal8:ui:2,6" },
-        "left": { "tile": "minimal8:ui:1,4" },
-        "right": { "tile": "minimal8:ui:1,4", "flip_x": true }
-      },
-      "min_width": 4,
-      "min_height": 4
-    },
-    {
-      "id": "ui.frame.glyph_stone",
-      "collection_id": "ui.frame.glyph_stone",
-      "kind": "parametric_frame",
-      "corners": {
-        "tl": { "cells": [["minimal8:architecture:8,9"]] },
-        "tr": { "cells": [["minimal8:architecture:8,9"]], "flip_x": true },
-        "bl": { "cells": [["minimal8:architecture:8,9"]], "flip_y": true },
-        "br": { "cells": [["minimal8:architecture:8,9"]], "flip_x": true, "flip_y": true }
-      },
-      "edges": {
-        "top": { "tile": "minimal8:architecture:4,15" },
-        "bottom": { "tile": "minimal8:architecture:4,15", "flip_y": true },
-        "left": { "tile": "minimal8:architecture:3,16" },
-        "right": { "tile": "minimal8:architecture:3,16", "flip_x": true }
-      },
-      "min_width": 2,
-      "min_height": 2
     }
   ]
 }

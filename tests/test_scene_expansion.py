@@ -98,7 +98,7 @@ def _data_scene_template_spec(*, template_id: str = "sample") -> dict[str, Any]:
             {
                 "kind": "entity",
                 "layer": {"bind": "room_layer"},
-                "construction": "ui.frame.gold_room",
+                "construction": "ui.frame.gold.smooth",
                 "x": {"param": "x"},
                 "y": {"param": "y"},
                 "params": {"width": {"param": "width"}, "height": {"param": "height"}}
@@ -584,7 +584,7 @@ class SanctumSceneTests(unittest.TestCase):
         frames = [entity for entity in result.entities if entity.layer == "rooms"]
         self.assertGreaterEqual(len(frames), 1)
         outer_frame = next(entity for entity in frames if entity.x == 4 and entity.y == 9)
-        self.assertEqual(outer_frame.template.construction_id, "ui.frame.glyph_stone")
+        self.assertEqual(outer_frame.template.construction_id, "ui.frame.gold.gap")
         self.assertEqual(outer_frame.params.get("width"), 22)
 
         door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
@@ -664,12 +664,33 @@ class TwinChambersSceneTests(unittest.TestCase):
 
         frames = [
             entity for entity in result.entities
-            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "rooms"
+            if entity.template.construction_id == "ui.frame.gold.smooth" and entity.layer == "rooms"
         ]
         self.assertGreaterEqual(len(frames), 2)
         x_origins = sorted({entity.x for entity in frames})
         self.assertIn(11, x_origins)
         self.assertIn(11 + 12 + 8, x_origins)
+
+        room_fills = _ops_with_kind(result.layers, "rooms", "fill")
+        courtyard_fills = [fill for fill in room_fills if fill.get("ref") == "@courtyard_floor"]
+        self.assertEqual(
+            sorted(
+                (
+                    _op_int(fill, "x"),
+                    _op_int(fill, "y"),
+                    _op_int(fill, "width"),
+                    _op_int(fill, "height"),
+                )
+                for fill in courtyard_fills
+            ),
+            [(12, 12, 10, 8), (32, 12, 12, 8)],
+        )
+        corridor_fills = [fill for fill in room_fills if fill.get("ref") == "@corridor_floor"]
+        self.assertEqual(len(corridor_fills), 1)
+        self.assertEqual(_op_int(corridor_fills[0], "x"), 24)
+        self.assertEqual(_op_int(corridor_fills[0], "y"), 15)
+        self.assertEqual(_op_int(corridor_fills[0], "width"), 6)
+        self.assertEqual(_op_int(corridor_fills[0], "height"), 2)
 
         door_stamps = _ops_with_kind(result.layers, "ornament", "stamp")
         self.assertEqual(len(door_stamps), 1)
@@ -697,7 +718,7 @@ class TwinChambersSceneTests(unittest.TestCase):
 
         frames = [
             entity for entity in result.entities
-            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "rooms"
+            if entity.template.construction_id == "ui.frame.gold.smooth" and entity.layer == "rooms"
         ]
         self.assertEqual(len(frames), 2)
 
@@ -742,9 +763,22 @@ class CausewaySceneTests(unittest.TestCase):
 
         water_fills = _ops_with_kind(result.layers, "water", "fill")
         self.assertEqual(len(water_fills), 1)
+        floor_fills = _ops_with_kind(result.layers, "island", "fill")
+        courtyard_fills = [fill for fill in floor_fills if fill.get("ref") == "@courtyard_floor"]
+        self.assertEqual(len(courtyard_fills), 1)
+        self.assertEqual(_op_int(courtyard_fills[0], "x"), 27)
+        self.assertEqual(_op_int(courtyard_fills[0], "y"), 13)
+        self.assertEqual(_op_int(courtyard_fills[0], "width"), 10)
+        self.assertEqual(_op_int(courtyard_fills[0], "height"), 6)
+        corridor_fills = [fill for fill in floor_fills if fill.get("ref") == "@corridor_floor"]
+        self.assertEqual(len(corridor_fills), 1)
+        self.assertEqual(_op_int(corridor_fills[0], "x"), 30)
+        self.assertEqual(_op_int(corridor_fills[0], "y"), 21)
+        self.assertEqual(_op_int(corridor_fills[0], "width"), 4)
+        self.assertEqual(_op_int(corridor_fills[0], "height"), 6)
         frames = [
             entity for entity in result.entities
-            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "island"
+            if entity.template.construction_id == "ui.frame.gold.smooth" and entity.layer == "island"
         ]
         self.assertGreaterEqual(len(frames), 1)
         outer_frame = next(entity for entity in frames if entity.x == 26 and entity.y == 12)
@@ -774,7 +808,7 @@ class CausewaySceneTests(unittest.TestCase):
 
         frames = [
             entity for entity in result.entities
-            if entity.template.construction_id == "ui.frame.gold_room" and entity.layer == "island"
+            if entity.template.construction_id == "ui.frame.gold.smooth" and entity.layer == "island"
         ]
         self.assertEqual(len(frames), 1)
         self.assertEqual(_ops_with_kind(result.layers, "ornament", "stamp"), [])
@@ -1295,6 +1329,7 @@ def _make_placeable_unit(
         render_step_width=None,
         render_step_height=None,
         default_variant_id="base",
+        runtime_flippable=True,
         promoted_metadata=TileLibraryPromotedMetadata(),
         root=Path("."),
         variants={

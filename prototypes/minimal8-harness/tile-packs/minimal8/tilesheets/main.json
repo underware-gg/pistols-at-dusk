@@ -33,6 +33,7 @@
     "render_step_width": 8,
     "render_step_height": 8,
     "siblings_share_semantics": true,
+    "runtime_flippable": false,
     "cell_content_inset": {
       "top": 1,
       "right": 1

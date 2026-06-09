@@ -2,7 +2,7 @@
 
 - Status: extended
 - Supersedes: [0006](0006-defer-cross-kit-interchangeability-to-seam-profiles.md)
-- Extended by: [0008](0008-locate-seam-contact-line-at-content-box-edge.md)
+- Extended by: [0008](0008-locate-seam-contact-line-at-content-box-edge.md), [0010](0010-runtime-flippability-and-role-aware-frame-seams.md)
 
 ## Context
 
