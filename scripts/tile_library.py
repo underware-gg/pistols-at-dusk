@@ -23,7 +23,7 @@ from tile_metadata import ModuleContextValue, RenderTraits
 
 Side: TypeAlias = Literal["north", "south", "east", "west"]
 PlaceableKind: TypeAlias = Literal["tile", "composite_tile", "construction"]
-EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "metatile", "parametric_run", "parametric_frame"]
+EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "fixed", "parametric_run", "parametric_frame"]
 SIDES: tuple[Side, ...] = ("north", "south", "east", "west")
 
 
@@ -126,12 +126,12 @@ class CellContentInset:
 
 
 @dataclass(frozen=True)
-class MetatileConstruction:
+class FixedConstruction:
     id: str
     collection_id: str
     cells: tuple[tuple[TileRecord | None, ...], ...]
     expose_as_entity: bool = True
-    kind: Literal["metatile"] = "metatile"
+    kind: Literal["fixed"] = "fixed"
 
 
 @dataclass(frozen=True)
@@ -212,7 +212,7 @@ class ParametricFrameConstruction:
 
 
 Construction: TypeAlias = Union[
-    MetatileConstruction,
+    FixedConstruction,
     ParametricRunConstruction,
     ParametricFrameConstruction,
 ]

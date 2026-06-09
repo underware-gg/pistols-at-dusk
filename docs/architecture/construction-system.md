@@ -30,11 +30,11 @@ Constructions live in `tile-families/<family>/constructions.json`. Each record c
 
 - `id` — namespaced as `<collection_id>.<short_name>` (e.g. `indoors.door.grand.closed`, `indoors.table.kit.horizontal_run`).
 - `collection_id` — backref to the source-layout collection.
-- `kind` — currently `metatile` (fixed-shape multi-tile composite), `parametric_run` (variable-length run with start / repeat / end roles), or `parametric_frame` (resizable border/frame kind — the 2-D analogue of `parametric_run` — placed through the entity/construction pipeline; `expose_as_entity` defaults `true`).
+- `kind` — currently `fixed` (fixed-shape multi-tile assembly), `parametric_run` (variable-length run with start / repeat / end roles), or `parametric_frame` (resizable border/frame kind — the 2-D analogue of `parametric_run` — placed through the entity/construction pipeline; `expose_as_entity` defaults `true`).
 
-For `metatile`: an explicit 2D `cells` grid with role-bound entries; `.` for empty. For `parametric_run`: `axis: "x" | "y"`, `length_param`, `start_role`, `repeat_role`, `end_role`. For `parametric_frame`: corners (1×1 by role, fat N×M via a `cells` grid, flip-derived, or borrowed by tile-id), edges (with flip-derivation and role/tile overrides), and an optional fill slot; `fill_mode` enum (`repeat` / `round`) is a no-op for single-cell tiles; resizable `width`/`height` are supplied via the entity op's `params`.
+For `fixed`: an explicit 2D `cells` grid with role-bound entries; `.` for empty. For `parametric_run`: `axis: "x" | "y"`, `length_param`, `start_role`, `repeat_role`, `end_role`. For `parametric_frame`: corners (1×1 by role, fat N×M via a `cells` grid, flip-derived, or borrowed by tile-id), edges (with flip-derivation and role/tile overrides), and an optional fill slot; `fill_mode` enum (`repeat` / `round`) is a no-op for single-cell tiles; resizable `width`/`height` are supplied via the entity op's `params`.
 
-`metatile` preserves the canonical graphics-programming meaning; `parametric_run` extends to variable-length runs without overloading the term.
+`fixed` is the fixed-shape construction layer; bespoke multi-cell assets are composite tiles rather than construction kinds.
 
 ### Role binding
 

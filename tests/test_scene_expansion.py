@@ -28,7 +28,7 @@ from tile_library import (
     EntityTemplateRecord,
     FrameCornerSlot,
     FrameSlot,
-    MetatileConstruction,
+    FixedConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     PlaceableRef,
@@ -1376,7 +1376,7 @@ class _FakeFamily:
 def _make_fixture_family() -> _FakeFamily:
     tile_a = _make_tile_record("testfam:all:0,0")
     tile_b = _make_tile_record("testfam:all:1,0")
-    construction = MetatileConstruction(
+    construction = FixedConstruction(
         id="test.fixture.two_cells",
         collection_id="test.fixture",
         cells=(
@@ -1398,12 +1398,12 @@ def _make_configured_fixture_family_with_attachment(
 ) -> _FakeFamily:
     tile_a = _make_tile_record("testfam:all:0,0")
     tile_b = _make_tile_record("testfam:all:1,0")
-    base = MetatileConstruction(
+    base = FixedConstruction(
         id="test.fixture.body",
         collection_id="test.fixture.body",
         cells=((tile_a,),),
     )
-    attachment = MetatileConstruction(
+    attachment = FixedConstruction(
         id="test.fixture.head.alt",
         collection_id="test.fixture.head.alt",
         cells=((tile_b,),),

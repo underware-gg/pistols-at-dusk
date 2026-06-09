@@ -224,7 +224,7 @@ backless furnishing tile that a character can occupy.
 
 Room shells, corridors, platforms, and shrine chambers are framed with
 **`parametric_frame`** border kits — family-owned constructions that live in the
-tileset's `constructions.json` beside `metatile` and `parametric_run` (see
+tileset's `constructions.json` beside `fixed` and `parametric_run` (see
 [docs/architecture/construction-system.md](../../docs/architecture/construction-system.md)).
 A frame kit binds tiles to the nine border roles (corners, edges, optional
 fill), supports per-slot flip-derivation and fat (NxM) corners, and renders at

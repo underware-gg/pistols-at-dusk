@@ -23,7 +23,7 @@ from tile_library import (
     CompositeTileRecord,
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
-    MetatileConstruction,
+    FixedConstruction,
     PlaceableRef,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -50,6 +50,7 @@ from tile_families import (
     compute_source_layout_coverage,
     detect_source_layout,
     load_attachment_sets_from_data,
+    load_construction_manifest,
     load_composite_tiles_from_data,
 )
 
@@ -167,7 +168,7 @@ def make_family_dir(
                     {
                         "id": construction_id,
                         "collection_id": construction_id,
-                        "kind": "metatile",
+                        "kind": "fixed",
                         "cells": [[{"role": "single"}]],
                     }
                 ]
@@ -379,20 +380,20 @@ def make_attachment_family_dir(root: Path) -> Path:
                 {
                     "id": "test.body",
                     "collection_id": "test.body",
-                    "kind": "metatile",
+                    "kind": "fixed",
                     "cells": [[{"role": "base"}]],
                 },
                 {
                     "id": "test.head.alt",
                     "collection_id": "test.head.alt",
-                    "kind": "metatile",
+                    "kind": "fixed",
                     "cells": [[{"role": "base"}]],
                     "expose_as_entity": False,
                 },
                 {
                     "id": "test.big",
                     "collection_id": "test.big",
-                    "kind": "metatile",
+                    "kind": "fixed",
                     "cells": [[{"role": "left"}, {"role": "right"}]],
                     "expose_as_entity": False,
                 },
@@ -1211,7 +1212,7 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         self.assertEqual(table.placeable_id, "indoors.table.kit.square_2x2")
         self.assertEqual(table.construction_id, "indoors.table.kit.square_2x2")
         self.assertEqual(table.collection_id, "indoors.table.kit")
-        self.assertEqual(table.kind, "metatile")
+        self.assertEqual(table.kind, "fixed")
         self.assertEqual(table.placement_anchor, "top_left")
         self.assertEqual(table.footprint.mode, "fixed")
         self.assertEqual(table.footprint.width, 2)
@@ -1389,13 +1390,13 @@ class TileGenesisTests(unittest.TestCase):
 
 
 class AttachmentLoaderTests(unittest.TestCase):
-    def _constructions(self) -> dict[str, MetatileConstruction | ParametricRunConstruction]:
-        body = MetatileConstruction(
+    def _constructions(self) -> dict[str, FixedConstruction | ParametricRunConstruction]:
+        body = FixedConstruction(
             id="test.body",
             collection_id="test.body",
             cells=((_make_tile("test:body", compose_group="test.body", compose_role="base"),),),
         )
-        head = MetatileConstruction(
+        head = FixedConstruction(
             id="test.head.alt",
             collection_id="test.head.alt",
             cells=((_make_tile("test:head", compose_group="test.head.alt", compose_role="base"),),),
@@ -1417,7 +1418,7 @@ class AttachmentLoaderTests(unittest.TestCase):
             run.id: run,
         }
 
-    def _placeables(self) -> dict[PlaceableRef, MetatileConstruction | ParametricRunConstruction]:
+    def _placeables(self) -> dict[PlaceableRef, FixedConstruction | ParametricRunConstruction]:
         return {
             PlaceableRef.construction(construction_id): construction
             for construction_id, construction in self._constructions().items()
@@ -1545,7 +1546,7 @@ class ConstructionLoaderTests(unittest.TestCase):
     def test_constructions_mapping_is_frozen(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
         with self.assertRaises(TypeError):
-            family.constructions["injected"] = MetatileConstruction(  # type: ignore[index]
+            family.constructions["injected"] = FixedConstruction(  # type: ignore[index]
                 id="x", collection_id="x", cells=()
             )
 
@@ -2386,9 +2387,9 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", connects_on=[])
         tr = _make_tile("t:tr", compose_group="kit", compose_role="tr", connects_on=["west"])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "tl"}, {"role": "tr"}],
             ],
@@ -2396,7 +2397,7 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(raw, tiles=_make_tiles_dict(tl, tr))
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("col=0", msg)
         self.assertIn("row=0", msg)
 
@@ -2404,9 +2405,9 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", connects_on=["east"])
         tr = _make_tile("t:tr", compose_group="kit", compose_role="tr", connects_on=[])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "tl"}, {"role": "tr"}],
             ],
@@ -2414,7 +2415,7 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(raw, tiles=_make_tiles_dict(tl, tr))
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("col=1", msg)
         self.assertIn("row=0", msg)
 
@@ -2422,9 +2423,9 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         top = _make_tile("t:top", compose_group="kit", compose_role="top", connects_on=["south"])
         bot = _make_tile("t:bot", compose_group="kit", compose_role="bot", connects_on=[])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "top"}],
                 [{"role": "bot"}],
@@ -2433,7 +2434,7 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(raw, tiles=_make_tiles_dict(top, bot))
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("col=0, row=1", msg)
 
     def test_valid_adjacency_passes(self) -> None:
@@ -2442,16 +2443,16 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         bl = _make_tile("t:bl", compose_group="kit", compose_role="bl", connects_on=["north", "east"])
         br = _make_tile("t:br", compose_group="kit", compose_role="br", connects_on=["north", "west"])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "tl"}, {"role": "tr"}],
                 [{"role": "bl"}, {"role": "br"}],
             ],
         }
         construction = build_construction(raw, tiles=_make_tiles_dict(tl, tr, bl, br))
-        self.assertEqual(construction.id, "test.metatile")
+        self.assertEqual(construction.id, "test.fixed")
 
 
 # A contact line whose painted run is neither equal nor complementary to a fully
@@ -2470,9 +2471,9 @@ class ConstructionValidationExposureTests(unittest.TestCase):
         )
         bot = _make_tile("t:bot", compose_group="kit", compose_role="bot", connects_on=["north"])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "top"}],
                 [{"role": "bot"}],
@@ -2481,7 +2482,7 @@ class ConstructionValidationExposureTests(unittest.TestCase):
         with self.assertRaises(ConstructionValidationError) as ctx:
             build_construction(raw, tiles=_make_tiles_dict(top, bot))
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("requires_exposed_on", msg)
         self.assertIn("col=0, row=0", msg)
         self.assertIn("col=0, row=1", msg)
@@ -2495,15 +2496,15 @@ class ConstructionValidationExposureTests(unittest.TestCase):
             requires_exposed_on=["south"],
         )
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "top"}],
             ],
         }
         construction = build_construction(raw, tiles=_make_tiles_dict(top))
-        assert isinstance(construction, MetatileConstruction)
+        assert isinstance(construction, FixedConstruction)
         self.assertIsNotNone(construction.cells[0][0])
 
     def test_exposure_empty_cell_neighbour_is_allowed(self) -> None:
@@ -2516,27 +2517,61 @@ class ConstructionValidationExposureTests(unittest.TestCase):
         )
         right = _make_tile("t:right", compose_group="kit", compose_role="right", connects_on=["west"])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "left"}, {"role": "right"}],
                 [".", "."],
             ],
         }
         construction = build_construction(raw, tiles=_make_tiles_dict(left, right))
-        assert isinstance(construction, MetatileConstruction)
+        assert isinstance(construction, FixedConstruction)
         self.assertIsNone(construction.cells[1][0])
 
 
 class ConstructionRoleBindingTests(unittest.TestCase):
+    def test_construction_manifest_rejects_unknown_kind(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "constructions.json"
+            write_json(
+                path,
+                {
+                    "constructions": [
+                        {
+                            "id": "test.bad",
+                            "collection_id": "kit",
+                            "kind": "metatile",
+                            "cells": [["."]],
+                        }
+                    ]
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "unsupported construction kind 'metatile'"):
+                load_construction_manifest(path)
+
+    def test_build_construction_rejects_unknown_kind(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.bad",
+                "collection_id": "kit",
+                "kind": "metatile",
+                "cells": [["."]],
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "unsupported kind 'metatile'"):
+            build_construction(raw, tiles={})
+
     def test_role_binding_multiple_matches_raises(self) -> None:
         t1 = _make_tile("t:tile1", compose_group="kit", compose_role="body", connects_on=[])
         t2 = _make_tile("t:tile2", compose_group="kit", compose_role="body", connects_on=[])
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "body"}],
             ],
@@ -2544,15 +2579,15 @@ class ConstructionRoleBindingTests(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             build_construction(raw, tiles=_make_tiles_dict(t1, t2))
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("body", msg)
         self.assertIn("multiple", msg)
 
     def test_role_binding_no_match_raises(self) -> None:
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 [{"role": "ghost_role"}],
             ],
@@ -2560,21 +2595,21 @@ class ConstructionRoleBindingTests(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             build_construction(raw, tiles={})
         msg = str(ctx.exception)
-        self.assertIn("test.metatile", msg)
+        self.assertIn("test.fixed", msg)
         self.assertIn("ghost_role", msg)
         self.assertIn("no tile found", msg)
 
     def test_role_binding_dot_cell_resolves_to_none(self) -> None:
         raw: ConstructionConfig = {
-            "id": "test.metatile",
+            "id": "test.fixed",
             "collection_id": "kit",
-            "kind": "metatile",
+            "kind": "fixed",
             "cells": [
                 ["."],
             ],
         }
         construction = build_construction(raw, tiles={})
-        assert isinstance(construction, MetatileConstruction)
+        assert isinstance(construction, FixedConstruction)
         self.assertIsNone(construction.cells[0][0])
 
 

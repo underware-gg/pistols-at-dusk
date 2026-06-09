@@ -27,7 +27,7 @@ from tile_library import (
     CompositeTileRecord,
     Construction,
     EntityTemplateRecord,
-    MetatileConstruction,
+    FixedConstruction,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     SheetCell,
@@ -1790,15 +1790,15 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
                 }
             ),
         }
-    metatile = cast(MetatileConstruction, construction)
+    fixed = cast(FixedConstruction, construction)
     return {
-        "id": metatile.id,
-        "collection_id": metatile.collection_id,
-        "kind": metatile.kind,
-        "expose_as_entity": metatile.expose_as_entity,
+        "id": fixed.id,
+        "collection_id": fixed.collection_id,
+        "kind": fixed.kind,
+        "expose_as_entity": fixed.expose_as_entity,
         "shape": {
-            "width": len(metatile.cells[0]) if metatile.cells else 0,
-            "height": len(metatile.cells),
+            "width": len(fixed.cells[0]) if fixed.cells else 0,
+            "height": len(fixed.cells),
         },
         "cells": [
             [
@@ -1810,7 +1810,7 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
                 }
                 for cell in row
             ]
-            for row in metatile.cells
+            for row in fixed.cells
         ],
     }
 

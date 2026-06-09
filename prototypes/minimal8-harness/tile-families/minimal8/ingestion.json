@@ -2161,7 +2161,7 @@
         "indoors.table.kit.l_bottom_left",
         "indoors.table.kit.l_bottom_right"
       ],
-      "notes": "Shared indoor table kit. Legged pieces require their south edge to remain exposed and should therefore only appear on the bottom edge of a single composed table entity. Collection-level presets should represent one valid table entity at a time; multi-table dining clusters belong in scene or metatile presets instead."
+      "notes": "Shared indoor table kit. Legged pieces require their south edge to remain exposed and should therefore only appear on the bottom edge of a single composed table entity. Collection-level presets should represent one valid table entity at a time; multi-table dining clusters belong in scene or fixed-construction presets instead."
     },
     {
       "id": "indoors.counter.low",

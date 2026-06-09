@@ -35,7 +35,7 @@ from tile_library import (
     CompositeTileCell,
     CompositeTileRecord,
     FRAME_FILL_MODES,
-    MetatileConstruction,
+    FixedConstruction,
     ParametricRunConstruction,
     FrameSlot,
     FrameCornerSlot,
@@ -280,10 +280,10 @@ class ConstructionCellConfig(TypedDict):
     role: str
 
 
-class MetatileConstructionConfig(TypedDict):
+class FixedConstructionConfig(TypedDict):
     id: str
     collection_id: str
-    kind: Literal["metatile"]
+    kind: Literal["fixed"]
     cells: list[list[ConstructionCellConfig | str]]
     expose_as_entity: NotRequired[bool]
 
@@ -372,7 +372,7 @@ class ConstructionAttachmentSetConfig(TypedDict):
 
 
 ConstructionConfig = Union[
-    MetatileConstructionConfig,
+    FixedConstructionConfig,
     ParametricRunConstructionConfig,
     ParametricFrameConstructionConfig,
 ]
@@ -559,7 +559,9 @@ def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
         item_mapping = require_mapping(raw_item, context=item_context)
         check_required_keys(item_mapping, ("id", "collection_id", "kind"), context=item_context)
         construction_kind = str(item_mapping["kind"])
-        if construction_kind == "parametric_run":
+        if construction_kind == "fixed":
+            check_required_keys(item_mapping, ("cells",), context=item_context)
+        elif construction_kind == "parametric_run":
             check_required_keys(
                 item_mapping,
                 ("axis", "length_param", "start_role", "repeat_role", "end_role"),
@@ -568,7 +570,7 @@ def load_construction_manifest(path: Path) -> tuple[ConstructionConfig, ...]:
         elif construction_kind == "parametric_frame":
             check_required_keys(item_mapping, ("corners",), context=item_context)
         else:
-            check_required_keys(item_mapping, ("cells",), context=item_context)
+            raise ValueError(f"{item_context}: unsupported construction kind {construction_kind!r}")
         construction_id = str(item_mapping["id"])
         if construction_id in seen_ids:
             raise ValueError(f"Duplicate construction id in {path}: {construction_id!r}")
@@ -1166,11 +1168,11 @@ def _assert_seam_fits(
     raise ConstructionValidationError(
         f"construction {construction_id!r} {where}: seams do not fit"
         f" ({a.id!r}.{a_side} vs {b.id!r}.{b_side}; {score_text}). Fix the art so the"
-        f" pieces tile, or model this as a composite metatile rather than a dynamic run"
+        f" pieces tile, or model this as a fixed construction rather than a dynamic run"
     )
 
 
-def _validate_metatile_construction(construction: MetatileConstruction) -> None:
+def _validate_fixed_construction(construction: FixedConstruction) -> None:
     rows = construction.cells
     n_rows = len(rows)
     for row_idx, row in enumerate(rows):
@@ -1258,7 +1260,7 @@ def validate_construction(construction: Construction) -> None:
     elif isinstance(construction, ParametricFrameConstruction):
         _validate_parametric_frame_construction(construction)
     else:
-        _validate_metatile_construction(construction)
+        _validate_fixed_construction(construction)
 
 
 def _resolve_role(
@@ -1346,11 +1348,11 @@ def _build_composite_tile(
     )
 
 
-def _build_metatile_construction(
-    raw: MetatileConstructionConfig,
+def _build_fixed_construction(
+    raw: FixedConstructionConfig,
     *,
     tiles: dict[str, TileRecord],
-) -> MetatileConstruction:
+) -> FixedConstruction:
     construction_id = raw["id"]
     collection_id = raw["collection_id"]
     raw_rows = raw["cells"]
@@ -1381,7 +1383,7 @@ def _build_metatile_construction(
             resolved_cells.append(_resolve_role(role, construction_id=construction_id, collection_id=collection_id, tiles=tiles))
         resolved_rows.append(tuple(resolved_cells))
 
-    construction = MetatileConstruction(
+    construction = FixedConstruction(
         id=construction_id,
         collection_id=collection_id,
         cells=tuple(resolved_rows),
@@ -1579,11 +1581,13 @@ def build_construction(
     tiles: dict[str, TileRecord],
 ) -> Construction:
     kind = raw["kind"]
+    if kind == "fixed":
+        return _build_fixed_construction(cast(FixedConstructionConfig, raw), tiles=tiles)
     if kind == "parametric_run":
         return _build_parametric_run_construction(cast(ParametricRunConstructionConfig, raw), tiles=tiles)
     if kind == "parametric_frame":
         return _build_parametric_frame_construction(cast(ParametricFrameConstructionConfig, raw), tiles=tiles)
-    return _build_metatile_construction(cast(MetatileConstructionConfig, raw), tiles=tiles)
+    raise ValueError(f"construction {raw['id']!r} has unsupported kind {kind!r}")
 
 
 def _load_clusters(

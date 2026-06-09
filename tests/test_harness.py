@@ -1584,11 +1584,11 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 return None
             return cell.compose_role
 
-        from tile_library import MetatileConstruction
+        from tile_library import FixedConstruction
 
         square = family.lookup_construction("indoors.table.kit.square_2x2")
         assert square is not None
-        assert isinstance(square, MetatileConstruction)
+        assert isinstance(square, FixedConstruction)
         self.assertEqual(len(square.cells), 2)
         self.assertEqual(len(square.cells[0]), 2)
         self.assertEqual(role(square.cells[0][0]), "vertical_top_end")
@@ -1596,7 +1596,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         horizontal = family.lookup_construction("indoors.table.kit.horizontal_2x6")
         assert horizontal is not None
-        assert isinstance(horizontal, MetatileConstruction)
+        assert isinstance(horizontal, FixedConstruction)
         self.assertEqual(len(horizontal.cells), 2)
         self.assertEqual(len(horizontal.cells[0]), 6)
         self.assertTrue(all(role(cell) == "vertical_top_end" for cell in horizontal.cells[0]))
@@ -1604,7 +1604,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         vertical = family.lookup_construction("indoors.table.kit.vertical_2x6")
         assert vertical is not None
-        assert isinstance(vertical, MetatileConstruction)
+        assert isinstance(vertical, FixedConstruction)
         self.assertEqual(len(vertical.cells), 6)
         self.assertEqual(len(vertical.cells[0]), 2)
         self.assertTrue(all(role(cell) == "vertical_top_end" for cell in vertical.cells[0]))
@@ -1614,7 +1614,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         rect_vertical = family.lookup_construction("indoors.table.kit.rect_2x3")
         assert rect_vertical is not None
-        assert isinstance(rect_vertical, MetatileConstruction)
+        assert isinstance(rect_vertical, FixedConstruction)
         self.assertEqual(len(rect_vertical.cells), 3)
         self.assertEqual(len(rect_vertical.cells[0]), 2)
         self.assertTrue(all(role(cell) == "vertical_top_end" for cell in rect_vertical.cells[0]))
@@ -1623,7 +1623,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         top_left = family.lookup_construction("indoors.table.kit.l_top_left")
         assert top_left is not None
-        assert isinstance(top_left, MetatileConstruction)
+        assert isinstance(top_left, FixedConstruction)
         self.assertEqual(len(top_left.cells), 3)
         self.assertEqual(len(top_left.cells[0]), 3)
         self.assertEqual(role(top_left.cells[0][0]), "vertical_middle")
@@ -1634,14 +1634,14 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         top_right = family.lookup_construction("indoors.table.kit.l_top_right")
         assert top_right is not None
-        assert isinstance(top_right, MetatileConstruction)
+        assert isinstance(top_right, FixedConstruction)
         self.assertEqual(role(top_right.cells[0][0]), "horizontal_left_end")
         self.assertEqual(role(top_right.cells[0][1]), "horizontal_middle")
         self.assertEqual(role(top_right.cells[0][2]), "vertical_middle")
 
         bottom_right = family.lookup_construction("indoors.table.kit.l_bottom_right")
         assert bottom_right is not None
-        assert isinstance(bottom_right, MetatileConstruction)
+        assert isinstance(bottom_right, FixedConstruction)
         self.assertEqual(len(bottom_right.cells), 3)
         self.assertEqual(len(bottom_right.cells[0]), 3)
         self.assertEqual(role(bottom_right.cells[2][0]), "horizontal_left_end")
