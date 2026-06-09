@@ -22,6 +22,7 @@ from tile_metadata import ModuleContextValue, RenderTraits
 
 
 Side: TypeAlias = Literal["north", "south", "east", "west"]
+FixedSeamOverrideSide: TypeAlias = Literal["east", "south"]
 PlaceableKind: TypeAlias = Literal["tile", "composite_tile", "construction"]
 EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "fixed", "parametric_run", "parametric_frame"]
 SIDES: tuple[Side, ...] = ("north", "south", "east", "west")
@@ -126,12 +127,38 @@ class CellContentInset:
 
 
 @dataclass(frozen=True)
+class FixedConstructionSeamOverride:
+    x: int
+    y: int
+    side: FixedSeamOverrideSide
+    reason: str
+
+    def __post_init__(self) -> None:
+        if self.x < 0 or self.y < 0:
+            raise ValueError("FixedConstructionSeamOverride coordinates must be non-negative")
+        if self.side not in ("east", "south"):
+            raise ValueError(f"FixedConstructionSeamOverride.side must be 'east' or 'south', got {self.side!r}")
+        if self.reason.strip() == "":
+            raise ValueError("FixedConstructionSeamOverride.reason must not be empty")
+
+
+@dataclass(frozen=True)
 class FixedConstruction:
     id: str
     collection_id: str
     cells: tuple[tuple[TileRecord | None, ...], ...]
+    seam_overrides: tuple[FixedConstructionSeamOverride, ...] = ()
     expose_as_entity: bool = True
     kind: Literal["fixed"] = "fixed"
+
+    def __post_init__(self) -> None:
+        seen: set[tuple[int, int, FixedSeamOverrideSide]] = set()
+        for override in self.seam_overrides:
+            key = (override.x, override.y, override.side)
+            if key in seen:
+                raise ValueError(f"FixedConstruction {self.id!r} has duplicate seam override {key!r}")
+            seen.add(key)
+        object.__setattr__(self, "seam_overrides", tuple(self.seam_overrides))
 
 
 @dataclass(frozen=True)

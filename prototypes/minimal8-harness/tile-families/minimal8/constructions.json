@@ -247,6 +247,13 @@
           ".",
           "."
         ]
+      ],
+      "seam_overrides": [
+        {
+          "cell": { "x": 0, "y": 0 },
+          "side": "east",
+          "reason": "Table-leg silhouette intentionally differs across this L-shape contact."
+        }
       ]
     },
     {
@@ -279,6 +286,13 @@
             "role": "vertical_bottom_end"
           }
         ]
+      ],
+      "seam_overrides": [
+        {
+          "cell": { "x": 1, "y": 0 },
+          "side": "east",
+          "reason": "Table-leg silhouette intentionally differs across this L-shape contact."
+        }
       ]
     },
     {
@@ -311,6 +325,13 @@
             "role": "horizontal_right_end"
           }
         ]
+      ],
+      "seam_overrides": [
+        {
+          "cell": { "x": 0, "y": 2 },
+          "side": "east",
+          "reason": "Table-leg silhouette intentionally differs across this L-shape contact."
+        }
       ]
     },
     {
@@ -343,6 +364,13 @@
             "role": "vertical_bottom_end"
           }
         ]
+      ],
+      "seam_overrides": [
+        {
+          "cell": { "x": 1, "y": 2 },
+          "side": "east",
+          "reason": "Table-leg silhouette intentionally differs across this L-shape contact."
+        }
       ]
     },
     {

@@ -24,6 +24,8 @@ from tile_library import (
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
     FixedConstruction,
+    FixedConstructionSeamOverride,
+    FixedSeamOverrideSide,
     PlaceableRef,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -2382,10 +2384,10 @@ class TileLibraryRegistryTests(unittest.TestCase):
                 TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
 
 
-class ConstructionValidationAdjacencyTests(unittest.TestCase):
-    def test_adjacency_violation_east_missing_from_left_cell(self) -> None:
-        tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", connects_on=[])
-        tr = _make_tile("t:tr", compose_group="kit", compose_role="tr", connects_on=["west"])
+class FixedConstructionSeamValidationTests(unittest.TestCase):
+    def test_fixed_rejects_east_west_seam_mismatch_without_override(self) -> None:
+        tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", seam_profiles={"east": _MISMATCH_SEAM})
+        tr = _make_tile("t:tr", compose_group="kit", compose_role="tr")
         raw: ConstructionConfig = {
             "id": "test.fixed",
             "collection_id": "kit",
@@ -2400,28 +2402,12 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
         self.assertIn("test.fixed", msg)
         self.assertIn("col=0", msg)
         self.assertIn("row=0", msg)
+        self.assertIn("seams do not fit", msg)
+        self.assertIn("equality=0.500", msg)
 
-    def test_adjacency_violation_west_missing_from_right_cell(self) -> None:
-        tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", connects_on=["east"])
-        tr = _make_tile("t:tr", compose_group="kit", compose_role="tr", connects_on=[])
-        raw: ConstructionConfig = {
-            "id": "test.fixed",
-            "collection_id": "kit",
-            "kind": "fixed",
-            "cells": [
-                [{"role": "tl"}, {"role": "tr"}],
-            ],
-        }
-        with self.assertRaises(ConstructionValidationError) as ctx:
-            build_construction(raw, tiles=_make_tiles_dict(tl, tr))
-        msg = str(ctx.exception)
-        self.assertIn("test.fixed", msg)
-        self.assertIn("col=1", msg)
-        self.assertIn("row=0", msg)
-
-    def test_adjacency_north_south_violation(self) -> None:
-        top = _make_tile("t:top", compose_group="kit", compose_role="top", connects_on=["south"])
-        bot = _make_tile("t:bot", compose_group="kit", compose_role="bot", connects_on=[])
+    def test_fixed_rejects_south_north_seam_mismatch_without_override(self) -> None:
+        top = _make_tile("t:top", compose_group="kit", compose_role="top", seam_profiles={"south": _MISMATCH_SEAM})
+        bot = _make_tile("t:bot", compose_group="kit", compose_role="bot")
         raw: ConstructionConfig = {
             "id": "test.fixed",
             "collection_id": "kit",
@@ -2435,24 +2421,313 @@ class ConstructionValidationAdjacencyTests(unittest.TestCase):
             build_construction(raw, tiles=_make_tiles_dict(top, bot))
         msg = str(ctx.exception)
         self.assertIn("test.fixed", msg)
-        self.assertIn("col=0, row=1", msg)
+        self.assertIn("col=0, row=0", msg)
+        self.assertIn("south", msg)
+        self.assertIn("seams do not fit", msg)
 
-    def test_valid_adjacency_passes(self) -> None:
-        tl = _make_tile("t:tl", compose_group="kit", compose_role="tl", connects_on=["east", "south"])
-        tr = _make_tile("t:tr", compose_group="kit", compose_role="tr", connects_on=["west", "south"])
-        bl = _make_tile("t:bl", compose_group="kit", compose_role="bl", connects_on=["north", "east"])
-        br = _make_tile("t:br", compose_group="kit", compose_role="br", connects_on=["north", "west"])
+    def test_fixed_accepts_mismatch_with_recorded_override(self) -> None:
+        left = _make_tile("t:left", compose_group="kit", compose_role="left", seam_profiles={"east": _MISMATCH_SEAM})
+        right = _make_tile("t:right", compose_group="kit", compose_role="right")
         raw: ConstructionConfig = {
             "id": "test.fixed",
             "collection_id": "kit",
             "kind": "fixed",
             "cells": [
-                [{"role": "tl"}, {"role": "tr"}],
-                [{"role": "bl"}, {"role": "br"}],
+                [{"role": "left"}, {"role": "right"}],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "Intentional silhouette mismatch.",
+                }
             ],
         }
-        construction = build_construction(raw, tiles=_make_tiles_dict(tl, tr, bl, br))
+        construction = build_construction(raw, tiles=_make_tiles_dict(left, right))
+        assert isinstance(construction, FixedConstruction)
+        self.assertEqual(len(construction.seam_overrides), 1)
+        self.assertEqual(construction.seam_overrides[0].reason, "Intentional silhouette mismatch.")
+
+    def test_fixed_rejects_unnecessary_override_when_seam_fits(self) -> None:
+        left = _make_tile("t:left", compose_group="kit", compose_role="left")
+        right = _make_tile("t:right", compose_group="kit", compose_role="right")
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [{"role": "left"}, {"role": "right"}],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "Previously mismatched seam.",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ConstructionValidationError, "seam override is unnecessary"):
+            build_construction(raw, tiles=_make_tiles_dict(left, right))
+
+    def test_fixed_seam_validation_ignores_connects_on_flags(self) -> None:
+        left = _make_tile("t:left", compose_group="kit", compose_role="left", connects_on=[])
+        right = _make_tile("t:right", compose_group="kit", compose_role="right", connects_on=[])
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [{"role": "left"}, {"role": "right"}],
+            ],
+        }
+        construction = build_construction(raw, tiles=_make_tiles_dict(left, right))
         self.assertEqual(construction.id, "test.fixed")
+
+    def test_fixed_rejects_override_for_non_canonical_side(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": 0, "y": 0},
+                        "side": "west",
+                        "reason": "Wrong side.",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "side must be 'east' or 'south'"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_override_with_non_string_side(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": 0, "y": 0},
+                        "side": 0,
+                        "reason": "Bad side.",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, r"seam_overrides\[0\]: side must be a string"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_override_without_reason(self) -> None:
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [["."]],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "reason must not be empty"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_override_with_non_string_reason(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": 0, "y": 0},
+                        "side": "east",
+                        "reason": 0,
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, r"seam_overrides\[0\]: reason must be a string"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_override_with_non_integer_cell_coordinate(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": "0", "y": 0},
+                        "side": "east",
+                        "reason": "Bad coordinate.",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "cell x and y must be integers"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_override_with_boolean_cell_coordinate(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": True, "y": 0},
+                        "side": "east",
+                        "reason": "Bad coordinate.",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "cell x and y must be integers"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_manifest_override_with_contextual_negative_coordinate(self) -> None:
+        raw = cast(
+            ConstructionConfig,
+            {
+                "id": "test.fixed",
+                "collection_id": "kit",
+                "kind": "fixed",
+                "cells": [["."]],
+                "seam_overrides": [
+                    {
+                        "cell": {"x": -1, "y": 0},
+                        "side": "east",
+                        "reason": "Bad coordinate.",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, r"seam_overrides\[0\].*coordinates must be non-negative"):
+            build_construction(raw, tiles={})
+
+    def test_fixed_rejects_duplicate_override_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, "duplicate seam override"):
+            FixedConstruction(
+                id="test.fixed",
+                collection_id="kit",
+                cells=((None,),),
+                seam_overrides=(
+                    FixedConstructionSeamOverride(x=0, y=0, side="east", reason="First."),
+                    FixedConstructionSeamOverride(x=0, y=0, side="east", reason="Second."),
+                ),
+            )
+
+    def test_fixed_rejects_override_with_negative_coordinate(self) -> None:
+        with self.assertRaisesRegex(ValueError, "coordinates must be non-negative"):
+            FixedConstructionSeamOverride(x=-1, y=0, side="east", reason="Bad coordinate.")
+
+    def test_fixed_rejects_override_with_invalid_runtime_side(self) -> None:
+        with self.assertRaisesRegex(ValueError, "side must be 'east' or 'south'"):
+            FixedConstructionSeamOverride(
+                x=0,
+                y=0,
+                side=cast(FixedSeamOverrideSide, "west"),
+                reason="Bad side.",
+            )
+
+    def test_fixed_rejects_override_with_blank_runtime_reason(self) -> None:
+        with self.assertRaisesRegex(ValueError, "reason must not be empty"):
+            FixedConstructionSeamOverride(x=0, y=0, side="east", reason=" ")
+
+    def test_fixed_rejects_override_outside_grid(self) -> None:
+        tile = _make_tile("t:tile", compose_group="kit", compose_role="tile")
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [{"role": "tile"}],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 3, "y": 0},
+                    "side": "east",
+                    "reason": "Outside grid.",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ConstructionValidationError, "outside the fixed construction grid"):
+            build_construction(raw, tiles=_make_tiles_dict(tile))
+
+    def test_fixed_rejects_override_for_empty_cell(self) -> None:
+        tile = _make_tile("t:tile", compose_group="kit", compose_role="tile")
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [".", {"role": "tile"}],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "Empty cell.",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ConstructionValidationError, "references an empty cell"):
+            build_construction(raw, tiles=_make_tiles_dict(tile))
+
+    def test_fixed_rejects_override_without_internal_neighbour(self) -> None:
+        tile = _make_tile("t:tile", compose_group="kit", compose_role="tile")
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [{"role": "tile"}],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "No neighbour.",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ConstructionValidationError, "does not reference a filled internal neighbour"):
+            build_construction(raw, tiles=_make_tiles_dict(tile))
+
+    def test_fixed_rejects_override_with_empty_internal_neighbour(self) -> None:
+        tile = _make_tile("t:tile", compose_group="kit", compose_role="tile")
+        raw: ConstructionConfig = {
+            "id": "test.fixed",
+            "collection_id": "kit",
+            "kind": "fixed",
+            "cells": [
+                [{"role": "tile"}, "."],
+            ],
+            "seam_overrides": [
+                {
+                    "cell": {"x": 0, "y": 0},
+                    "side": "east",
+                    "reason": "Empty neighbour.",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ConstructionValidationError, "does not reference a filled internal neighbour"):
+            build_construction(raw, tiles=_make_tiles_dict(tile))
 
 
 # A contact line whose painted run is neither equal nor complementary to a fully

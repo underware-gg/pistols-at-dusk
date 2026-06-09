@@ -36,6 +36,8 @@ from tile_library import (
     CompositeTileRecord,
     FRAME_FILL_MODES,
     FixedConstruction,
+    FixedConstructionSeamOverride,
+    FixedSeamOverrideSide,
     ParametricRunConstruction,
     FrameSlot,
     FrameCornerSlot,
@@ -280,11 +282,23 @@ class ConstructionCellConfig(TypedDict):
     role: str
 
 
+class FixedConstructionSeamOverrideCellConfig(TypedDict):
+    x: int
+    y: int
+
+
+class FixedConstructionSeamOverrideConfig(TypedDict):
+    cell: FixedConstructionSeamOverrideCellConfig
+    side: FixedSeamOverrideSide
+    reason: str
+
+
 class FixedConstructionConfig(TypedDict):
     id: str
     collection_id: str
     kind: Literal["fixed"]
     cells: list[list[ConstructionCellConfig | str]]
+    seam_overrides: NotRequired[list[FixedConstructionSeamOverrideConfig]]
     expose_as_entity: NotRequired[bool]
 
 
@@ -1127,19 +1141,40 @@ def _sheet_bounds_for_variant(
     )
 
 
-_OPPOSITE: dict[str, str] = {
-    "east": "west",
-    "west": "east",
-    "north": "south",
-    "south": "north",
-}
-
-
 DEFAULT_SEAM_MATCH_POLICY = MatchPolicy()
 
 
 class ConstructionValidationError(ValueError):
     pass
+
+
+def _seam_fit_scores(
+    *,
+    construction_id: str,
+    a: TileRecord,
+    a_side: str,
+    b: TileRecord,
+    b_side: str,
+    where: str,
+) -> tuple[bool, Mapping[str, float]]:
+    mask_a = a.seam_profiles.get(a_side) if a.seam_profiles is not None else None
+    mask_b = b.seam_profiles.get(b_side) if b.seam_profiles is not None else None
+    if mask_a is None or mask_b is None:
+        raise ConstructionValidationError(
+            f"construction {construction_id!r} {where}: seam profile missing"
+            f" ({a.id!r}.{a_side} or {b.id!r}.{b_side}) - tiles must be seam-enriched before validation"
+        )
+    return DEFAULT_SEAM_MATCH_POLICY.fits(mask_a, mask_b), DEFAULT_SEAM_MATCH_POLICY.scores(mask_a, mask_b)
+
+
+def _score_text(scores: Mapping[str, float]) -> str:
+    return ", ".join(f"{name}={value:.3f}" for name, value in sorted(scores.items()))
+
+
+_CANONICAL_CONTACTS: tuple[tuple[FixedSeamOverrideSide, int, int, str], ...] = (
+    ("east", 0, 1, "west"),
+    ("south", 1, 0, "north"),
+)
 
 
 def _assert_seam_fits(
@@ -1152,22 +1187,19 @@ def _assert_seam_fits(
     where: str,
 ) -> None:
     """Assert tile ``a``'s ``a_side`` seam fits tile ``b``'s ``b_side``."""
-    mask_a = a.seam_profiles.get(a_side) if a.seam_profiles is not None else None
-    mask_b = b.seam_profiles.get(b_side) if b.seam_profiles is not None else None
-    if mask_a is None or mask_b is None:
-        # Seam profiles are attached at family-build before constructions are
-        # validated; a missing profile here is a broken internal invariant.
-        raise ConstructionValidationError(
-            f"construction {construction_id!r} {where}: seam profile missing"
-            f" ({a.id!r}.{a_side} or {b.id!r}.{b_side}) - tiles must be seam-enriched before validation"
-        )
-    if DEFAULT_SEAM_MATCH_POLICY.fits(mask_a, mask_b):
+    fits, scores = _seam_fit_scores(
+        construction_id=construction_id,
+        a=a,
+        a_side=a_side,
+        b=b,
+        b_side=b_side,
+        where=where,
+    )
+    if fits:
         return
-    scores = DEFAULT_SEAM_MATCH_POLICY.scores(mask_a, mask_b)
-    score_text = ", ".join(f"{name}={value:.3f}" for name, value in sorted(scores.items()))
     raise ConstructionValidationError(
         f"construction {construction_id!r} {where}: seams do not fit"
-        f" ({a.id!r}.{a_side} vs {b.id!r}.{b_side}; {score_text}). Fix the art so the"
+        f" ({a.id!r}.{a_side} vs {b.id!r}.{b_side}; {_score_text(scores)}). Fix the art so the"
         f" pieces tile, or model this as a fixed construction rather than a dynamic run"
     )
 
@@ -1175,11 +1207,36 @@ def _assert_seam_fits(
 def _validate_fixed_construction(construction: FixedConstruction) -> None:
     rows = construction.cells
     n_rows = len(rows)
+    override_map = {
+        (override.x, override.y, override.side): override
+        for override in construction.seam_overrides
+    }
+    for override_key, override in override_map.items():
+        col_idx, row_idx, direction = override_key
+        _, d_row, d_col, _ = next(contact for contact in _CANONICAL_CONTACTS if contact[0] == direction)
+        if not (0 <= row_idx < n_rows and 0 <= col_idx < len(rows[row_idx])):
+            raise ConstructionValidationError(
+                f"construction {construction.id!r} seam override at (col={col_idx}, row={row_idx})"
+                f" {direction!r} is outside the fixed construction grid"
+            )
+        if rows[row_idx][col_idx] is None:
+            raise ConstructionValidationError(
+                f"construction {construction.id!r} seam override at (col={col_idx}, row={row_idx})"
+                f" {direction!r} references an empty cell"
+            )
+        n_row = row_idx + d_row
+        n_col = col_idx + d_col
+        if not (0 <= n_row < n_rows and 0 <= n_col < len(rows[n_row])) or rows[n_row][n_col] is None:
+            raise ConstructionValidationError(
+                f"construction {construction.id!r} seam override at (col={col_idx}, row={row_idx})"
+                f" {direction!r} does not reference a filled internal neighbour"
+            )
+
     for row_idx, row in enumerate(rows):
         for col_idx, cell in enumerate(row):
             if cell is None:
                 continue
-            for direction, d_row, d_col in (("east", 0, 1), ("south", 1, 0)):
+            for direction, d_row, d_col, opposite in _CANONICAL_CONTACTS:
                 n_row = row_idx + d_row
                 n_col = col_idx + d_col
                 if not (0 <= n_row < n_rows and 0 <= n_col < len(rows[n_row])):
@@ -1187,18 +1244,30 @@ def _validate_fixed_construction(construction: FixedConstruction) -> None:
                 neighbour = rows[n_row][n_col]
                 if neighbour is None:
                     continue
-                if direction not in cell.connects_on:
+                where = (
+                    f"cell (col={col_idx}, row={row_idx}) {direction} to"
+                    f" neighbour at (col={n_col}, row={n_row})"
+                )
+                fits, scores = _seam_fit_scores(
+                    construction_id=construction.id,
+                    a=cell,
+                    a_side=direction,
+                    b=neighbour,
+                    b_side=opposite,
+                    where=where,
+                )
+                override_key = (col_idx, row_idx, direction)
+                override = override_map.get(override_key)
+                if fits and override is not None:
                     raise ConstructionValidationError(
-                        f"construction {construction.id!r} cell (col={col_idx}, row={row_idx})"
-                        f" must include {direction!r} in connects_on to connect with"
-                        f" neighbour at (col={n_col}, row={n_row})"
+                        f"construction {construction.id!r} {where}: seam override is unnecessary"
+                        f" because the seam now fits ({_score_text(scores)}). Remove the stale override."
                     )
-                opposite = _OPPOSITE[direction]
-                if opposite not in neighbour.connects_on:
+                if not fits and override is None:
                     raise ConstructionValidationError(
-                        f"construction {construction.id!r} cell (col={n_col}, row={n_row})"
-                        f" must include {opposite!r} in connects_on to connect with"
-                        f" neighbour at (col={col_idx}, row={row_idx})"
+                        f"construction {construction.id!r} {where}: seams do not fit"
+                        f" ({cell.id!r}.{direction} vs {neighbour.id!r}.{opposite}; {_score_text(scores)})."
+                        f" Fix the art so the pieces tile, or add a recorded seam override with a reason."
                     )
             for direction, d_row, d_col in (
                 ("north", -1, 0),
@@ -1348,6 +1417,42 @@ def _build_composite_tile(
     )
 
 
+def _parse_fixed_seam_overrides(
+    raw: Mapping[str, object],
+    *,
+    construction_id: str,
+) -> tuple[FixedConstructionSeamOverride, ...]:
+    raw_overrides = raw.get("seam_overrides", [])
+    overrides: list[FixedConstructionSeamOverride] = []
+    for index, raw_override in enumerate(require_list(raw_overrides, context=f"construction {construction_id!r} seam_overrides")):
+        context = f"construction {construction_id!r} seam_overrides[{index}]"
+        override = require_mapping(raw_override, context=context)
+        check_required_keys(override, ("cell", "side", "reason"), context=context)
+        cell = require_mapping(override["cell"], context=f"{context}: cell")
+        check_required_keys(cell, ("x", "y"), context=f"{context}: cell")
+        x = cell["x"]
+        y = cell["y"]
+        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, int) or not isinstance(y, int):
+            raise ValueError(f"{context}: cell x and y must be integers")
+        side = override["side"]
+        if not isinstance(side, str):
+            raise ValueError(f"{context}: side must be a string")
+        reason = override["reason"]
+        if not isinstance(reason, str):
+            raise ValueError(f"{context}: reason must be a string")
+        try:
+            seam_override = FixedConstructionSeamOverride(
+                x=x,
+                y=y,
+                side=cast(FixedSeamOverrideSide, side),
+                reason=reason,
+            )
+        except ValueError as exc:
+            raise ValueError(f"{context}: {exc}") from exc
+        overrides.append(seam_override)
+    return tuple(overrides)
+
+
 def _build_fixed_construction(
     raw: FixedConstructionConfig,
     *,
@@ -1387,6 +1492,7 @@ def _build_fixed_construction(
         id=construction_id,
         collection_id=collection_id,
         cells=tuple(resolved_rows),
+        seam_overrides=_parse_fixed_seam_overrides(cast(Mapping[str, object], raw), construction_id=construction_id),
         expose_as_entity=_parse_expose_as_entity(raw, construction_id),
     )
     validate_construction(construction)

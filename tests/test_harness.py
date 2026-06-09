@@ -1944,6 +1944,18 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(horizontal_run["start"]["role"], "horizontal_left_end")
             self.assertEqual(horizontal_run["preview_length"], 4)
             self.assertEqual(horizontal_run["preview"], "images/constructions/indoors_table_kit_horizontal_run.png")
+            table_l = next(construction for construction in constructions if construction["id"] == "indoors.table.kit.l_top_left")
+            self.assertEqual(table_l["kind"], "fixed")
+            self.assertEqual(
+                table_l["seam_overrides"],
+                [
+                    {
+                        "cell": {"x": 0, "y": 0},
+                        "side": "east",
+                        "reason": "Table-leg silhouette intentionally differs across this L-shape contact.",
+                    }
+                ],
+            )
             door = next(composite for composite in composite_tiles if composite["id"] == "indoors.door.grand.closed")
             self.assertEqual(door["kind"], "composite_tile")
             self.assertEqual(door["shape"], {"width": 2, "height": 2})

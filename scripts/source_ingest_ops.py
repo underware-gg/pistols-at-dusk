@@ -1791,7 +1791,7 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
             ),
         }
     fixed = cast(FixedConstruction, construction)
-    return {
+    payload: dict[str, object] = {
         "id": fixed.id,
         "collection_id": fixed.collection_id,
         "kind": fixed.kind,
@@ -1813,6 +1813,16 @@ def _public_construction_entry(construction: object) -> dict[str, object]:
             for row in fixed.cells
         ],
     }
+    if fixed.seam_overrides:
+        payload["seam_overrides"] = [
+            {
+                "cell": {"x": override.x, "y": override.y},
+                "side": override.side,
+                "reason": override.reason,
+            }
+            for override in fixed.seam_overrides
+        ]
+    return payload
 
 
 def _public_composite_tile_entry(composite: CompositeTileRecord) -> dict[str, object]:
