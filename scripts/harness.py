@@ -35,7 +35,6 @@ from tile_library import (
     Construction,
     ConstructionAttachmentSet,
     EntityTemplateRecord,
-    FrameCornerSlot,
     LoweredTileCell,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -43,6 +42,7 @@ from tile_library import (
     RuntimeConstructionCatalog,
     TileGenesis,
     TileRecord,
+    project_parametric_frame,
 )
 from tile_families import (
     bootstrap_family as bootstrap_tile_family,
@@ -433,66 +433,8 @@ def _parametric_frame_tile_placements(
             )
         )
 
-    def _place_corner(corner: FrameCornerSlot, anchor_x: int, anchor_y: int) -> None:
-        # Place the corner's cells grid at the anchor, applying the slot's flip
-        # (mirror the grid order and flip each tile) so one corner's art can
-        # derive the other three.
-        h, w = corner.height, corner.width
-        for r, row in enumerate(corner.cells):
-            for c, tile in enumerate(row):
-                if tile is None:
-                    continue
-                dx = (w - 1 - c) if corner.flip_x else c
-                dy = (h - 1 - r) if corner.flip_y else r
-                _emit(tile, anchor_x + dx, anchor_y + dy, flip_x=corner.flip_x, flip_y=corner.flip_y)
-
-    tl = construction.corners.get("corner_tl")
-    tr = construction.corners.get("corner_tr")
-    bl = construction.corners.get("corner_bl")
-    br = construction.corners.get("corner_br")
-
-    def _w(corner: FrameCornerSlot | None) -> int:
-        return corner.width if corner is not None else 0
-
-    def _h(corner: FrameCornerSlot | None) -> int:
-        return corner.height if corner is not None else 0
-
-    # Corners are placed once each at the four anchors; absent corners stay blank.
-    if tl is not None:
-        _place_corner(tl, x, y)
-    if tr is not None:
-        _place_corner(tr, x + width - tr.width, y)
-    if bl is not None:
-        _place_corner(bl, x, y + height - bl.height)
-    if br is not None:
-        _place_corner(br, x + width - br.width, y + height - br.height)
-
-    # Present edges tile between the corner extents at the outer row/col; absent
-    # edges stay blank. (fill_mode only affects multi-cell "fat" edges, which are
-    # a deferred extension — single-cell v1 edges place one tile per border cell.)
-    top = construction.edges.get("edge_top")
-    bottom = construction.edges.get("edge_bottom")
-    left = construction.edges.get("edge_left")
-    right = construction.edges.get("edge_right")
-    if top is not None:
-        for col in range(x + _w(tl), x + width - _w(tr)):
-            _emit(top.tile, col, y, flip_x=top.flip_x, flip_y=top.flip_y)
-    if bottom is not None:
-        for col in range(x + _w(bl), x + width - _w(br)):
-            _emit(bottom.tile, col, y + height - 1, flip_x=bottom.flip_x, flip_y=bottom.flip_y)
-    if left is not None:
-        for row in range(y + _h(tl), y + height - _h(bl)):
-            _emit(left.tile, x, row, flip_x=left.flip_x, flip_y=left.flip_y)
-    if right is not None:
-        for row in range(y + _h(tr), y + height - _h(br)):
-            _emit(right.tile, x + width - 1, row, flip_x=right.flip_x, flip_y=right.flip_y)
-
-    # The interior fills only when the kit declares a fill slot (1-thick kits).
-    # Fat-corner kits declare no fill and supply their interior via a fill op.
-    if construction.fill is not None:
-        for row in range(y + 1, y + height - 1):
-            for col in range(x + 1, x + width - 1):
-                _emit(construction.fill.tile, col, row)
+    for cell in project_parametric_frame(construction, width=width, height=height):
+        _emit(cell.tile, x + cell.x, y + cell.y, flip_x=cell.flip_x, flip_y=cell.flip_y)
 
     return placements
 

@@ -217,6 +217,15 @@ class FrameCornerSlot:
 
 
 @dataclass(frozen=True)
+class FrameCell:
+    tile: TileRecord
+    x: int
+    y: int
+    flip_x: bool = False
+    flip_y: bool = False
+
+
+@dataclass(frozen=True)
 class ParametricFrameConstruction:
     """A resizable border/UI frame — the 2-D analogue of a parametric run.
 
@@ -236,6 +245,77 @@ class ParametricFrameConstruction:
     height_param: str = "height"
     expose_as_entity: bool = True
     kind: Literal["parametric_frame"] = "parametric_frame"
+
+
+def project_parametric_frame(
+    construction: ParametricFrameConstruction,
+    *,
+    width: int,
+    height: int,
+) -> tuple[FrameCell, ...]:
+    """Project a parametric frame to local tile cells for one concrete size.
+
+    The harness renderer and construction validator share this geometry so
+    placement and seam-check adjacency cannot drift.
+    """
+    cells: list[FrameCell] = []
+
+    def _emit(tile: TileRecord, cx: int, cy: int, *, flip_x: bool = False, flip_y: bool = False) -> None:
+        cells.append(FrameCell(tile=tile, x=cx, y=cy, flip_x=flip_x, flip_y=flip_y))
+
+    def _place_corner(corner: FrameCornerSlot, anchor_x: int, anchor_y: int) -> None:
+        h, w = corner.height, corner.width
+        for r, row in enumerate(corner.cells):
+            for c, tile in enumerate(row):
+                if tile is None:
+                    continue
+                dx = (w - 1 - c) if corner.flip_x else c
+                dy = (h - 1 - r) if corner.flip_y else r
+                _emit(tile, anchor_x + dx, anchor_y + dy, flip_x=corner.flip_x, flip_y=corner.flip_y)
+
+    tl = construction.corners.get("corner_tl")
+    tr = construction.corners.get("corner_tr")
+    bl = construction.corners.get("corner_bl")
+    br = construction.corners.get("corner_br")
+
+    def _w(corner: FrameCornerSlot | None) -> int:
+        return corner.width if corner is not None else 0
+
+    def _h(corner: FrameCornerSlot | None) -> int:
+        return corner.height if corner is not None else 0
+
+    if tl is not None:
+        _place_corner(tl, 0, 0)
+    if tr is not None:
+        _place_corner(tr, width - tr.width, 0)
+    if bl is not None:
+        _place_corner(bl, 0, height - bl.height)
+    if br is not None:
+        _place_corner(br, width - br.width, height - br.height)
+
+    top = construction.edges.get("edge_top")
+    bottom = construction.edges.get("edge_bottom")
+    left = construction.edges.get("edge_left")
+    right = construction.edges.get("edge_right")
+    if top is not None:
+        for col in range(_w(tl), width - _w(tr)):
+            _emit(top.tile, col, 0, flip_x=top.flip_x, flip_y=top.flip_y)
+    if bottom is not None:
+        for col in range(_w(bl), width - _w(br)):
+            _emit(bottom.tile, col, height - 1, flip_x=bottom.flip_x, flip_y=bottom.flip_y)
+    if left is not None:
+        for row in range(_h(tl), height - _h(bl)):
+            _emit(left.tile, 0, row, flip_x=left.flip_x, flip_y=left.flip_y)
+    if right is not None:
+        for row in range(_h(tr), height - _h(br)):
+            _emit(right.tile, width - 1, row, flip_x=right.flip_x, flip_y=right.flip_y)
+
+    if construction.fill is not None:
+        for row in range(1, height - 1):
+            for col in range(1, width - 1):
+                _emit(construction.fill.tile, col, row)
+
+    return tuple(cells)
 
 
 Construction: TypeAlias = Union[

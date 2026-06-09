@@ -23,6 +23,7 @@ from tile_library import (
     CompositeTileRecord,
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
+    FrameCornerSlot,
     FixedConstruction,
     FixedConstructionSeamOverride,
     FixedSeamOverrideSide,
@@ -39,6 +40,7 @@ from tile_library import (
     connection_surface_for_placeable,
     entity_template_from_placeable,
     lower_tile_asset_to_cells,
+    project_parametric_frame,
 )
 from tile_families import (
     CompositeTileConfig,
@@ -3069,6 +3071,63 @@ class ParametricFrameConstructionBuildTests(unittest.TestCase):
         assert isinstance(construction, ParametricFrameConstruction)
         self.assertEqual(construction.width_param, "width")
         self.assertEqual(construction.height_param, "height")
+
+    def test_project_parametric_frame_places_thin_frame_at_multiple_sizes(self) -> None:
+        construction = build_construction(self._full_raw(), tiles=self._frame_tiles())  # type: ignore[arg-type]
+        assert isinstance(construction, ParametricFrameConstruction)
+        small = project_parametric_frame(construction, width=4, height=3)
+        self.assertEqual(
+            [(cell.tile.id, cell.x, cell.y, cell.flip_x, cell.flip_y) for cell in small],
+            [
+                ("t:tl", 0, 0, False, False),
+                ("t:tr", 3, 0, False, False),
+                ("t:bl", 0, 2, False, False),
+                ("t:br", 3, 2, False, False),
+                ("t:top", 1, 0, False, False),
+                ("t:top", 2, 0, False, False),
+                ("t:bottom", 1, 2, False, False),
+                ("t:bottom", 2, 2, False, False),
+                ("t:left", 0, 1, False, False),
+                ("t:right", 3, 1, False, False),
+                ("t:fill", 1, 1, False, False),
+                ("t:fill", 2, 1, False, False),
+            ],
+        )
+        large = project_parametric_frame(construction, width=5, height=4)
+        self.assertIn(("t:top", 3, 0, False, False), [(cell.tile.id, cell.x, cell.y, cell.flip_x, cell.flip_y) for cell in large])
+        self.assertIn(("t:fill", 3, 2, False, False), [(cell.tile.id, cell.x, cell.y, cell.flip_x, cell.flip_y) for cell in large])
+
+    def test_project_parametric_frame_places_flipped_fat_corners(self) -> None:
+        group = "ui.frame.fat"
+        a = _make_tile("t:a", compose_group=group, compose_role="a")
+        b = _make_tile("t:b", compose_group=group, compose_role="b")
+        c = _make_tile("t:c", compose_group=group, compose_role="c")
+        d = _make_tile("t:d", compose_group=group, compose_role="d")
+        construction = ParametricFrameConstruction(
+            id="ui.frame.fat",
+            collection_id=group,
+            corners={
+                "corner_tl": FrameCornerSlot(cells=((a, b), (c, d))),
+                "corner_br": FrameCornerSlot(cells=((a, b), (c, d)), flip_x=True, flip_y=True),
+            },
+            edges={},
+            min_width=4,
+            min_height=4,
+        )
+        projected = project_parametric_frame(construction, width=4, height=4)
+        self.assertEqual(
+            [(cell.tile.id, cell.x, cell.y, cell.flip_x, cell.flip_y) for cell in projected],
+            [
+                ("t:a", 0, 0, False, False),
+                ("t:b", 1, 0, False, False),
+                ("t:c", 0, 1, False, False),
+                ("t:d", 1, 1, False, False),
+                ("t:a", 3, 3, True, True),
+                ("t:b", 2, 3, True, True),
+                ("t:c", 3, 2, True, True),
+                ("t:d", 2, 2, True, True),
+            ],
+        )
 
     def test_minimal8_gold_smooth_loads_as_full_parametric_frame(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
