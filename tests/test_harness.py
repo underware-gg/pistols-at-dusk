@@ -145,6 +145,7 @@ def _copy_minimal8_runtime_fixture(root: Path) -> Minimal8RuntimeFixture:
     aliases_manifest_path = fixture_root / "tile-families" / "minimal8" / "aliases.json"
     clusters_manifest_path = fixture_root / "tile-families" / "minimal8" / "clusters.json"
     constructions_manifest_path = fixture_root / "tile-families" / "minimal8" / "constructions.json"
+    composite_tiles_manifest_path = fixture_root / "tile-families" / "minimal8" / "composite_tiles.json"
     ingestion_manifest_path = fixture_root / "tile-families" / "minimal8" / "ingestion.json"
 
     for src_path, dest_path in (
@@ -156,6 +157,7 @@ def _copy_minimal8_runtime_fixture(root: Path) -> Minimal8RuntimeFixture:
         (source_root / "tile-families" / "minimal8" / "aliases.json", aliases_manifest_path),
         (source_root / "tile-families" / "minimal8" / "clusters.json", clusters_manifest_path),
         (source_root / "tile-families" / "minimal8" / "constructions.json", constructions_manifest_path),
+        (source_root / "tile-families" / "minimal8" / "composite_tiles.json", composite_tiles_manifest_path),
         (source_root / "tile-families" / "minimal8" / "ingestion.json", ingestion_manifest_path),
     ):
         _copy_file(src_path, dest_path)
@@ -1699,7 +1701,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             ):
                 layout_core.LayoutProject(project_path)
 
-    def test_minimal8_grand_open_door_resolves_as_construction(self) -> None:
+    def test_minimal8_grand_open_door_resolves_as_composite_tile(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = layout_core.LayoutProject(project_path)
 
@@ -1708,8 +1710,10 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
         assert family is not None
-        construction = family.lookup_construction("indoors.door.grand.open")
-        self.assertIsNotNone(construction)
+        self.assertIsNone(family.lookup_construction("indoors.door.grand.open"))
+        composite = family.composite_tiles["indoors.door.grand.open"]
+        self.assertEqual(composite.collection_id, "indoors.door.grand.open")
+        self.assertEqual((composite.width, composite.height), (2, 2))
 
     def test_minimal8_overworld_land_undercoat_resolves_as_alias(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
@@ -1744,9 +1748,9 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
         self.assertEqual(payload["entity_count"], len(payload["entities"]))
         self.assertGreater(payload["entity_count"], 0)
-        constructions = {entity["template"]["construction_id"]: entity for entity in payload["entities"]}
-        self.assertIn("indoors.table.kit.rect_3x2", constructions)
-        table = constructions["indoors.table.kit.rect_3x2"]
+        placeables = {entity["template"]["placeable_id"]: entity for entity in payload["entities"]}
+        self.assertIn("indoors.table.kit.rect_3x2", placeables)
+        table = placeables["indoors.table.kit.rect_3x2"]
         self.assertEqual(table["template"]["collection_id"], "indoors.table.kit")
         self.assertEqual(table["template"]["placement_anchor"], "top_left")
         self.assertEqual(table["placement_anchor"]["kind"], "top_left")
@@ -1765,8 +1769,8 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             harness.export_layout_scene_runtime(layout_path, output_path)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
 
-        constructions = {entity["template"]["construction_id"]: entity for entity in payload["entities"]}
-        table = constructions["indoors.table.kit.rect_3x2"]
+        placeables = {entity["template"]["placeable_id"]: entity for entity in payload["entities"]}
+        table = placeables["indoors.table.kit.rect_3x2"]
         self.assertTrue(table["tiles"])
         for placement in table["tiles"]:
             self.assertIn("genesis", placement)
@@ -1904,6 +1908,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             source_regions = json.loads((output_dir / "source_regions.json").read_text(encoding="utf-8"))
             source_collections = json.loads((output_dir / "source_collections.json").read_text(encoding="utf-8"))
             constructions = json.loads((output_dir / "constructions.json").read_text(encoding="utf-8"))
+            composite_tiles = json.loads((output_dir / "composite_tiles.json").read_text(encoding="utf-8"))
 
             self.assertEqual(manifest["tileset"], "minimal8@1bit_colored_bg")
             self.assertEqual(manifest["family_id"], "minimal8")
@@ -1915,6 +1920,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(manifest["counts"]["source_regions"], len(source_regions))
             self.assertEqual(manifest["counts"]["source_collections"], len(source_collections))
             self.assertEqual(manifest["counts"]["constructions"], len(constructions))
+            self.assertEqual(manifest["counts"]["composite_tiles"], len(composite_tiles))
             self.assertTrue((output_dir / "tiles.csv").exists())
             self.assertTrue((output_dir / "README.md").exists())
             self.assertTrue((output_dir / "images" / "sheet_annotated.png").exists())
@@ -1938,11 +1944,11 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(horizontal_run["start"]["role"], "horizontal_left_end")
             self.assertEqual(horizontal_run["preview_length"], 4)
             self.assertEqual(horizontal_run["preview"], "images/constructions/indoors_table_kit_horizontal_run.png")
-            door = next(construction for construction in constructions if construction["id"] == "indoors.door.grand.closed")
-            self.assertEqual(door["kind"], "metatile")
+            door = next(composite for composite in composite_tiles if composite["id"] == "indoors.door.grand.closed")
+            self.assertEqual(door["kind"], "composite_tile")
             self.assertEqual(door["shape"], {"width": 2, "height": 2})
             self.assertEqual(door["cells"][0][0]["role"], "top_left")
-            self.assertEqual(door["preview"], "images/constructions/indoors_door_grand_closed.png")
+            self.assertEqual(door["cells"][0][0]["tile_id"], "minimal8:architecture:2,10")
 
     def test_export_public_tile_pack_clears_stale_output_files(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"

@@ -1886,7 +1886,10 @@
       "layer": {
         "bind": "architecture_layer"
       },
-      "construction": "indoors.door.grand.closed",
+      "placeable": {
+        "kind": "composite_tile",
+        "id": "indoors.door.grand.closed"
+      },
       "x": {
         "bind": "door_x"
       },

@@ -1,0 +1,48 @@
+{
+  "composite_tiles": [
+    {
+      "id": "indoors.door.grand.open",
+      "collection_id": "indoors.door.grand.open",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    },
+    {
+      "id": "indoors.door.grand.closed",
+      "collection_id": "indoors.door.grand.closed",
+      "cells": [
+        [
+          {
+            "role": "top_left"
+          },
+          {
+            "role": "top_right"
+          }
+        ],
+        [
+          {
+            "role": "bottom_left"
+          },
+          {
+            "role": "bottom_right"
+          }
+        ]
+      ]
+    }
+  ]
+}

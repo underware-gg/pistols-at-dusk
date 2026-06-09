@@ -29,6 +29,7 @@
     "aliases": "aliases.json",
     "clusters": "clusters.json",
     "constructions": "constructions.json",
+    "composite_tiles": "composite_tiles.json",
     "render_step_width": 8,
     "render_step_height": 8,
     "siblings_share_semantics": true,

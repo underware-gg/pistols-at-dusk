@@ -841,7 +841,7 @@ class TavernSceneTests(unittest.TestCase):
         grand_doors = [
             entity
             for entity in runtime.entities
-            if entity.template.construction_id == "indoors.door.grand.closed"
+            if entity.template.placeable_ref == PlaceableRef(kind="composite_tile", id="indoors.door.grand.closed")
         ]
         self.assertEqual(len(grand_doors), 1)
         rect_tables = [
@@ -1045,7 +1045,7 @@ class PopulateSlotsDataSceneTests(unittest.TestCase):
                             {
                                 "id": "square_single",
                                 "kind": "entity",
-                                "construction": "indoors.table.kit.square_single",
+                                "placeable": {"kind": "tile", "id": "minimal8:terrain:3,16"},
                                 "layer": "architecture",
                                 "weight": 1,
                             }
@@ -1086,10 +1086,10 @@ class PopulateSlotsDataSceneTests(unittest.TestCase):
             self.assertEqual((_op_int(ornament_stamps[0], "x"), _op_int(ornament_stamps[0], "y")), (13, 6))
 
             entity_positions = {
-                (entity.template.construction_id, entity.layer, entity.x, entity.y)
+                (entity.template.placeable_ref, entity.layer, entity.x, entity.y)
                 for entity in runtime.entities
             }
-            self.assertIn(("indoors.table.kit.square_single", "architecture", 9, 6), entity_positions)
+            self.assertIn((PlaceableRef(kind="tile", id="minimal8:terrain:3,16"), "architecture", 9, 6), entity_positions)
 
     def test_populate_slots_is_deterministic_for_same_seed(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -968,8 +968,6 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         table_collection = family.source_layout.source_collections["indoors.table.kit"]
         self.assertTrue(
             {
-                "indoors.table.kit.round_single",
-                "indoors.table.kit.square_single",
                 "indoors.table.kit.horizontal_run",
                 "indoors.table.kit.vertical_run",
                 "indoors.table.kit.square_2x2",
@@ -1503,35 +1501,42 @@ class AttachmentLoaderTests(unittest.TestCase):
 
 
 class ConstructionLoaderTests(unittest.TestCase):
-    def test_grand_door_construction_loads_and_validates(self) -> None:
+    def test_table_single_placeables_resolve_to_expected_atomic_tiles(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
-        for construction_id in ("indoors.door.grand.open", "indoors.door.grand.closed"):
-            construction = family.lookup_construction(construction_id)
-            self.assertIsNotNone(construction)
-            assert construction is not None
-            self.assertEqual(construction.id, construction_id)
-            self.assertEqual(construction.collection_id, construction_id)
-            self.assertIsInstance(construction, MetatileConstruction)
-            assert isinstance(construction, MetatileConstruction)
-            self.assertEqual(len(construction.cells), 2)
-            self.assertEqual(len(construction.cells[0]), 2)
-            self.assertEqual(len(construction.cells[1]), 2)
-            top_left = construction.cells[0][0]
-            top_right = construction.cells[0][1]
-            bottom_left = construction.cells[1][0]
-            bottom_right = construction.cells[1][1]
+
+        expected_roles = {
+            "minimal8:terrain:0,15": "round_single",
+            "minimal8:terrain:3,16": "square_single",
+        }
+        for tile_id, expected_role in expected_roles.items():
+            tile = family.tiles[tile_id]
+            self.assertEqual(tile.compose_group, "indoors.table.kit")
+            self.assertEqual(tile.compose_role, expected_role)
+
+    def test_grand_door_composite_tiles_load_and_validate(self) -> None:
+        family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
+        for composite_id in ("indoors.door.grand.open", "indoors.door.grand.closed"):
+            self.assertIsNone(family.lookup_construction(composite_id))
+            composite = family.composite_tiles[composite_id]
+            self.assertEqual(composite.id, composite_id)
+            self.assertEqual(composite.collection_id, composite_id)
+            self.assertEqual((composite.width, composite.height), (2, 2))
+            top_left = composite.cells[0][0]
+            top_right = composite.cells[0][1]
+            bottom_left = composite.cells[1][0]
+            bottom_right = composite.cells[1][1]
             self.assertIsNotNone(top_left)
             self.assertIsNotNone(top_right)
             self.assertIsNotNone(bottom_left)
             self.assertIsNotNone(bottom_right)
-        assert top_left is not None
-        assert top_right is not None
-        assert bottom_left is not None
-        assert bottom_right is not None
-        self.assertEqual(top_left.compose_role, "top_left")
-        self.assertEqual(top_right.compose_role, "top_right")
-        self.assertEqual(bottom_left.compose_role, "bottom_left")
-        self.assertEqual(bottom_right.compose_role, "bottom_right")
+            assert top_left is not None
+            assert top_right is not None
+            assert bottom_left is not None
+            assert bottom_right is not None
+            self.assertEqual(top_left.tile.compose_role, "top_left")
+            self.assertEqual(top_right.tile.compose_role, "top_right")
+            self.assertEqual(bottom_left.tile.compose_role, "bottom_left")
+            self.assertEqual(bottom_right.tile.compose_role, "bottom_right")
 
     def test_lookup_construction_returns_none_for_unknown_id(self) -> None:
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")

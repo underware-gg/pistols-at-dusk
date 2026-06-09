@@ -2149,8 +2149,6 @@
         }
       ],
       "constructions": [
-        "indoors.table.kit.round_single",
-        "indoors.table.kit.square_single",
         "indoors.table.kit.horizontal_run",
         "indoors.table.kit.vertical_run",
         "indoors.table.kit.square_2x2",

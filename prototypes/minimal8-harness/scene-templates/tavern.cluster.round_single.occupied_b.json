@@ -38,7 +38,10 @@
       "layer": {
         "bind": "architecture_layer"
       },
-      "construction": "indoors.table.kit.round_single",
+      "placeable": {
+        "kind": "tile",
+        "id": "minimal8:terrain:0,15"
+      },
       "x": 0,
       "y": 0
     },
