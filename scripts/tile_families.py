@@ -16,7 +16,16 @@ from typing_extensions import NotRequired, TypeAlias
 
 from PIL import Image
 
-from _manifest_utils import GridBounds, bounds_inside as _bounds_inside, check_required_keys, load_json, require_list, require_mapping, resolve_path
+from _manifest_utils import (
+    GridBounds,
+    bounds_inside as _bounds_inside,
+    check_required_keys,
+    load_json,
+    require_exactly_one,
+    require_list,
+    require_mapping,
+    resolve_path,
+)
 from compatibility_family import CompatibilityFamilyPaths
 from seam_matching import MatchPolicy
 from seam_profiles import derive_side_masks
@@ -2176,15 +2185,8 @@ def _parse_attachment_target_ids(
     return tuple(str(value) for value in target_ids_raw)
 
 
-def _require_exactly_one(mapping: Mapping[str, object], first: str, second: str, *, context: str) -> None:
-    if (first in mapping) == (second in mapping):
-        raise ValueError(f"{context} must declare exactly one of {first} or {second}")
-
-
 def _parse_placeable_ref(raw: object, *, context: str) -> PlaceableRef:
-    mapping = require_mapping(raw, context=context)
-    check_required_keys(mapping, ("kind", "id"), context=context)
-    return PlaceableRef(kind=cast(PlaceableKind, str(mapping["kind"])), id=str(mapping["id"]))
+    return PlaceableRef.from_mapping(raw, context=context)
 
 
 def _parse_attachment_target_refs(
@@ -2193,7 +2195,7 @@ def _parse_attachment_target_refs(
     attachment_id: str,
     attachments_path: Path | None,
 ) -> tuple[PlaceableRef, ...]:
-    _require_exactly_one(
+    require_exactly_one(
         raw,
         "target_construction_ids",
         "target_placeables",
@@ -2289,7 +2291,7 @@ def _parse_attachment_variants(
         variant_context = f"attachment set {attachment_id!r} variants[{index}]"
         mapping = require_mapping(raw_variant, context=variant_context)
         check_required_keys(mapping, ("id",), context=variant_context)
-        _require_exactly_one(mapping, "construction_id", "placeable", context=variant_context)
+        require_exactly_one(mapping, "construction_id", "placeable", context=variant_context)
         variant_id = str(mapping["id"])
         if variant_id in variants:
             raise ValueError(f"attachment set {attachment_id!r} declares duplicate variant id {variant_id!r}")

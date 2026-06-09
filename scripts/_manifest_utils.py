@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Mapping, cast
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,11 @@ def check_required_keys(
     missing = [key for key in required if key not in mapping]
     if missing:
         raise ValueError(f"{context} is missing required keys: {', '.join(missing)}")
+
+
+def require_exactly_one(mapping: Mapping[str, object], first: str, second: str, *, context: str) -> None:
+    if (first in mapping) == (second in mapping):
+        raise ValueError(f"{context} must declare exactly one of {first} or {second}")
 
 
 def resolve_path(base_dir: Path, raw_path: str) -> Path:

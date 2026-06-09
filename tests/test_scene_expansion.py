@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import harness
+import scene_rules
 import scene_templates
 from scene_rules import SceneRuleEntityCandidate, SceneRulesetLibrary, SceneRulesetSpec
 from tile_library import (
@@ -187,6 +189,83 @@ class SceneTemplateLibraryTests(unittest.TestCase):
         self.assertIn("back_wall_stock", tavern.catalogues)
         self.assertIn("dining_rect_3x2", tavern.catalogues)
         self.assertIn("dining_square_2x2", tavern.catalogues)
+
+    def test_scene_rule_entity_candidate_loads_canonical_placeable_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            _write_json(
+                rules_dir / "sample.json",
+                {
+                    "ruleset_id": "sample",
+                    "description": "Placeable entity candidate fixture.",
+                    "catalogues": {
+                        "entities": [
+                            {
+                                "id": "tile_entity",
+                                "kind": "entity",
+                                "weight": 1,
+                                "placeable": {"kind": "tile", "id": "tile.a"},
+                            }
+                        ]
+                    },
+                },
+            )
+
+            library = scene_rules.load_scene_ruleset_library(ROOT, str(rules_dir))
+
+        candidate = library.require("sample").require_catalogue("entities")[0]
+        self.assertIsInstance(candidate, SceneRuleEntityCandidate)
+        assert isinstance(candidate, SceneRuleEntityCandidate)
+        self.assertIsNone(candidate.construction_id)
+        self.assertEqual(candidate.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+
+    def test_scene_rule_entity_candidate_rejects_both_construction_and_placeable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            _write_json(
+                rules_dir / "sample.json",
+                {
+                    "ruleset_id": "sample",
+                    "description": "Invalid entity candidate fixture.",
+                    "catalogues": {
+                        "entities": [
+                            {
+                                "id": "tile_entity",
+                                "kind": "entity",
+                                "weight": 1,
+                                "construction": "test.fixture",
+                                "placeable": {"kind": "tile", "id": "tile.a"},
+                            }
+                        ]
+                    },
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+                scene_rules.load_scene_ruleset_library(ROOT, str(rules_dir))
+
+    def test_scene_rule_entity_candidate_rejects_missing_placeable_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            _write_json(
+                rules_dir / "sample.json",
+                {
+                    "ruleset_id": "sample",
+                    "description": "Invalid entity candidate fixture.",
+                    "catalogues": {
+                        "entities": [
+                            {
+                                "id": "tile_entity",
+                                "kind": "entity",
+                                "weight": 1,
+                            }
+                        ]
+                    },
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+                scene_rules.load_scene_ruleset_library(ROOT, str(rules_dir))
 
     def test_loader_rejects_filename_id_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1908,6 +1987,170 @@ class EntityOpDataSceneTests(unittest.TestCase):
         )
 
         self.assertIsNone(expanded.entities[0].variant_id)
+
+    def test_entity_op_accepts_canonical_placeable_ref(self) -> None:
+        spec_raw = self._data_scene_with_entity()
+        entity_op = cast(dict[str, object], spec_raw["ops"][0])
+        entity_op.pop("construction")
+        entity_op["placeable"] = {"kind": "tile", "id": "tile.a"}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            spec = scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+        runtime = self._make_runtime()
+        expanded = scene_templates.expand_data_scene(
+            {"template": "entity_test", "x": 4, "y": 2},
+            spec,
+            runtime=runtime,
+        )
+
+        entity = expanded.entities[0]
+        self.assertIsNone(entity.construction_id)
+        self.assertEqual(entity.placeable_ref, PlaceableRef(kind="tile", id="tile.a"))
+
+    def test_entity_op_rejects_both_construction_and_placeable(self) -> None:
+        spec_raw = self._data_scene_with_entity()
+        cast(dict[str, object], spec_raw["ops"][0])["placeable"] = {"kind": "tile", "id": "tile.a"}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+                scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+    def test_entity_op_rejects_missing_placeable_identity(self) -> None:
+        spec_raw = self._data_scene_with_entity()
+        cast(dict[str, object], spec_raw["ops"][0]).pop("construction")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tpl_path = Path(tmpdir) / "entity_test.json"
+            _write_json(tpl_path, spec_raw)
+            with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+                scene_templates._load_scene_template_spec(tpl_path)  # type: ignore[attr-defined]
+
+    def test_layout_entity_op_dispatches_canonical_placeable_ref(self) -> None:
+        class _Project:
+            tile_library_registry = object()
+
+        stamp = {"kind": "stamp", "ref": "tile.a", "x": 2, "y": 3}
+        op = {
+            "kind": "entity",
+            "layer": "architecture",
+            "placeable": {"kind": "tile", "id": "tile.a"},
+            "x": 2,
+            "y": 3,
+        }
+        project = _Project()
+
+        with patch.object(harness, "expand_placeable_stamps", return_value=[stamp]) as expand_placeable, patch.object(
+            harness,
+            "_apply_stamp_op",
+        ) as apply_stamp:
+            harness._apply_entity_op(  # type: ignore[attr-defined]
+                [],
+                cast(Any, project),
+                cast(Any, op),
+                default_tileset=None,
+            )
+
+        expand_placeable.assert_called_once_with(
+            project.tile_library_registry,
+            PlaceableRef(kind="tile", id="tile.a"),
+            2,
+            3,
+            context="layout entity op",
+            params=None,
+            variant_id=None,
+        )
+        apply_stamp.assert_called_once_with([], cast(Any, project), stamp, default_tileset=None)
+
+    def test_layout_entity_op_rejects_missing_placeable_identity(self) -> None:
+        class _Project:
+            tile_library_registry = object()
+
+        op = {
+            "kind": "entity",
+            "layer": "architecture",
+            "x": 2,
+            "y": 3,
+        }
+
+        with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+            harness._apply_entity_op(  # type: ignore[attr-defined]
+                [],
+                cast(Any, _Project()),
+                cast(Any, op),
+                default_tileset=None,
+            )
+
+    def test_layout_entity_op_rejects_both_construction_and_placeable(self) -> None:
+        class _Project:
+            tile_library_registry = object()
+
+        op = {
+            "kind": "entity",
+            "layer": "architecture",
+            "construction": "test.fixture.two_cells",
+            "placeable": {"kind": "tile", "id": "tile.a"},
+            "x": 2,
+            "y": 3,
+        }
+
+        with self.assertRaisesRegex(ValueError, "exactly one of construction or placeable"):
+            harness._apply_entity_op(  # type: ignore[attr-defined]
+                [],
+                cast(Any, _Project()),
+                cast(Any, op),
+                default_tileset=None,
+            )
+
+    def test_layout_entity_op_rejects_malformed_placeable_ref(self) -> None:
+        class _Project:
+            tile_library_registry = object()
+
+        for placeable, expected in (
+            ("tile.a", "layout entity op placeable must be a JSON object"),
+            ({"id": "tile.a"}, "layout entity op placeable kind must be a string"),
+            ({"kind": "tile"}, "layout entity op placeable id must be a string"),
+        ):
+            with self.subTest(placeable=placeable):
+                op = {
+                    "kind": "entity",
+                    "layer": "architecture",
+                    "placeable": placeable,
+                    "x": 2,
+                    "y": 3,
+                }
+
+                with self.assertRaisesRegex(ValueError, expected):
+                    harness._apply_entity_op(  # type: ignore[attr-defined]
+                        [],
+                        cast(Any, _Project()),
+                        cast(Any, op),
+                        default_tileset=None,
+                    )
+
+    def test_layout_entity_op_rejects_invalid_placeable_kind(self) -> None:
+        class _Project:
+            tile_library_registry = object()
+
+        op = {
+            "kind": "entity",
+            "layer": "architecture",
+            "placeable": {"kind": "scene", "id": "scene.a"},
+            "x": 2,
+            "y": 3,
+        }
+
+        with self.assertRaisesRegex(ValueError, "PlaceableRef.kind is invalid"):
+            harness._apply_entity_op(  # type: ignore[attr-defined]
+                [],
+                cast(Any, _Project()),
+                cast(Any, op),
+                default_tileset=None,
+            )
 
     def test_populate_slots_forwards_candidate_placeable_identity_to_entity_request(self) -> None:
         spec_raw: dict[str, Any] = {

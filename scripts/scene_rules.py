@@ -8,6 +8,7 @@ from typing import TypedDict, Union, cast
 from typing_extensions import TypeAlias
 
 from tile_library import PlaceableKind, PlaceableRef
+from _manifest_utils import require_exactly_one
 
 
 TileRefToken: TypeAlias = Union[str, int, None, dict[str, object], list["TileRefToken"]]
@@ -216,7 +217,13 @@ def _load_scene_rule_candidate(
             layer=layer,
         )
     if candidate_kind == "entity":
-        construction_id = _require_string(candidate.get("construction"), context=f"{context} construction")
+        require_exactly_one(candidate, "construction", "placeable", context=context)
+        if "placeable" in candidate:
+            placeable_ref = PlaceableRef.from_mapping(candidate["placeable"], context=f"{context} placeable")
+            construction_id: str | None = None
+        else:
+            construction_id = _require_string(candidate.get("construction"), context=f"{context} construction")
+            placeable_ref = PlaceableRef.construction(construction_id)
         layer = candidate.get("layer")
         if layer is not None:
             layer = _require_string(layer, context=f"{context} layer")
@@ -228,8 +235,8 @@ def _load_scene_rule_candidate(
             construction_id=construction_id,
             layer=layer,
             params=None if params is None else dict(params),
-            placeable_kind="construction",
-            placeable_id=construction_id,
+            placeable_kind=placeable_ref.kind,
+            placeable_id=placeable_ref.id,
         )
     if candidate_kind == "scene":
         scene_id = _require_string(candidate.get("scene"), context=f"{context} scene")

@@ -18,6 +18,7 @@ from scene_rules import (
     SceneRuleStampCandidate,
 )
 from tile_library import PlaceableKind, PlaceableRef
+from _manifest_utils import require_exactly_one
 
 
 TileRefToken: TypeAlias = Union[str, int, None, dict[str, object], list["TileRefToken"]]
@@ -97,12 +98,13 @@ class SpreadStampsFields(TypedDict):
 # entity has no runtime SceneOp variant. It expands to scene-entity requests
 # during template expansion, which the harness later resolves into stamps.
 class _EntityFieldsRequired(TypedDict):
-    construction: object
     x: object
     y: object
 
 
 class EntityFields(_EntityFieldsRequired, total=False):
+    construction: object
+    placeable: object
     entity_id: object
     params: object
     variant_id: object
@@ -161,12 +163,13 @@ class SceneSlotFields(_SceneSlotRequired, total=False):
 # carries pre-resolved plain JSON scalars and expands directly to stamps.
 class _EntityOpRequired(TypedDict):
     kind: Literal["entity"]
-    construction: str
     x: int
     y: int
 
 
 class EntityOp(_EntityOpRequired, total=False):
+    construction: str
+    placeable: dict[str, object]
     params: dict[str, object]
     variant_id: str
 
@@ -489,6 +492,8 @@ def _load_data_scene_op_spec(index: int, raw_spec: object, *, context: str) -> D
         raise ValueError(
             f"{context} op[{index}] kind {kind!r} is missing required fields: {', '.join(missing)}"
         )
+    if kind == "entity":
+        require_exactly_one(fields, "construction", "placeable", context=f"{context} op[{index}] kind 'entity'")
     layer: object = spec.get("layer")
     return DataSceneOpSpec(kind=kind, layer=layer, fields=fields, when_present=when_present)
 
@@ -1558,10 +1563,24 @@ def expand_data_scene(
             continue
 
         if op_spec.kind == "entity":
-            construction_id = _scene_expr_str_value(
-                evaluate_scene_expr(op_spec.fields["construction"], scene=scene, bindings=bindings, runtime=runtime),
-                context=f"scene template {template_spec.template_id!r} entity construction",
-            )
+            if "placeable" in op_spec.fields:
+                raw_placeable = evaluate_scene_expr(
+                    op_spec.fields["placeable"],
+                    scene=scene,
+                    bindings=bindings,
+                    runtime=runtime,
+                )
+                placeable_ref = PlaceableRef.from_mapping(
+                    raw_placeable,
+                    context=f"scene template {template_spec.template_id!r} entity placeable",
+                )
+                construction_id = None
+            else:
+                construction_id = _scene_expr_str_value(
+                    evaluate_scene_expr(op_spec.fields["construction"], scene=scene, bindings=bindings, runtime=runtime),
+                    context=f"scene template {template_spec.template_id!r} entity construction",
+                )
+                placeable_ref = PlaceableRef.construction(construction_id)
             x = _scene_expr_int_value(
                 evaluate_scene_expr(op_spec.fields["x"], scene=scene, bindings=bindings, runtime=runtime),
                 context=f"scene template {template_spec.template_id!r} entity x",
@@ -1608,8 +1627,8 @@ def expand_data_scene(
                     y=y,
                     params=None if entity_params is None else dict(entity_params),
                     variant_id=entity_variant_id,
-                    placeable_kind="construction",
-                    placeable_id=construction_id,
+                    placeable_kind=placeable_ref.kind,
+                    placeable_id=placeable_ref.id,
                 )
             )
             continue

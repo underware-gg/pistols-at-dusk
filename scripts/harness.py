@@ -13,6 +13,7 @@ from typing_extensions import TypeAlias
 from PIL import Image
 
 from prototype_output import create_staging_output_path, publish_staged_output
+from _manifest_utils import require_exactly_one
 from scene_templates import (
     AsciiOp,
     EntityOp,
@@ -1032,9 +1033,17 @@ def _apply_entity_op(layer: list[list[ResolvedTile | None]], project: LayoutProj
     tile_library = project.tile_library_registry
     if tile_library is None:
         raise ValueError("layout entity op requires a tile-family-backed project")
-    stamps = expand_entity_stamps(
+    require_exactly_one(op, "construction", "placeable", context="layout entity op")
+    if "placeable" in op:
+        placeable_ref = PlaceableRef.from_mapping(op["placeable"], context="layout entity op placeable")
+    else:
+        construction_id = op.get("construction")
+        if not isinstance(construction_id, str):
+            raise ValueError("layout entity op construction must be a string")
+        placeable_ref = PlaceableRef.construction(construction_id)
+    stamps = expand_placeable_stamps(
         tile_library,
-        op["construction"],
+        placeable_ref,
         op["x"],
         op["y"],
         context="layout entity op",

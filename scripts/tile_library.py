@@ -13,7 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Iterable, Literal, Mapping, Protocol, Union
+from typing import Iterable, Literal, Mapping, Protocol, Union, cast
 
 from typing_extensions import TypeAlias
 
@@ -41,6 +41,17 @@ class PlaceableRef:
     @classmethod
     def construction(cls, construction_id: str) -> PlaceableRef:
         return cls(kind="construction", id=construction_id)
+
+    @classmethod
+    def from_mapping(cls, raw: object, *, context: str) -> PlaceableRef:
+        mapping = require_mapping(raw, context=context)
+        kind = mapping.get("kind")
+        if not isinstance(kind, str):
+            raise ValueError(f"{context} kind must be a string")
+        placeable_id = mapping.get("id")
+        if not isinstance(placeable_id, str):
+            raise ValueError(f"{context} id must be a string")
+        return cls(kind=cast(PlaceableKind, kind), id=placeable_id)
 
     def to_payload(self) -> dict[str, object]:
         return {
