@@ -44,7 +44,7 @@ from tile_library import (
     TileRecord,
     project_parametric_frame,
 )
-from tile_families import (
+from tile_family_ingest import (
     bootstrap_family as bootstrap_tile_family,
 )
 from source_ingest_ops import (

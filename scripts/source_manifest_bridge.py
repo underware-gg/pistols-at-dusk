@@ -18,13 +18,19 @@ from tile_library import (
     TileFamilyVariant,
     TileLibraryPromotedMetadata,
 )
-from tile_families import (
-    DEFAULT_TRANSPARENT_MODE,
+from source_layout_model import (
     SourceLayoutIngestion,
+)
+# TODO(IRS Phase 2/3): decouple layout_core from ingest; the bridge still
+# imports and reads source_layout / ingestion.json for source-pack families.
+from tile_family_ingest import (
+    load_source_layout_from_path,
+)
+from tile_family_runtime import (
+    DEFAULT_TRANSPARENT_MODE,
     TileFamily,
     load_family_catalog_sources,
     load_family_header_and_variants,
-    load_source_layout_from_path,
 )
 
 ComparableT = TypeVar("ComparableT")

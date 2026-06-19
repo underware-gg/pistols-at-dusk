@@ -1,3 +1,10 @@
+"""Operator-side reference matcher.
+
+This module intentionally sits outside the runtime base layer: source-region
+matching depends on source-layout ingest metadata, so the ingest dependency is
+kept here rather than in ``tile_family_runtime``.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -37,7 +44,8 @@ from reference_grid import (
     resize_nearest,
 )
 from reference_grid_types import Rect
-from tile_families import TileFamily
+from tile_family_ingest import load_source_tile_family
+from tile_family_runtime import TileFamily
 
 
 RGBA = tuple[int, int, int, int]
@@ -481,7 +489,7 @@ class SiblingVariantColorRecommender:
         cached = self._family_cache.get(family_path)
         if cached is not None:
             return cached
-        loaded = TileFamily.load(family_path)
+        loaded = load_source_tile_family(family_path)
         self._family_cache[family_path] = loaded
         return loaded
 
@@ -778,7 +786,7 @@ def load_source_tiles(
     source_id: str | None = None,
     source_region_ids: Sequence[str] = (),
 ) -> tuple[TileFamily, str, str, list[SourceTile]]:
-    family = TileFamily.load(family_path)
+    family = load_source_tile_family(family_path)
     resolved_variant_id = variant_id or family.default_variant_id
     resolved_source_id = source_id or _default_source_id(
         family_id=family.family_id,

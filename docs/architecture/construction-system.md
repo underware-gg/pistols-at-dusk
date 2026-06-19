@@ -91,7 +91,8 @@ Known open questions, deferred:
 
 ## References
 
-- [scripts/tile_families.py](../../scripts/tile_families.py) — construction loading and validation.
+- [scripts/tile_family_runtime.py](../../scripts/tile_family_runtime.py) — construction loading and validation.
+- [scripts/tile_families.py](../../scripts/tile_families.py) — transitional compatibility facade over the split family modules.
 - [scripts/tile_library.py](../../scripts/tile_library.py) — construction records and the runtime catalog containers they are looked up through.
 - [scripts/scene_templates.py](../../scripts/scene_templates.py) — DSL evaluator.
 - [scripts/harness.py](../../scripts/harness.py) — entity resolution and render pipeline.

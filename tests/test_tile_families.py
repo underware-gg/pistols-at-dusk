@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 import tempfile
@@ -57,6 +58,41 @@ from tile_families import (
     load_composite_tiles_from_data,
     build_construction as _build_construction,
 )
+
+
+class RuntimeImportBoundaryTests(unittest.TestCase):
+    def test_runtime_base_modules_do_not_import_ingest_or_facade(self) -> None:
+        runtime_modules = (
+            "tile_family_runtime.py",
+            "source_layout_model.py",
+            "tile_library.py",
+            "seam_matching.py",
+            "seam_profiles.py",
+            "compatibility_family.py",
+            "_manifest_utils.py",
+            "tile_normalisation.py",
+        )
+        forbidden = (
+            "from tile_family_ingest import",
+            "import tile_family_ingest",
+            "from tile_families import",
+            "import tile_families",
+            "from reference_tile_match import",
+            "import reference_tile_match",
+        )
+        for module_name in runtime_modules:
+            with self.subTest(module=module_name):
+                source = (SCRIPTS_DIR / module_name).read_text(encoding="utf-8")
+                for import_text in forbidden:
+                    self.assertNotIn(import_text, source)
+
+    @unittest.expectedFailure
+    def test_layout_core_does_not_transitively_import_ingest(self) -> None:
+        """TODO(IRS Phase 2/3): source_manifest_bridge still imports ingest."""
+        for module_name in ("layout_core", "source_manifest_bridge", "tile_family_ingest"):
+            sys.modules.pop(module_name, None)
+        importlib.import_module("layout_core")
+        self.assertNotIn("tile_family_ingest", sys.modules)
 
 
 def build_construction(

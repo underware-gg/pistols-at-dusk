@@ -640,6 +640,33 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsupported tile reference syntax"):
                 project.validate_ref_without_loading("missing.alias", default_tileset="family.b@base")
 
+    def test_legacy_path_project_loads_source_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            project_path = root / "project.json"
+            _write_json(
+                project_path,
+                {
+                    "tile_family": {
+                        "path": str(ROOT / "prototypes/minimal8-harness/tile-families/minimal8"),
+                        "variant_id": "1bit_colored_bg",
+                    },
+                    "grid": {"render_step_width": 8, "render_step_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "patterns": {},
+                },
+            )
+
+            project = layout_core.LayoutProject(project_path)
+            family = project.source_family_for_tileset("minimal8@1bit_colored_bg")
+
+            self.assertIsNotNone(family)
+            assert family is not None
+            self.assertIsNotNone(family.source_layout)
+            assert family.source_layout is not None
+            self.assertIn("ui.gold_frame", family.source_layout.source_collections)
+
     def test_project_supports_source_pack_tile_family_selection(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

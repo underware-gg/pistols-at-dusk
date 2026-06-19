@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Layout core: LayoutProject, the project/layout config and tile data types,
 and the shared rendering / drawing / geometry primitives the harness and the
-source-ingest operators build on. This is the shared base layer; it imports only
-upstream modules (tile_library / tile_families / scene_* / source_manifest_bridge
-/ _manifest_utils) and never the harness or ingest layers.
+source-ingest operators build on. This is the shared base layer over
+tile_library / tile_family_runtime / scene_* / _manifest_utils. During the IRS
+transition it still imports source_manifest_bridge and tile_family_ingest, which
+read ingest source_layout data for source-pack and legacy-path families; Phase
+2/3 removes those dependencies from the runtime load path.
 """
 
 from __future__ import annotations
@@ -45,9 +47,12 @@ from tile_library import (
     TileLibraryUnit,
     TileRecord,
 )
-from tile_families import (
+from tile_family_runtime import (
     TileFamily,
 )
+# TODO(IRS Phase 2/3): decouple layout_core from ingest; legacy-path families
+# still need source_layout / ingestion.json until runtime assets are promoted.
+from tile_family_ingest import load_source_tile_family
 from source_manifest_bridge import load_bridged_tile_family
 
 
@@ -402,7 +407,7 @@ def _load_family_from_legacy_path(
     if raw_path is None:
         raise ValueError("tile_family legacy path config must define path")
     family_dir = resolve_path(base_dir, raw_path)
-    return family_dir, TileFamily.load(family_dir)
+    return family_dir, load_source_tile_family(family_dir)
 
 
 def _load_family_from_source_pack(
@@ -1879,5 +1884,3 @@ def apply_ascii(
             token = legend[char]
             pattern = project.pattern_from_ref(token, default_tileset=default_tileset)
             place_pattern(layer, pattern, origin_x + col_index, origin_y + row_index)
-
-
