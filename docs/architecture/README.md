@@ -81,7 +81,7 @@ In the current implementation:
   - family-backed ref resolution
   - construction and entity-template lookup
   - bounds-aware family ref validation
-- once the compatibility units are built, ordinary runtime scene work uses the runtime library surface; however, project load still reads ingest/source-layout files through the source-pack bridge and legacy-path loader until the Phase 2/3 runtime-asset work lands
+- once the compatibility units are built, ordinary runtime scene work uses the runtime library surface; however, project load still reads ingest/source-layout files through the source-pack bridge and legacy-path loader, and the render path still live-crops tile pixels from the vendor source sheet, until the Phase 2/3 runtime-asset work lands — that work moves the runtime onto produced, content-addressed atomic tile assets and synthetic runtime sheets so runtime no longer reads ingest manifests or vendor source sheets for pixels ([ADR 0012](decisions/0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md))
 - when more than one family-backed unit is loaded, the project must nominate an explicit `default_tileset` for bare ref resolution
 - the runtime registry owns cross-unit routing for explicit family refs and unique family-owned aliases/tile ids
 - inspect/export/audit flows may still use `TileFamily` directly as a richer source-facing tool surface outside the runtime boundary
