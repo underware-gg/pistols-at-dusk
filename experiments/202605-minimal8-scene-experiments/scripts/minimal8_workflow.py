@@ -32,7 +32,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from tile_library import TileRecord
+from tile_library import TileRecord, require_variant_sheet_path
 from tile_families import SourceLayoutIngestion, TileFamily
 
 
@@ -113,7 +113,7 @@ def _get_catalog() -> TileFamily:
 
 
 def _get_variant_sheet_path() -> Path:
-    return _get_catalog().variant(MINIMAL8_VARIANT_ID).sheet_path
+    return require_variant_sheet_path(_get_catalog().variant(MINIMAL8_VARIANT_ID), context="minimal8 workflow")
 
 
 class Minimal8:

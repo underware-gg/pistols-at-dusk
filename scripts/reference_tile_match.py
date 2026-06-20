@@ -46,6 +46,7 @@ from reference_grid import (
 from reference_grid_types import Rect
 from tile_family_ingest import load_source_tile_family
 from tile_family_runtime import TileFamily
+from tile_library import require_variant_sheet_path
 
 
 RGBA = tuple[int, int, int, int]
@@ -456,7 +457,11 @@ class SiblingVariantColorRecommender:
 
         family = self._family(source.family_path)
         variant = family.variant(variant_id)
-        sheet = self._sheet(source.family_path, variant_id, variant.sheet_path)
+        sheet = self._sheet(
+            source.family_path,
+            variant_id,
+            require_variant_sheet_path(variant, context="reference tile matching"),
+        )
         left = sheet_col * family.tile_width
         top = sheet_row * family.tile_height
         image = sheet.crop((left, top, left + family.tile_width, top + family.tile_height))
@@ -802,7 +807,7 @@ def load_source_tiles(
                 f"Unknown source-region ids for family {family.family_id}: {', '.join(unknown_region_ids)}"
             )
     variant = family.variant(resolved_variant_id)
-    sheet = Image.open(variant.sheet_path).convert("RGBA")
+    sheet = Image.open(require_variant_sheet_path(variant, context="reference source tile discovery")).convert("RGBA")
     tiles: list[SourceTile] = []
     for sheet_row in range(sheet.height // family.tile_height):
         for sheet_col in range(sheet.width // family.tile_width):

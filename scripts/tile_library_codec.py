@@ -35,6 +35,7 @@ from tile_library import (
     TileLibraryUnit,
     TileRecord,
     attachment_sets_by_target,
+    index_tiles_by_sheet_cell,
 )
 
 
@@ -258,7 +259,7 @@ def _tile_record_payload(tile: TileRecord) -> dict[str, object]:
         "tags": list(tile.tags),
         "genesis": _tile_genesis_payload(tile.genesis),
         "exact_duplicate_of": tile.exact_duplicate_of,
-        "image_override": tile.image_override,
+        "variant_assets": {variant_id: address for variant_id, address in sorted(tile.variant_assets.items())},
         "aliases": list(tile.aliases),
         "walkable": tile.walkable,
         "blocking": tile.blocking,
@@ -305,7 +306,16 @@ def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
         tags=_as_string_tuple(mapping.get("tags", []), context=f"{context}.tags"),
         genesis=_tile_genesis_from_payload(mapping.get("genesis"), context=f"{context}.genesis"),
         exact_duplicate_of=_as_optional_str(mapping.get("exact_duplicate_of"), context=f"{context}.exact_duplicate_of"),
-        image_override=_as_optional_str(mapping.get("image_override"), context=f"{context}.image_override"),
+        variant_assets={
+            _as_str(variant_id, context=f"{context}.variant_assets key"): _as_str(
+                address,
+                context=f"{context}.variant_assets.{variant_id}",
+            )
+            for variant_id, address in require_mapping(
+                mapping.get("variant_assets", {}),
+                context=f"{context}.variant_assets",
+            ).items()
+        },
         aliases=_as_string_tuple(mapping.get("aliases", []), context=f"{context}.aliases"),
         walkable=_as_optional_bool(mapping.get("walkable"), context=f"{context}.walkable"),
         blocking=_as_optional_bool(mapping.get("blocking"), context=f"{context}.blocking"),
@@ -697,7 +707,6 @@ def _cluster_from_payload(raw: object, *, context: str) -> TileClusterRecord:
 def _variant_payload(variant: TileFamilyVariant) -> dict[str, object]:
     return {
         "id": variant.id,
-        "sheet_path": str(variant.sheet_path),
         "transparent_mode": variant.transparent_mode,
         "palette_family": variant.palette_family,
         "colorway": variant.colorway,
@@ -710,7 +719,7 @@ def _variant_from_payload(raw: object, *, context: str) -> TileFamilyVariant:
     mapping = require_mapping(raw, context=context)
     return TileFamilyVariant(
         id=_as_str(mapping.get("id"), context=f"{context}.id"),
-        sheet_path=Path(_as_str(mapping.get("sheet_path"), context=f"{context}.sheet_path")),
+        sheet_path=None,
         transparent_mode=_as_str(mapping.get("transparent_mode"), context=f"{context}.transparent_mode"),
         palette_family=_as_optional_str(mapping.get("palette_family"), context=f"{context}.palette_family"),
         colorway=_as_optional_str(mapping.get("colorway"), context=f"{context}.colorway"),
@@ -784,6 +793,20 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
                     f"runtime library.clusters.{cluster.id}.members references unknown tile id {member_id!r}"
                 )
     for tile in tiles.values():
+        variant_asset_ids = set(tile.variant_assets)
+        declared_variant_ids = set(variants)
+        missing_variant_ids = sorted(declared_variant_ids - variant_asset_ids)
+        unknown_variant_ids = sorted(variant_asset_ids - declared_variant_ids)
+        if missing_variant_ids:
+            raise ValueError(
+                f"runtime library.tiles.{tile.id}.variant_assets is missing variants: "
+                f"{', '.join(missing_variant_ids)}"
+            )
+        if unknown_variant_ids:
+            raise ValueError(
+                f"runtime library.tiles.{tile.id}.variant_assets references unknown variants: "
+                f"{', '.join(unknown_variant_ids)}"
+            )
         for cluster_id in tile.genesis.cluster_ids:
             if cluster_id not in clusters:
                 raise ValueError(
@@ -826,18 +849,7 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
     default_variant_id = _as_str(family.get("default_variant_id"), context="runtime library.family.default_variant_id")
     if default_variant_id not in variants:
         raise ValueError(f"runtime library.family.default_variant_id references unknown variant {default_variant_id!r}")
-    tiles_by_sheet_cell_index: dict[tuple[int, int], TileRecord] = {}
-    for tile in tiles.values():
-        if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
-            continue
-        key = (tile.genesis.sheet_col, tile.genesis.sheet_row)
-        existing = tiles_by_sheet_cell_index.get(key)
-        if existing is not None:
-            raise ValueError(
-                f"runtime library.tiles duplicate sheet cell {key!r}: "
-                f"{existing.id!r} and {tile.id!r}"
-            )
-        tiles_by_sheet_cell_index[key] = tile
+    tiles_by_sheet_cell_index = index_tiles_by_sheet_cell(tiles, context="runtime library.tiles")
     return TileLibraryUnit(
         family_id=_as_str(family.get("family_id"), context="runtime library.family.family_id"),
         tile_width=_as_int(family.get("tile_width"), context="runtime library.family.tile_width"),

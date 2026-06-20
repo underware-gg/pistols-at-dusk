@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Iterable, Literal, Mapping, Protocol, Union, cast
@@ -537,12 +537,21 @@ class EntityTemplateRecord:
 @dataclass(frozen=True)
 class TileFamilyVariant:
     id: str
-    sheet_path: Path
+    sheet_path: Path | None
     transparent_mode: str
     palette_family: str | None = None
     colorway: str | None = None
     background_mode: str | None = None
     notes: str | None = None
+
+
+def require_variant_sheet_path(variant: TileFamilyVariant, *, context: str) -> Path:
+    if variant.sheet_path is None:
+        raise ValueError(
+            f"{context} requires source sheet pixels for variant {variant.id!r}, "
+            "but runtime-asset variants do not carry sheet_path"
+        )
+    return variant.sheet_path
 
 
 @dataclass(frozen=True)
@@ -599,6 +608,10 @@ def _empty_composite_tiles() -> Mapping[str, CompositeTileRecord]:
 
 
 def _empty_tile_clusters() -> Mapping[str, TileClusterRecord]:
+    return {}
+
+
+def _empty_variant_assets() -> Mapping[str, str]:
     return {}
 
 
@@ -661,6 +674,7 @@ class TileRecord:
     genesis: TileGenesis
     exact_duplicate_of: str | None = None
     image_override: str | None = None
+    variant_assets: Mapping[str, str] = field(default_factory=_empty_variant_assets, repr=False)
     aliases: tuple[str, ...] = ()
     walkable: bool | None = None
     blocking: bool | None = None
@@ -693,6 +707,9 @@ class TileRecord:
     meaning: str | None = None
     meaning_confidence: str | None = None
     source_notes: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "variant_assets", MappingProxyType(dict(self.variant_assets)))
 
 
 @dataclass(frozen=True)
@@ -1025,6 +1042,102 @@ def connection_surface_for_placeable(placeable: TileRecord | CompositeTileRecord
     return _connection_surface_for_composite_tile(placeable)
 
 
+def _rebind_tile(tile: TileRecord, tiles: Mapping[str, TileRecord]) -> TileRecord:
+    return tiles[tile.id]
+
+
+def index_tiles_by_sheet_cell(
+    tiles: Mapping[str, TileRecord],
+    *,
+    context: str,
+) -> dict[tuple[int, int], TileRecord]:
+    indexed: dict[tuple[int, int], TileRecord] = {}
+    for tile in tiles.values():
+        if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
+            continue
+        key = (tile.genesis.sheet_col, tile.genesis.sheet_row)
+        existing = indexed.get(key)
+        if existing is not None:
+            raise ValueError(f"{context} has duplicate sheet cell {key!r}: {existing.id!r} and {tile.id!r}")
+        indexed[key] = tile
+    return indexed
+
+
+def _rebind_fixed_construction_tiles(
+    construction: FixedConstruction,
+    tiles: Mapping[str, TileRecord],
+) -> FixedConstruction:
+    return replace(
+        construction,
+        cells=tuple(
+            tuple(None if cell is None else _rebind_tile(cell, tiles) for cell in row)
+            for row in construction.cells
+        ),
+    )
+
+
+def _rebind_parametric_run_tiles(
+    construction: ParametricRunConstruction,
+    tiles: Mapping[str, TileRecord],
+) -> ParametricRunConstruction:
+    return replace(
+        construction,
+        start_tile=_rebind_tile(construction.start_tile, tiles),
+        repeat_tile=_rebind_tile(construction.repeat_tile, tiles),
+        end_tile=_rebind_tile(construction.end_tile, tiles),
+    )
+
+
+def _rebind_frame_slot_tiles(slot: FrameSlot, tiles: Mapping[str, TileRecord]) -> FrameSlot:
+    return replace(slot, tile=_rebind_tile(slot.tile, tiles))
+
+
+def _rebind_frame_corner_tiles(corner: FrameCornerSlot, tiles: Mapping[str, TileRecord]) -> FrameCornerSlot:
+    return replace(
+        corner,
+        cells=tuple(
+            tuple(None if cell is None else _rebind_tile(cell, tiles) for cell in row)
+            for row in corner.cells
+        ),
+    )
+
+
+def _rebind_parametric_frame_tiles(
+    construction: ParametricFrameConstruction,
+    tiles: Mapping[str, TileRecord],
+) -> ParametricFrameConstruction:
+    return replace(
+        construction,
+        corners={role: _rebind_frame_corner_tiles(corner, tiles) for role, corner in construction.corners.items()},
+        edges={role: _rebind_frame_slot_tiles(edge, tiles) for role, edge in construction.edges.items()},
+        fill=None if construction.fill is None else _rebind_frame_slot_tiles(construction.fill, tiles),
+    )
+
+
+def _rebind_construction_tiles(construction: Construction, tiles: Mapping[str, TileRecord]) -> Construction:
+    if isinstance(construction, FixedConstruction):
+        return _rebind_fixed_construction_tiles(construction, tiles)
+    if isinstance(construction, ParametricRunConstruction):
+        return _rebind_parametric_run_tiles(construction, tiles)
+    return _rebind_parametric_frame_tiles(construction, tiles)
+
+
+def _rebind_composite_tile_tiles(
+    composite: CompositeTileRecord,
+    tiles: Mapping[str, TileRecord],
+) -> CompositeTileRecord:
+    return replace(
+        composite,
+        cells=tuple(
+            tuple(
+                None if cell is None else replace(cell, tile=_rebind_tile(cell.tile, tiles))
+                for cell in row
+            )
+            for row in composite.cells
+        ),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class TileLibraryUnit(RuntimeConstructionCatalog):
     family_id: str
@@ -1216,6 +1329,21 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
             tiles_by_sheet_cell=self.tiles_by_sheet_cell_index,
             ref=ref,
             variant_id=variant_id,
+        )
+
+    def with_tiles(self, tiles: Mapping[str, TileRecord]) -> TileLibraryUnit:
+        return replace(
+            self,
+            tiles=dict(tiles),
+            tiles_by_sheet_cell_index=index_tiles_by_sheet_cell(tiles, context=f"tile library {self.family_id!r}"),
+            constructions={
+                construction_id: _rebind_construction_tiles(construction, tiles)
+                for construction_id, construction in self.constructions.items()
+            },
+            composite_tiles={
+                composite_id: _rebind_composite_tile_tiles(composite, tiles)
+                for composite_id, composite in self.composite_tiles.items()
+            },
         )
 
 

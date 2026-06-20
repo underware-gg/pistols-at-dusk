@@ -75,6 +75,8 @@ from tile_library import (
     ResolvedFamilyTile,
     attachment_sets_by_target,
     fixed_placeable_bounds,
+    index_tiles_by_sheet_cell,
+    require_variant_sheet_path,
     resolve_tile_image_override_path,
     TileLibraryUnit,
 )
@@ -673,47 +675,99 @@ def _crop_tile_from_sheet(
     return sheet.crop((left, top, left + tile_width, top + tile_height))
 
 
-def _tile_image_bytes(
+def sheet_tile_image(
+    sheet: Image.Image,
+    *,
+    sheet_col: int,
+    sheet_row: int,
+    tile_width: int,
+    tile_height: int,
+    transparent_mode: str,
+) -> Image.Image:
+    image = _crop_tile_from_sheet(
+        sheet,
+        sheet_col=sheet_col,
+        sheet_row=sheet_row,
+        tile_width=tile_width,
+        tile_height=tile_height,
+    ).convert("RGBA")
+    transparent_key = transparent_key_for_sheet(sheet, transparent_mode)
+    if transparent_key is not None:
+        apply_transparent_key(image, transparent_key)
+    return image
+
+
+def resolve_canonical_tile_image(
+    tile: TileRecord,
     *,
     variant: TileFamilyVariant,
-    sheet_col: int | None,
-    sheet_row: int | None,
+    root: Path,
     tile_width: int,
     tile_height: int,
     image_cache: dict[Path, Image.Image],
-    image_override_path: Path | None = None,
-) -> bytes:
-    if image_override_path is not None:
+    require_tile_size: bool = True,
+) -> Image.Image:
+    if tile.image_override is not None:
+        image_override_path = resolve_tile_image_override_path(
+            root=root,
+            image_override=tile.image_override,
+            variant_id=variant.id,
+        )
         image = image_cache.get(image_override_path)
         if image is None:
             image = Image.open(image_override_path).convert("RGBA")
             image_cache[image_override_path] = image
-        if image.size != (tile_width, tile_height):
+        if require_tile_size and image.size != (tile_width, tile_height):
             raise ValueError(
-                f"Derived tile image {image_override_path} is {image.size}, expected {(tile_width, tile_height)}"
+                f"Tile {tile.id!r} image_override {image_override_path} is {image.size}, "
+                f"expected {(tile_width, tile_height)}"
             )
-        return image.tobytes()
+        return image.copy()
 
-    image = image_cache.get(variant.sheet_path)
+    if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
+        raise ValueError(f"Sheet-backed tile {tile.id!r} requires sheet_col and sheet_row")
+    sheet_path = require_variant_sheet_path(variant, context=f"canonical tile image {tile.id!r}")
+    image = image_cache.get(sheet_path)
     if image is None:
-        image = Image.open(variant.sheet_path).convert("RGBA")
-        image_cache[variant.sheet_path] = image
-    if sheet_col is None or sheet_row is None:
-        raise ValueError("Sheet-backed tile image lookup requires sheet_col and sheet_row")
-    return _crop_tile_from_sheet(
-        image, sheet_col=sheet_col, sheet_row=sheet_row, tile_width=tile_width, tile_height=tile_height
+        image = Image.open(sheet_path).convert("RGBA")
+        image_cache[sheet_path] = image
+    return sheet_tile_image(
+        image,
+        sheet_col=tile.genesis.sheet_col,
+        sheet_row=tile.genesis.sheet_row,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        transparent_mode=variant.transparent_mode,
+    )
+
+
+def _tile_image_bytes(
+    *,
+    tile: TileRecord,
+    variant: TileFamilyVariant,
+    root: Path,
+    tile_width: int,
+    tile_height: int,
+    image_cache: dict[Path, Image.Image],
+) -> bytes:
+    return resolve_canonical_tile_image(
+        tile,
+        variant=variant,
+        root=root,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        image_cache=image_cache,
     ).tobytes()
 
 
 def _tile_occupancy_grid(
     *,
+    tile: TileRecord,
     variant: TileFamilyVariant,
-    sheet_col: int | None,
-    sheet_row: int | None,
+    root: Path,
     tile_width: int,
     tile_height: int,
     image_cache: dict[Path, Image.Image],
-    image_override_path: Path | None = None,
 ) -> list[list[bool]]:
     """A tile's per-pixel occupancy (``True`` = painted) from its *normalised* art.
 
@@ -724,26 +778,17 @@ def _tile_occupancy_grid(
     follows the tile's own pixel dimensions — a sheet crop is
     ``tile_width × tile_height``; an override is read at its native size.
     """
-    if image_override_path is not None:
-        tile = image_cache.get(image_override_path)
-        if tile is None:
-            tile = Image.open(image_override_path).convert("RGBA")
-            image_cache[image_override_path] = tile
-    else:
-        if sheet_col is None or sheet_row is None:
-            raise ValueError("Sheet-backed tile occupancy lookup requires sheet_col and sheet_row")
-        sheet = image_cache.get(variant.sheet_path)
-        if sheet is None:
-            sheet = Image.open(variant.sheet_path).convert("RGBA")
-            image_cache[variant.sheet_path] = sheet
-        tile = _crop_tile_from_sheet(
-            sheet, sheet_col=sheet_col, sheet_row=sheet_row, tile_width=tile_width, tile_height=tile_height
-        )
-        transparent_key = transparent_key_for_sheet(sheet, variant.transparent_mode)
-        if transparent_key is not None:
-            apply_transparent_key(tile, transparent_key)
-    width, height = tile.size
-    alpha = tile.getchannel("A")
+    image = resolve_canonical_tile_image(
+        tile,
+        variant=variant,
+        root=root,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        image_cache=image_cache,
+        require_tile_size=False,
+    )
+    width, height = image.size
+    alpha = image.getchannel("A")
     return [
         [cast(int, alpha.getpixel((x, y))) > 0 for x in range(width)]
         for y in range(height)
@@ -776,23 +821,13 @@ def _attach_seam_profiles(
     """
     enriched: dict[str, TileRecord] = {}
     for tile_id, tile in tiles.items():
-        image_override_path = (
-            resolve_tile_image_override_path(
-                root=root,
-                image_override=tile.image_override,
-                variant_id=default_variant.id,
-            )
-            if tile.image_override is not None
-            else None
-        )
         grid = _tile_occupancy_grid(
+            tile=tile,
             variant=default_variant,
-            sheet_col=tile.genesis.sheet_col,
-            sheet_row=tile.genesis.sheet_row,
+            root=root,
             tile_width=tile_width,
             tile_height=tile_height,
             image_cache=image_cache,
-            image_override_path=image_override_path,
         )
         inset = tile.cell_content_inset if tile.cell_content_inset is not None else default_inset
         masks = derive_side_masks(grid, top=inset.top, right=inset.right, bottom=inset.bottom, left=inset.left)
@@ -807,13 +842,14 @@ def _sheet_bounds_for_variant(
     tile_height: int,
     image_cache: dict[Path, Image.Image],
 ) -> GridBounds:
-    image = image_cache.get(variant.sheet_path)
+    sheet_path = require_variant_sheet_path(variant, context="variant sheet bounds")
+    image = image_cache.get(sheet_path)
     if image is None:
-        image = Image.open(variant.sheet_path).convert("RGBA")
-        image_cache[variant.sheet_path] = image
+        image = Image.open(sheet_path).convert("RGBA")
+        image_cache[sheet_path] = image
     if image.width % tile_width != 0 or image.height % tile_height != 0:
         raise ValueError(
-            f"Variant sheet {variant.sheet_path} size {image.width}x{image.height} is not aligned to"
+            f"Variant sheet {sheet_path} size {image.width}x{image.height} is not aligned to"
             f" tile size {tile_width}x{tile_height}"
         )
     return GridBounds(
@@ -1500,20 +1536,6 @@ def _validate_tile_override_images(
                 )
 
 
-def _index_tiles_by_sheet_cell(tiles: Mapping[str, TileRecord]) -> dict[tuple[int, int], TileRecord]:
-    tiles_by_sheet_cell: dict[tuple[int, int], TileRecord] = {}
-    for tile in tiles.values():
-        if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
-            continue
-        key = (tile.genesis.sheet_col, tile.genesis.sheet_row)
-        if key in tiles_by_sheet_cell:
-            raise ValueError(
-                f"Tiles {tiles_by_sheet_cell[key].id!r} and {tile.id!r} both claim sheet cell {key}"
-            )
-        tiles_by_sheet_cell[key] = tile
-    return tiles_by_sheet_cell
-
-
 def _validate_exact_duplicate_pixels(
     *,
     root: Path,
@@ -1522,6 +1544,9 @@ def _validate_exact_duplicate_pixels(
     tile_width: int,
     tile_height: int,
 ) -> None:
+    # Compare rendered pixels: sheet-backed tiles are read after keyed-background
+    # normalisation, while override tiles are read as authored RGBA. The
+    # asymmetry intentionally mirrors the render paths.
     variant_image_cache: dict[Path, Image.Image] = {}
     for tile in tiles.values():
         if tile.exact_duplicate_of is None:
@@ -1529,38 +1554,20 @@ def _validate_exact_duplicate_pixels(
         canonical_tile = tiles[tile.exact_duplicate_of]
         for variant in variants.values():
             tile_bytes = _tile_image_bytes(
+                tile=tile,
                 variant=variant,
-                sheet_col=tile.genesis.sheet_col,
-                sheet_row=tile.genesis.sheet_row,
+                root=root,
                 tile_width=tile_width,
                 tile_height=tile_height,
                 image_cache=variant_image_cache,
-                image_override_path=(
-                    resolve_tile_image_override_path(
-                        root=root,
-                        image_override=tile.image_override,
-                        variant_id=variant.id,
-                    )
-                    if tile.image_override is not None
-                    else None
-                ),
             )
             canonical_bytes = _tile_image_bytes(
+                tile=canonical_tile,
                 variant=variant,
-                sheet_col=canonical_tile.genesis.sheet_col,
-                sheet_row=canonical_tile.genesis.sheet_row,
+                root=root,
                 tile_width=tile_width,
                 tile_height=tile_height,
                 image_cache=variant_image_cache,
-                image_override_path=(
-                    resolve_tile_image_override_path(
-                        root=root,
-                        image_override=canonical_tile.image_override,
-                        variant_id=variant.id,
-                    )
-                    if canonical_tile.image_override is not None
-                    else None
-                ),
             )
             if tile_bytes != canonical_bytes:
                 raise ValueError(
@@ -2364,7 +2371,7 @@ class TileFamily:
             default_inset=header.cell_content_inset,
         )
 
-        tiles_by_sheet_cell = _index_tiles_by_sheet_cell(tiles)
+        tiles_by_sheet_cell = index_tiles_by_sheet_cell(tiles, context=f"family {header.family_id!r}")
         _validate_exact_duplicate_pixels(
             root=root,
             tiles=tiles,

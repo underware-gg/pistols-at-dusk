@@ -46,6 +46,7 @@ from tile_library import (
     TileLibraryRegistry,
     TileLibraryUnit,
     TileRecord,
+    require_variant_sheet_path,
 )
 from tile_family_runtime import (
     TileFamily,
@@ -678,7 +679,7 @@ class GridTileset:
         variant = tile_library.variant(variant_id)
         return cls(
             tile_library.runtime_tileset_id(variant_id),
-            sheet_path=variant.sheet_path,
+            sheet_path=require_variant_sheet_path(variant, context="GridTileset.from_variant"),
             tile_width=tile_library.tile_width,
             tile_height=tile_library.tile_height,
             transparent_mode=variant.transparent_mode,
@@ -1022,7 +1023,7 @@ class LayoutProject:
         if tile_library is not None and not allow_family_tileset_load and tileset_id not in self.tilesets:
             variant_id = self._family_variant_ids_by_tileset[tileset_id]
             variant = tile_library.variant(variant_id)
-            with Image.open(variant.sheet_path) as image:
+            with Image.open(require_variant_sheet_path(variant, context="family tileset metrics")) as image:
                 columns = image.width // tile_library.tile_width
                 rows = image.height // tile_library.tile_height
             metrics = TilesetGridMetrics(columns=columns, rows=rows, tile_count=columns * rows)

@@ -46,11 +46,19 @@ from tile_library import (
     entity_template_from_placeable,
     lower_tile_asset_to_cells,
     project_parametric_frame,
+    resolve_tile_image_override_path,
 )
 from tile_library_codec import (
     tile_library_unit_from_json,
     tile_library_unit_from_payload,
     tile_library_unit_to_json,
+)
+from layout_core import GridTileset
+from runtime_asset_producer import (
+    atomic_asset_relative_path,
+    canonical_rgba_bytes,
+    materialize_runtime_unit,
+    produce_runtime_family_asset,
 )
 from tile_families import (
     CompositeTileConfig,
@@ -572,6 +580,233 @@ def make_image_override_family_dir(root: Path, *, image_size: tuple[int, int] = 
     return family_dir
 
 
+def make_multi_variant_image_override_family_dir(root: Path) -> Path:
+    family_dir = root / "family"
+    family_dir.mkdir()
+
+    base_sheet = Image.new("RGBA", (8, 16), (0, 0, 0, 255))
+    base_sheet.putpixel((3, 3), (255, 255, 0, 255))
+    base_sheet.save(family_dir / "sheet-base.png")
+    alt_sheet = Image.new("RGBA", (8, 16), (0, 0, 0, 255))
+    alt_sheet.putpixel((3, 3), (0, 255, 255, 255))
+    alt_sheet.save(family_dir / "sheet-alt.png")
+
+    for variant_id, color in (("base", (255, 0, 255, 255)), ("alt", (0, 255, 128, 255))):
+        variant_dir = family_dir / "derived" / variant_id
+        variant_dir.mkdir(parents=True)
+        Image.new("RGBA", (8, 8), color).save(variant_dir / "override.png")
+
+    write_json(
+        family_dir / "family.json",
+        {
+            "family_id": "testfam",
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "default_variant_id": "base",
+            "variants": [
+                {
+                    "variant_id": "base",
+                    "sheet": "sheet-base.png",
+                    "transparent": "top_left",
+                },
+                {
+                    "variant_id": "alt",
+                    "sheet": "sheet-alt.png",
+                    "transparent": "top_left",
+                },
+            ],
+            "ingestion_spec": "ingestion.json",
+        },
+    )
+    write_json(
+        family_dir / "ingestion.json",
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 1, "height": 2},
+            "regions": [
+                {
+                    "id": "sheet.region",
+                    "bounds": {"x": 0, "y": 0, "width": 1, "height": 2},
+                    "label": "All sheet content",
+                }
+            ],
+            "clusters": [
+                {
+                    "id": "sheet.region.cluster_01",
+                    "source_region_id": "sheet.region",
+                    "bounds": {"x": 0, "y": 0, "width": 1, "height": 2},
+                    "label": "Only cluster",
+                }
+            ],
+            "collections": [],
+        },
+    )
+    write_json(
+        family_dir / "clusters.json",
+        [
+            {
+                "id": "cluster.valid",
+                "scope": "family",
+                "members": ["testfam:all:0,0", "testfam:derived.override"],
+            }
+        ],
+    )
+    write_json(
+        family_dir / "tiles.json",
+        [
+            {
+                "id": "testfam:all:0,0",
+                "sheet_col": 0,
+                "sheet_row": 0,
+                "layer": "ui",
+                "category": "ui",
+                "transparent": False,
+                "cluster_ids": ["cluster.valid"],
+                "source_group": "test.sheet",
+                "meaning": "Sheet-backed control tile.",
+                "meaning_confidence": "confirmed",
+            },
+            {
+                "id": "testfam:derived.override",
+                "layer": "ui",
+                "category": "ui",
+                "transparent": False,
+                "image_override": "derived/{variant_id}/override.png",
+                "cluster_ids": ["cluster.valid"],
+                "source_group": "test.derived",
+                "meaning": "Variant derived override tile.",
+                "meaning_confidence": "confirmed",
+            },
+        ],
+    )
+    write_json(
+        family_dir / "aliases.json",
+        {
+            "sample.alias": "testfam:all:0,0",
+            "sample.override": "testfam:derived.override",
+        },
+    )
+    return family_dir
+
+
+def make_runtime_rebind_family_dir(root: Path) -> Path:
+    family_dir = root / "family"
+    family_dir.mkdir()
+    Image.new("RGBA", (32, 16), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+
+    write_json(
+        family_dir / "family.json",
+        {
+            "family_id": "testfam",
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "default_variant_id": "base",
+            "variants": [{"variant_id": "base", "sheet": "sheet.png", "transparent": "none"}],
+            "ingestion_spec": "ingestion.json",
+        },
+    )
+    placeable_ids = ["test.fixed", "test.run", "test.frame", "test.composite"]
+    write_json(
+        family_dir / "ingestion.json",
+        {
+            "sheet_bounds": {"x": 0, "y": 0, "width": 4, "height": 2},
+            "regions": [
+                {
+                    "id": "sheet.region",
+                    "bounds": {"x": 0, "y": 0, "width": 4, "height": 2},
+                    "label": "All sheet content",
+                }
+            ],
+            "clusters": [],
+            "ignore_regions": [],
+            "collections": [
+                {
+                    "id": "sheet.region.collection_01",
+                    "kind": "connected_component",
+                    "bounds": {"x": 0, "y": 0, "width": 4, "height": 2},
+                    "constructions": placeable_ids,
+                    "members": [{"sheet_cell": {"col": col, "row": row}} for row in range(2) for col in range(4)],
+                }
+            ],
+        },
+    )
+    write_json(family_dir / "clusters.json", [])
+    tile_specs: list[dict[str, object]] = []
+    roles = (
+        ("testfam:fixed:0,0", 0, 0, "test.fixed", "base"),
+        ("testfam:run.start:1,0", 1, 0, "test.run", "start"),
+        ("testfam:run.repeat:2,0", 2, 0, "test.run", "repeat"),
+        ("testfam:run.end:3,0", 3, 0, "test.run", "end"),
+        ("testfam:frame.corner:0,1", 0, 1, "test.frame", "corner_tl"),
+        ("testfam:frame.edge:1,1", 1, 1, "test.frame", "edge_top"),
+        ("testfam:frame.fill:2,1", 2, 1, "test.frame", "fill"),
+        ("testfam:composite:3,1", 3, 1, "test.composite", "single"),
+    )
+    for tile_id, col, row, compose_group, compose_role in roles:
+        tile_specs.append(
+            {
+                "id": tile_id,
+                "sheet_col": col,
+                "sheet_row": row,
+                "layer": "ui",
+                "category": "ui",
+                "transparent": False,
+                "compose_group": compose_group,
+                "compose_role": compose_role,
+                "cluster_ids": [],
+                "source_group": "test",
+                "meaning": f"Fixture tile {compose_role}.",
+                "meaning_confidence": "confirmed",
+            }
+        )
+    write_json(family_dir / "tiles.json", tile_specs)
+    write_json(family_dir / "aliases.json", {})
+    write_json(
+        family_dir / "constructions.json",
+        {
+            "constructions": [
+                {
+                    "id": "test.fixed",
+                    "collection_id": "test.fixed",
+                    "kind": "fixed",
+                    "cells": [[{"role": "base"}]],
+                },
+                {
+                    "id": "test.run",
+                    "collection_id": "test.run",
+                    "kind": "parametric_run",
+                    "axis": "x",
+                    "length_param": "length",
+                    "start_role": "start",
+                    "repeat_role": "repeat",
+                    "end_role": "end",
+                    "expose_as_entity": False,
+                },
+                {
+                    "id": "test.frame",
+                    "collection_id": "test.frame",
+                    "kind": "parametric_frame",
+                    "corners": {"tl": {"role": "corner_tl"}},
+                    "edges": {"top": {"role": "edge_top"}},
+                    "fill": {"role": "fill"},
+                    "expose_as_entity": False,
+                },
+            ]
+        },
+    )
+    write_json(
+        family_dir / "composite_tiles.json",
+        {
+            "composite_tiles": [
+                {
+                    "id": "test.composite",
+                    "collection_id": "test.composite",
+                    "cells": [[{"role": "single"}]],
+                    "expose_as_entity": False,
+                }
+            ]
+        },
+    )
+    return family_dir
+
+
 class TileFamilyLoadTests(unittest.TestCase):
     def test_load_accepts_valid_cluster_reference(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -649,6 +884,31 @@ class TileFamilyLoadTests(unittest.TestCase):
     def test_load_rejects_non_identical_exact_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             family_dir = make_duplicate_family_dir(Path(temp_dir), identical=False)
+
+            with self.assertRaisesRegex(ValueError, "pixels differ"):
+                TileFamily.load(family_dir)
+
+    def test_load_compares_exact_duplicates_after_render_normalisation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family_dir = make_image_override_family_dir(Path(temp_dir))
+            sheet = Image.new("RGBA", (8, 16), (0, 0, 0, 255))
+            sheet.putpixel((3, 3), (255, 0, 0, 255))
+            sheet.save(family_dir / "sheet.png")
+            Image.new("RGBA", (8, 8), (0, 0, 0, 255)).save(family_dir / "derived" / "override.png")
+            override = Image.open(family_dir / "derived" / "override.png").convert("RGBA")
+            override.putpixel((3, 3), (255, 0, 0, 255))
+            override.save(family_dir / "derived" / "override.png")
+
+            family_payload = json.loads((family_dir / "family.json").read_text(encoding="utf-8"))
+            family = _payload_mapping(family_payload)
+            variants = _payload_list(family["variants"])
+            _payload_mapping(variants[0])["transparent"] = "top_left"
+            write_json(family_dir / "family.json", family_payload)
+
+            tiles_path = family_dir / "tiles.json"
+            tiles = cast(list[dict[str, object]], json.loads(tiles_path.read_text(encoding="utf-8")))
+            tiles[1]["exact_duplicate_of"] = "testfam:all:0,0"
+            write_json(tiles_path, tiles)
 
             with self.assertRaisesRegex(ValueError, "pixels differ"):
                 TileFamily.load(family_dir)
@@ -1090,6 +1350,7 @@ class Minimal8FamilyIngestTests(unittest.TestCase):
         family = TileFamily.load(ROOT / "prototypes/minimal8-harness/tile-families/minimal8")
         assert family.source_layout is not None
         variant = family.variant("1bit_colored_bg")
+        assert variant.sheet_path is not None
         image = Image.open(variant.sheet_path)
         mask = compute_non_empty_tile_mask(image=image, tile_width=family.tile_width, tile_height=family.tile_height)
         coverage = compute_source_layout_coverage(family.source_layout, mask)
@@ -1716,6 +1977,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
     source = replace(
         _make_tile("testfam:source"),
         genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0, source_group="characters"),
+        variant_assets={"base": "sha256:" + "0" * 64},
     )
     body = replace(
         _make_tile(
@@ -1741,7 +2003,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
             authored_notes="Fixture genesis notes.",
         ),
         exact_duplicate_of="testfam:source",
-        image_override="overrides/{variant_id}/body.png",
+        variant_assets={"base": "sha256:" + "1" * 64},
         aliases=("body.alias",),
         walkable=True,
         blocking=False,
@@ -1776,11 +2038,12 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
             animation_group="blink",
         ),
         genesis=TileGenesis(kind="sheet", sheet_col=2, sheet_row=2, source_group="characters", cluster_ids=("cluster.head",)),
+        variant_assets={"base": "sha256:" + "2" * 64},
     )
     fill = replace(
         _make_tile("testfam:fill", compose_role="fill"),
         genesis=TileGenesis(kind="synthetic", derivation="test-fill", parent_tile_ids=("testfam:body",)),
-        image_override="overrides/{variant_id}/fill.png",
+        variant_assets={"base": "sha256:" + "3" * 64},
     )
     composite = CompositeTileRecord(
         id="character.composite",
@@ -1875,7 +2138,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         variants={
             "base": TileFamilyVariant(
                 id="base",
-                sheet_path=Path("sheets/base.png"),
+                sheet_path=None,
                 transparent_mode="top_left",
                 palette_family="mono",
                 colorway="green",
@@ -1921,7 +2184,9 @@ _RUNTIME_CODEC_DEFAULT_ALLOWLIST_BY_TYPE = {
     "FixedConstruction": {"kind"},
     "ParametricFrameConstruction": {"kind"},
     "ParametricRunConstruction": {"kind"},
+    "TileFamilyVariant": {"sheet_path"},
     "TileLibraryUnit": {"attachment_sets_by_target", "tiles_by_sheet_cell_index"},
+    "TileRecord": {"image_override"},
 }
 
 _RUNTIME_CODEC_SERIALIZED_DATACLASSES: tuple[type[Any], ...] = (
@@ -1997,6 +2262,29 @@ def _tile_payload_by_id(payload: dict[str, object], tile_id: str) -> dict[str, o
     raise AssertionError(f"fixture missing tile payload {tile_id!r}")
 
 
+def _asset_path(runtime_families_dir: Path, family_id: str, address: str) -> Path:
+    return runtime_families_dir / family_id / atomic_asset_relative_path(address)
+
+
+def _json_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        items = cast(list[object], value)
+        values: list[str] = []
+        for item in items:
+            values.extend(_json_strings(item))
+        return values
+    if isinstance(value, dict):
+        mapping = cast(dict[object, object], value)
+        values = []
+        for key, item in mapping.items():
+            values.append(str(key))
+            values.extend(_json_strings(item))
+        return values
+    return []
+
+
 class TileLibraryRegistryTests(unittest.TestCase):
     def test_runtime_library_unit_serializes_and_deserializes(self) -> None:
         unit = _make_serialized_runtime_unit_fixture()
@@ -2011,7 +2299,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
         self.assertEqual(loaded.promoted_metadata.source_pack_id, "pack")
         self.assertEqual(loaded.promoted_metadata.render_traits.alignment_origin, "bottom_left")
         self.assertEqual(loaded.promoted_metadata.module_context["theme"].value_id, "dungeon")
-        self.assertEqual(loaded.variant("base").sheet_path, Path("sheets/base.png"))
+        self.assertIsNone(loaded.variant("base").sheet_path)
         resolved_alias = loaded.resolve_ref("body.alias")
         resolved_physical = loaded.resolve_ref("testfam:1,2")
         self.assertIsNotNone(resolved_alias)
@@ -2147,7 +2435,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
         second_genesis["sheet_col"] = 1
         second_genesis["sheet_row"] = 2
 
-        with self.assertRaisesRegex(ValueError, "duplicate sheet cell \\(1, 2\\)"):
+        with self.assertRaisesRegex(ValueError, "runtime library.tiles has duplicate sheet cell \\(1, 2\\)"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_dangling_alias_target(self) -> None:
@@ -2251,6 +2539,24 @@ class TileLibraryRegistryTests(unittest.TestCase):
         family["default_variant_id"] = "missing"
 
         with self.assertRaisesRegex(ValueError, "default_variant_id references unknown variant 'missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_missing_variant_asset(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        variant_assets = _payload_mapping(tile["variant_assets"])
+        del variant_assets["base"]
+
+        with self.assertRaisesRegex(ValueError, "variant_assets is missing variants: base"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_variant_asset(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        variant_assets = _payload_mapping(tile["variant_assets"])
+        variant_assets["missing"] = "sha256:" + "f" * 64
+
+        with self.assertRaisesRegex(ValueError, "variant_assets references unknown variants: missing"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_unknown_construction_kind(self) -> None:
@@ -3009,6 +3315,199 @@ class TileLibraryRegistryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "Duplicate tile id across tile library units"):
                 TileLibraryRegistry.from_units([family_a.runtime_unit, family_b.runtime_unit])
+
+
+class RuntimeAssetProducerTests(unittest.TestCase):
+    def test_runtime_asset_producer_materializes_and_round_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_image_override_family_dir(root)
+            runtime_dir = root / "runtime-families"
+            source_unit = TileFamily.load(family_dir).runtime_unit
+            self.assertIsNotNone(source_unit.variant("base").sheet_path)
+            self.assertEqual(source_unit.tiles["testfam:derived.override"].image_override, "derived/override.png")
+
+            output_path = produce_runtime_family_asset(family_dir, runtime_dir)
+            loaded = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
+            expected = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+
+            self.assertEqual(loaded, expected)
+            self.assertEqual(loaded.root, Path("."))
+            self.assertIsNone(expected.variant("base").sheet_path)
+            for tile in loaded.tiles.values():
+                self.assertIsNone(expected.tiles[tile.id].image_override)
+                self.assertEqual(set(tile.variant_assets), {"base"})
+
+    def test_runtime_asset_producer_rebinds_construction_tiles_to_runtime_tiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_runtime_rebind_family_dir(root)
+
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
+            fixed = runtime_unit.constructions["test.fixed"]
+            run = runtime_unit.constructions["test.run"]
+            frame = runtime_unit.constructions["test.frame"]
+            composite = runtime_unit.composite_tiles["test.composite"]
+            self.assertIsInstance(fixed, FixedConstruction)
+            self.assertIsInstance(run, ParametricRunConstruction)
+            self.assertIsInstance(frame, ParametricFrameConstruction)
+            assert isinstance(fixed, FixedConstruction)
+            assert isinstance(run, ParametricRunConstruction)
+            assert isinstance(frame, ParametricFrameConstruction)
+
+            def assert_runtime_tile(tile: TileRecord, tile_id: str) -> None:
+                self.assertIs(tile, runtime_unit.tiles[tile_id])
+                self.assertEqual(set(tile.variant_assets), {"base"})
+                self.assertIsNone(tile.image_override)
+
+            fixed_cell = fixed.cells[0][0]
+            assert fixed_cell is not None
+            assert_runtime_tile(fixed_cell, "testfam:fixed:0,0")
+            assert_runtime_tile(run.start_tile, "testfam:run.start:1,0")
+            assert_runtime_tile(run.repeat_tile, "testfam:run.repeat:2,0")
+            assert_runtime_tile(run.end_tile, "testfam:run.end:3,0")
+
+            frame_corner = frame.corners["corner_tl"].cells[0][0]
+            assert frame_corner is not None
+            assert_runtime_tile(frame_corner, "testfam:frame.corner:0,1")
+            assert_runtime_tile(frame.edges["edge_top"].tile, "testfam:frame.edge:1,1")
+            self.assertIsNotNone(frame.fill)
+            assert frame.fill is not None
+            assert_runtime_tile(frame.fill.tile, "testfam:frame.fill:2,1")
+
+            composite_cell = composite.cells[0][0]
+            self.assertIsNotNone(composite_cell)
+            assert composite_cell is not None
+            assert_runtime_tile(composite_cell.tile, "testfam:composite:3,1")
+
+    def test_runtime_asset_producer_materializes_distinct_assets_per_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_multi_variant_image_override_family_dir(root)
+            source_unit = TileFamily.load(family_dir).runtime_unit
+            runtime_dir = root / "runtime-families"
+
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+
+            sheet_tile = source_unit.tiles["testfam:all:0,0"]
+            override_tile = source_unit.tiles["testfam:derived.override"]
+            produced_sheet_tile = runtime_unit.tiles[sheet_tile.id]
+            produced_override_tile = runtime_unit.tiles[override_tile.id]
+            self.assertEqual(set(produced_sheet_tile.variant_assets), {"base", "alt"})
+            self.assertEqual(set(produced_override_tile.variant_assets), {"base", "alt"})
+            self.assertNotEqual(produced_sheet_tile.variant_assets["base"], produced_sheet_tile.variant_assets["alt"])
+            self.assertNotEqual(produced_override_tile.variant_assets["base"], produced_override_tile.variant_assets["alt"])
+
+            assert sheet_tile.genesis.sheet_col is not None
+            assert sheet_tile.genesis.sheet_row is not None
+            assert override_tile.image_override is not None
+            for variant_id in ("base", "alt"):
+                with self.subTest(variant_id=variant_id):
+                    grid_tileset = GridTileset.from_variant(tile_library=source_unit, variant_id=variant_id)
+                    sheet_index = grid_tileset.index_from_col_row(sheet_tile.genesis.sheet_col, sheet_tile.genesis.sheet_row)
+                    sheet_address = produced_sheet_tile.variant_assets[variant_id]
+                    sheet_asset = Image.open(_asset_path(runtime_dir, runtime_unit.family_id, sheet_address)).convert("RGBA")
+                    self.assertEqual(
+                        canonical_rgba_bytes(sheet_asset),
+                        canonical_rgba_bytes(grid_tileset.tile_image(sheet_index)),
+                    )
+
+                    override_address = produced_override_tile.variant_assets[variant_id]
+                    override_asset = Image.open(_asset_path(runtime_dir, runtime_unit.family_id, override_address)).convert("RGBA")
+                    override_path = resolve_tile_image_override_path(
+                        root=source_unit.root,
+                        image_override=override_tile.image_override,
+                        variant_id=variant_id,
+                    )
+                    override_source = Image.open(override_path).convert("RGBA")
+                    self.assertEqual(canonical_rgba_bytes(override_asset), canonical_rgba_bytes(override_source))
+
+    def test_runtime_asset_producer_matches_live_render_pixels_for_sheet_and_override_tiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_image_override_family_dir(root)
+            sheet = Image.open(family_dir / "sheet.png").convert("RGBA")
+            sheet.putpixel((0, 0), (0, 0, 0, 255))
+            sheet.putpixel((3, 3), (255, 255, 0, 255))
+            sheet.save(family_dir / "sheet.png")
+            family_payload = json.loads((family_dir / "family.json").read_text(encoding="utf-8"))
+            family = _payload_mapping(family_payload)
+            variants = _payload_list(family["variants"])
+            variant = _payload_mapping(variants[0])
+            variant["transparent"] = "top_left"
+            write_json(family_dir / "family.json", family_payload)
+
+            source_family = TileFamily.load(family_dir)
+            source_unit = source_family.runtime_unit
+            runtime_dir = root / "runtime-families"
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            grid_tileset = GridTileset.from_variant(tile_library=source_unit, variant_id="base")
+
+            sheet_tile = source_unit.tiles["testfam:all:0,0"]
+            assert sheet_tile.genesis.sheet_col is not None
+            assert sheet_tile.genesis.sheet_row is not None
+            sheet_index = grid_tileset.index_from_col_row(sheet_tile.genesis.sheet_col, sheet_tile.genesis.sheet_row)
+            sheet_address = runtime_unit.tiles[sheet_tile.id].variant_assets["base"]
+            sheet_asset = Image.open(_asset_path(runtime_dir, runtime_unit.family_id, sheet_address)).convert("RGBA")
+            self.assertEqual(canonical_rgba_bytes(sheet_asset), canonical_rgba_bytes(grid_tileset.tile_image(sheet_index)))
+
+            override_tile = source_unit.tiles["testfam:derived.override"]
+            assert override_tile.image_override is not None
+            override_address = runtime_unit.tiles[override_tile.id].variant_assets["base"]
+            override_asset = Image.open(_asset_path(runtime_dir, runtime_unit.family_id, override_address)).convert("RGBA")
+            override_source = Image.open(family_dir / override_tile.image_override).convert("RGBA")
+            self.assertEqual(canonical_rgba_bytes(override_asset), canonical_rgba_bytes(override_source))
+
+    def test_runtime_asset_producer_is_repeatable_and_portable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source_a = root / "source_a"
+            source_b = root / "source_b"
+            source_a.mkdir()
+            source_b.mkdir()
+            family_a = make_image_override_family_dir(source_a)
+            family_b = make_image_override_family_dir(source_b)
+            runtime_a = root / "runtime_a"
+            runtime_b = root / "runtime_b"
+
+            output_a = produce_runtime_family_asset(family_a, runtime_a)
+            output_b = produce_runtime_family_asset(family_b, runtime_b)
+
+            self.assertEqual(output_a.read_bytes(), output_b.read_bytes())
+            asset_bytes_a = sorted(path.read_bytes() for path in (runtime_a / "testfam" / "assets").rglob("*.png"))
+            asset_bytes_b = sorted(path.read_bytes() for path in (runtime_b / "testfam" / "assets").rglob("*.png"))
+            self.assertEqual(asset_bytes_a, asset_bytes_b)
+
+            payload = json.loads(output_a.read_text(encoding="utf-8"))
+            strings = _json_strings(payload)
+            for variant_payload in _payload_list(_payload_mapping(payload)["variants"]):
+                self.assertNotIn("sheet_path", _payload_mapping(variant_payload))
+            for tile_payload in _payload_list(_payload_mapping(payload)["tiles"]):
+                self.assertNotIn("image_override", _payload_mapping(tile_payload))
+            self.assertFalse(any(str(root) in text for text in strings))
+            self.assertFalse(any(Path(text).is_absolute() for text in strings if text))
+
+    def test_runtime_asset_producer_deduplicates_identical_pixels_by_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_duplicate_family_dir(root, identical=True)
+            runtime_dir = root / "runtime-families"
+
+            output_path = produce_runtime_family_asset(family_dir, runtime_dir)
+            loaded = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
+
+            left = loaded.tiles["testfam:all:0,0"].variant_assets["base"]
+            right = loaded.tiles["testfam:all:1,0"].variant_assets["base"]
+            self.assertEqual(left, right)
+            self.assertEqual(len(list((runtime_dir / "testfam" / "assets").rglob("*.png"))), 1)
+
+    def test_runtime_asset_producer_rejects_off_size_override(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_image_override_family_dir(root, image_size=(12, 10))
+
+            with self.assertRaisesRegex(ValueError, "testfam:derived.override.*expected \\(8, 8\\)"):
+                materialize_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
 
 
 class FixedConstructionSeamValidationTests(unittest.TestCase):
