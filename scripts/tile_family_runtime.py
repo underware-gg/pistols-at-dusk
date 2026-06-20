@@ -2248,6 +2248,7 @@ class TileFamily:
             tiles_by_sheet_cell_index=self.tiles_by_sheet_cell,
             constructions=self.constructions,
             composite_tiles=self.composite_tiles,
+            clusters=self.clusters,
             attachment_sets=self.attachment_sets,
             attachment_sets_by_target=attachment_sets_by_target(self.attachment_sets),
         )

@@ -125,6 +125,14 @@ class CellContentInset:
                 f"{context}: left/right inset ({self.left}/{self.right}) must be less than tile width {tile_width}"
             )
 
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "top": self.top,
+            "right": self.right,
+            "bottom": self.bottom,
+            "left": self.left,
+        }
+
 
 @dataclass(frozen=True)
 class FixedConstructionSeamOverride:
@@ -173,6 +181,10 @@ class ParametricRunConstruction:
     expose_as_entity: bool = True
     kind: Literal["parametric_run"] = "parametric_run"
 
+    def __post_init__(self) -> None:
+        if self.axis not in ("x", "y"):
+            raise ValueError(f"ParametricRunConstruction.axis must be 'x' or 'y', got {self.axis!r}")
+
 
 FRAME_FILL_MODES: tuple[str, ...] = ("repeat", "round", "space", "stretch")
 
@@ -189,6 +201,10 @@ class FrameSlot:
     fill_mode: str = "repeat"
     flip_x: bool = False
     flip_y: bool = False
+
+    def __post_init__(self) -> None:
+        if self.fill_mode not in FRAME_FILL_MODES:
+            raise ValueError(f"FrameSlot.fill_mode must be one of {FRAME_FILL_MODES}, got {self.fill_mode!r}")
 
 
 @dataclass(frozen=True)
@@ -377,6 +393,11 @@ class ConstructionAttachmentSet:
         target_placeable_refs = self.target_placeable_refs
         if not target_placeable_refs and self.target_construction_ids:
             target_placeable_refs = tuple(PlaceableRef.construction(target_id) for target_id in self.target_construction_ids)
+        if self.default_variant_id is not None and self.default_variant_id not in self.variants:
+            raise ValueError(
+                f"ConstructionAttachmentSet.default_variant_id {self.default_variant_id!r} "
+                f"is not declared in variants"
+            )
         if not target_placeable_refs:
             raise ValueError("ConstructionAttachmentSet.target_placeable_refs must not be empty")
         object.__setattr__(self, "target_placeable_refs", tuple(target_placeable_refs))
@@ -425,12 +446,7 @@ class EntityAttachmentSetRecord:
             "default_variant_id": self.default_variant_id,
             "label": self.label,
             "notes": self.notes,
-            "canvas": {
-                "x": self.canvas.x,
-                "y": self.canvas.y,
-                "width": self.canvas.width,
-                "height": self.canvas.height,
-            },
+            "canvas": self.canvas.to_payload(),
             "variant_ids": list(self.variant_ids),
         }
 
@@ -579,6 +595,10 @@ EMPTY_TILE_LIBRARY_PROMOTED_METADATA = TileLibraryPromotedMetadata()
 
 
 def _empty_composite_tiles() -> Mapping[str, CompositeTileRecord]:
+    return {}
+
+
+def _empty_tile_clusters() -> Mapping[str, TileClusterRecord]:
     return {}
 
 
@@ -1024,6 +1044,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     attachment_sets: Mapping[str, ConstructionAttachmentSet] = field(repr=False)
     attachment_sets_by_target: Mapping[PlaceableRef, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
     composite_tiles: Mapping[str, CompositeTileRecord] = field(default_factory=_empty_composite_tiles, repr=False)
+    clusters: Mapping[str, TileClusterRecord] = field(default_factory=_empty_tile_clusters, repr=False)
 
     def __post_init__(self) -> None:
         for attachment_set in self.attachment_sets.values():

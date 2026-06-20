@@ -5,8 +5,9 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import MISSING, fields, replace
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from PIL import Image
 
@@ -18,6 +19,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from _manifest_utils import GridBounds
 from seam_matching import MatchPolicy
+from tile_metadata import ModuleContextValue, RenderTraits
 from tile_library import (
     CellContentInset,
     CompositeTileCell,
@@ -25,6 +27,7 @@ from tile_library import (
     ConstructionAttachmentSet,
     ConstructionAttachmentVariant,
     FrameCornerSlot,
+    FrameSlot,
     FixedConstruction,
     FixedConstructionSeamOverride,
     FixedSeamOverrideSide,
@@ -35,6 +38,7 @@ from tile_library import (
     TileLibraryRegistry,
     TileLibraryPromotedMetadata,
     TileFamilyVariant,
+    TileClusterRecord,
     TileLibraryUnit,
     TileRecord,
     attachment_sets_by_target,
@@ -42,6 +46,11 @@ from tile_library import (
     entity_template_from_placeable,
     lower_tile_asset_to_cells,
     project_parametric_frame,
+)
+from tile_library_codec import (
+    tile_library_unit_from_json,
+    tile_library_unit_from_payload,
+    tile_library_unit_to_json,
 )
 from tile_families import (
     CompositeTileConfig,
@@ -66,6 +75,7 @@ class RuntimeImportBoundaryTests(unittest.TestCase):
             "tile_family_runtime.py",
             "source_layout_model.py",
             "tile_library.py",
+            "tile_library_codec.py",
             "seam_matching.py",
             "seam_profiles.py",
             "compatibility_family.py",
@@ -1702,7 +1712,576 @@ class CompositeTileLoaderTests(unittest.TestCase):
             )
 
 
+def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
+    source = replace(
+        _make_tile("testfam:source"),
+        genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0, source_group="characters"),
+    )
+    body = replace(
+        _make_tile(
+            "testfam:body",
+            compose_group="character",
+            compose_role="body",
+            affordances=("stand",),
+            state_group="stance",
+            animation_group="idle",
+            connects_on=["east"],
+            requires_exposed_on=["north"],
+        ),
+        tags=("actor",),
+        genesis=TileGenesis(
+            kind="sheet",
+            sheet_col=1,
+            sheet_row=2,
+            source_group="characters",
+            cluster_ids=("cluster.body",),
+            derivation="authored crop",
+            parent_construction_ids=("kit.fixed",),
+            parent_tile_ids=("testfam:source",),
+            authored_notes="Fixture genesis notes.",
+        ),
+        exact_duplicate_of="testfam:source",
+        image_override="overrides/{variant_id}/body.png",
+        aliases=("body.alias",),
+        walkable=True,
+        blocking=False,
+        scenes=("tavern",),
+        semantics=("character",),
+        motifs=("hat",),
+        noise="low",
+        contrast="high",
+        temperature="warm",
+        usage="actor",
+        style="pixel",
+        overlay="shadow",
+        footprint="one_cell",
+        orientation="front",
+        facing="south",
+        pose="standing",
+        state_role="idle",
+        animation_frame=1,
+        animation_frame_count=4,
+        cell_content_inset=CellContentInset(top=1, right=2, bottom=3, left=4),
+        alt_uses=("marker",),
+        meaning="shared body",
+        meaning_confidence="authored",
+        source_notes="Fixture tile notes.",
+    )
+    head = replace(
+        _make_tile(
+            "testfam:head",
+            compose_group="character",
+            compose_role="head",
+            affordances=("look",),
+            animation_group="blink",
+        ),
+        genesis=TileGenesis(kind="sheet", sheet_col=2, sheet_row=2, source_group="characters", cluster_ids=("cluster.head",)),
+    )
+    fill = replace(
+        _make_tile("testfam:fill", compose_role="fill"),
+        genesis=TileGenesis(kind="synthetic", derivation="test-fill", parent_tile_ids=("testfam:body",)),
+        image_override="overrides/{variant_id}/fill.png",
+    )
+    composite = CompositeTileRecord(
+        id="character.composite",
+        family_id="testfam",
+        collection_id="characters",
+        cells=(
+            (CompositeTileCell(tile=head, x=0, y=0, role="head"),),
+            (CompositeTileCell(tile=body, x=0, y=1, role="body"),),
+        ),
+        tags=("entity",),
+        expose_as_entity=False,
+    )
+    fixed = FixedConstruction(
+        id="kit.fixed",
+        collection_id="kit",
+        cells=((body, None), (head, fill)),
+        seam_overrides=(FixedConstructionSeamOverride(x=0, y=0, side="east", reason="test sanctioned mismatch"),),
+        expose_as_entity=False,
+    )
+    run = ParametricRunConstruction(
+        id="kit.run",
+        collection_id="kit",
+        axis="x",
+        length_param="length",
+        start_tile=body,
+        repeat_tile=fill,
+        end_tile=head,
+        expose_as_entity=False,
+    )
+    frame = ParametricFrameConstruction(
+        id="kit.frame",
+        collection_id="kit",
+        corners={"corner_tl": FrameCornerSlot(cells=((body,),), flip_x=True, flip_y=True)},
+        edges={"edge_top": FrameSlot(tile=fill, fill_mode="stretch", flip_x=True, flip_y=True)},
+        fill=FrameSlot(tile=head, fill_mode="space", flip_x=True, flip_y=True),
+        min_width=3,
+        min_height=4,
+        width_param="w",
+        height_param="h",
+        expose_as_entity=False,
+    )
+    attachment_set = ConstructionAttachmentSet(
+        id="character.heads",
+        param="head",
+        canvas=GridBounds(x=0, y=1, width=1, height=1),
+        target_placeable_refs=(PlaceableRef(kind="composite_tile", id="character.composite"),),
+        variants={
+            "default": ConstructionAttachmentVariant(
+                id="default",
+                placeable_kind="tile",
+                placeable_id="testfam:head",
+                label="Default head",
+                notes="Variant notes.",
+            )
+        },
+        required=True,
+        default_variant_id="default",
+        label="Heads",
+        notes="Runtime serialization fixture.",
+    )
+    attachment_sets = {attachment_set.id: attachment_set}
+    return TileLibraryUnit(
+        family_id="testfam",
+        tile_width=8,
+        tile_height=8,
+        render_step_width=8,
+        render_step_height=7,
+        default_variant_id="base",
+        runtime_flippable=False,
+        promoted_metadata=TileLibraryPromotedMetadata(
+            source_pack_id="pack",
+            source_tileset_id="tileset",
+            source_tilesheet_id="sheet",
+            module_context={
+                "theme": ModuleContextValue(
+                    axis_id="theme",
+                    value_id="dungeon",
+                    label="Dungeon",
+                    notes="Test context.",
+                )
+            },
+            render_traits=RenderTraits(
+                occupancy_style="solid",
+                gutter_policy="top-right",
+                background_treatment="transparent",
+                alignment_origin="bottom_left",
+                occlusion_mode="alpha",
+            ),
+            documented_hints=("produced",),
+        ),
+        root=Path("runtime-families/testfam"),
+        variants={
+            "base": TileFamilyVariant(
+                id="base",
+                sheet_path=Path("sheets/base.png"),
+                transparent_mode="top_left",
+                palette_family="mono",
+                colorway="green",
+                background_mode="transparent",
+                notes="Base variant.",
+            )
+        },
+        clusters={
+            "cluster.body": TileClusterRecord(
+                id="cluster.body",
+                scope="characters",
+                members=("testfam:body",),
+                kind_guess="body",
+                evidence=("role",),
+                source_label="Body",
+                source_notes="Fixture.",
+            ),
+            "cluster.head": TileClusterRecord(
+                id="cluster.head",
+                scope="characters",
+                members=("testfam:head",),
+                kind_guess="head",
+                evidence=("role",),
+                source_label="Head",
+                source_notes="Fixture.",
+            )
+        },
+        tiles={tile.id: tile for tile in (source, body, head, fill)},
+        aliases={"body.alias": body.id},
+        tiles_by_sheet_cell_index={(0, 0): source, (1, 2): body, (2, 2): head},
+        constructions={construction.id: construction for construction in (fixed, run, frame)},
+        attachment_sets=attachment_sets,
+        attachment_sets_by_target=attachment_sets_by_target(attachment_sets),
+        composite_tiles={composite.id: composite},
+    )
+
+
+_RUNTIME_CODEC_DEFAULT_ALLOWLIST_BY_TYPE = {
+    "CompositeTileCell": {"x", "y"},
+    "CompositeTileRecord": {"kind", "placement_anchor"},
+    "ConstructionAttachmentSet": {"target_construction_ids"},
+    "ConstructionAttachmentVariant": {"construction_id"},
+    "FixedConstruction": {"kind"},
+    "ParametricFrameConstruction": {"kind"},
+    "ParametricRunConstruction": {"kind"},
+    "TileLibraryUnit": {"attachment_sets_by_target", "tiles_by_sheet_cell_index"},
+}
+
+_RUNTIME_CODEC_SERIALIZED_DATACLASSES: tuple[type[Any], ...] = (
+    CellContentInset,
+    CompositeTileCell,
+    CompositeTileRecord,
+    ConstructionAttachmentSet,
+    ConstructionAttachmentVariant,
+    FixedConstruction,
+    FixedConstructionSeamOverride,
+    FrameCornerSlot,
+    FrameSlot,
+    GridBounds,
+    ModuleContextValue,
+    ParametricFrameConstruction,
+    ParametricRunConstruction,
+    PlaceableRef,
+    RenderTraits,
+    TileClusterRecord,
+    TileFamilyVariant,
+    TileGenesis,
+    TileLibraryPromotedMetadata,
+    TileLibraryUnit,
+    TileRecord,
+)
+
+
+def _assert_codec_fixture_exercises_defaults(test: unittest.TestCase, representatives: tuple[Any, ...]) -> None:
+    represented_types: set[type[Any]] = {type(representative) for representative in representatives}
+    test.assertEqual(
+        represented_types,
+        set(_RUNTIME_CODEC_SERIALIZED_DATACLASSES),
+        "runtime codec fixture must include one representative of every serialized dataclass type",
+    )
+    test.assertTrue(
+        set(_RUNTIME_CODEC_DEFAULT_ALLOWLIST_BY_TYPE).issubset(
+            {cls.__name__ for cls in _RUNTIME_CODEC_SERIALIZED_DATACLASSES}
+        )
+    )
+    for representative in representatives:
+        allowlist = _RUNTIME_CODEC_DEFAULT_ALLOWLIST_BY_TYPE.get(type(representative).__name__, set())
+        for field_info in fields(representative):
+            if field_info.name in allowlist:
+                continue
+            if field_info.default is MISSING:
+                default_factory = getattr(field_info, "default_factory", MISSING)
+                if default_factory is MISSING:
+                    continue
+                default_value = default_factory()
+            else:
+                default_value = field_info.default
+            with test.subTest(cls=type(representative).__name__, field=field_info.name):
+                test.assertNotEqual(getattr(representative, field_info.name), default_value)
+
+
+def _runtime_payload_fixture() -> dict[str, object]:
+    return cast(dict[str, object], json.loads(tile_library_unit_to_json(_make_serialized_runtime_unit_fixture())))
+
+
+def _payload_mapping(raw: object) -> dict[str, object]:
+    return cast(dict[str, object], raw)
+
+
+def _payload_list(raw: object) -> list[object]:
+    return cast(list[object], raw)
+
+
+def _tile_payload_by_id(payload: dict[str, object], tile_id: str) -> dict[str, object]:
+    for raw_tile in _payload_list(payload["tiles"]):
+        tile = _payload_mapping(raw_tile)
+        if tile.get("id") == tile_id:
+            return tile
+    raise AssertionError(f"fixture missing tile payload {tile_id!r}")
+
+
 class TileLibraryRegistryTests(unittest.TestCase):
+    def test_runtime_library_unit_serializes_and_deserializes(self) -> None:
+        unit = _make_serialized_runtime_unit_fixture()
+
+        text = tile_library_unit_to_json(unit)
+        loaded = tile_library_unit_from_json(text)
+
+        self.assertEqual(loaded, unit)
+        self.assertEqual(tile_library_unit_to_json(loaded), text)
+        self.assertEqual(loaded.family_id, "testfam")
+        self.assertFalse(loaded.runtime_flippable)
+        self.assertEqual(loaded.promoted_metadata.source_pack_id, "pack")
+        self.assertEqual(loaded.promoted_metadata.render_traits.alignment_origin, "bottom_left")
+        self.assertEqual(loaded.promoted_metadata.module_context["theme"].value_id, "dungeon")
+        self.assertEqual(loaded.variant("base").sheet_path, Path("sheets/base.png"))
+        resolved_alias = loaded.resolve_ref("body.alias")
+        resolved_physical = loaded.resolve_ref("testfam:1,2")
+        self.assertIsNotNone(resolved_alias)
+        self.assertIsNotNone(resolved_physical)
+        assert resolved_alias is not None
+        assert resolved_physical is not None
+        self.assertEqual(resolved_alias.tile_id, "testfam:body")
+        self.assertEqual(resolved_physical.tile_id, "testfam:body")
+        self.assertEqual(loaded.genesis_for("testfam:body"), unit.tiles["testfam:body"].genesis)
+        self.assertEqual(loaded.clusters["cluster.body"].members, ("testfam:body",))
+
+        loaded_composite = loaded.composite_tiles["character.composite"]
+        loaded_composite_head = loaded_composite.cells[0][0]
+        self.assertIsNotNone(loaded_composite_head)
+        assert loaded_composite_head is not None
+        self.assertIs(loaded_composite_head.tile, loaded.tiles["testfam:head"])
+        self.assertEqual(loaded_composite_head.role, "head")
+
+        loaded_fixed = loaded.constructions["kit.fixed"]
+        self.assertIsInstance(loaded_fixed, FixedConstruction)
+        assert isinstance(loaded_fixed, FixedConstruction)
+        self.assertIs(loaded_fixed.cells[0][0], loaded.tiles["testfam:body"])
+        self.assertEqual(loaded_fixed.seam_overrides[0].reason, "test sanctioned mismatch")
+
+        loaded_run = loaded.constructions["kit.run"]
+        self.assertIsInstance(loaded_run, ParametricRunConstruction)
+        assert isinstance(loaded_run, ParametricRunConstruction)
+        self.assertIs(loaded_run.repeat_tile, loaded.tiles["testfam:fill"])
+
+        loaded_frame = loaded.constructions["kit.frame"]
+        self.assertIsInstance(loaded_frame, ParametricFrameConstruction)
+        assert isinstance(loaded_frame, ParametricFrameConstruction)
+        self.assertTrue(loaded_frame.edges["edge_top"].flip_x)
+        self.assertIsNotNone(loaded_frame.fill)
+        assert loaded_frame.fill is not None
+        self.assertIs(loaded_frame.fill.tile, loaded.tiles["testfam:head"])
+
+        attachment_sets = loaded.attachment_sets_for_placeable(PlaceableRef(kind="composite_tile", id="character.composite"))
+        self.assertEqual(len(attachment_sets), 1)
+        loaded_attachment_variant = attachment_sets[0].variant("default")
+        self.assertIsNotNone(loaded_attachment_variant)
+        assert loaded_attachment_variant is not None
+        self.assertEqual(loaded_attachment_variant.placeable_ref, PlaceableRef(kind="tile", id="testfam:head"))
+
+    def test_runtime_library_unit_fixture_exercises_defaulted_serialized_fields(self) -> None:
+        unit = _make_serialized_runtime_unit_fixture()
+        body = unit.tiles["testfam:body"]
+        composite = unit.composite_tiles["character.composite"]
+        fixed = unit.constructions["kit.fixed"]
+        run = unit.constructions["kit.run"]
+        frame = unit.constructions["kit.frame"]
+        self.assertIsInstance(fixed, FixedConstruction)
+        self.assertIsInstance(run, ParametricRunConstruction)
+        self.assertIsInstance(frame, ParametricFrameConstruction)
+        assert isinstance(fixed, FixedConstruction)
+        assert isinstance(run, ParametricRunConstruction)
+        assert isinstance(frame, ParametricFrameConstruction)
+        assert frame.fill is not None
+        attachment_set = unit.attachment_sets["character.heads"]
+        attachment_variant = attachment_set.variants["default"]
+        target_ref = attachment_set.target_placeable_refs[0]
+        composite_cell = composite.cells[0][0]
+        self.assertIsNotNone(composite_cell)
+        assert composite_cell is not None
+
+        _assert_codec_fixture_exercises_defaults(
+            self,
+            (
+                unit,
+                unit.promoted_metadata,
+                unit.promoted_metadata.render_traits,
+                unit.promoted_metadata.module_context["theme"],
+                unit.variants["base"],
+                unit.clusters["cluster.body"],
+                unit.clusters["cluster.head"],
+                body,
+                body.genesis,
+                body.cell_content_inset,
+                composite,
+                composite_cell,
+                fixed,
+                fixed.seam_overrides[0],
+                run,
+                frame,
+                frame.corners["corner_tl"],
+                frame.edges["edge_top"],
+                frame.fill,
+                attachment_set,
+                attachment_set.canvas,
+                attachment_variant,
+                target_ref,
+            ),
+        )
+
+    def test_runtime_library_loader_rejects_bad_schema_version(self) -> None:
+        payload = _runtime_payload_fixture()
+        payload["schema_version"] = 999
+
+        with self.assertRaisesRegex(ValueError, "schema_version must be 1"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_duplicate_record_ids(self) -> None:
+        cases = (
+            ("variants", "base"),
+            ("clusters", "cluster.body"),
+            ("tiles", "testfam:body"),
+            ("constructions", "kit.fixed"),
+            ("composite_tiles", "character.composite"),
+            ("attachment_sets", "character.heads"),
+        )
+        for key, duplicate_id in cases:
+            with self.subTest(key=key):
+                payload = _runtime_payload_fixture()
+                records = _payload_list(payload[key])
+                records.append(json.loads(json.dumps(records[0])))
+
+                with self.assertRaisesRegex(ValueError, f"runtime library.{key}\\[\\d+\\] duplicates id {duplicate_id!r}"):
+                    tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_duplicate_attachment_variant_ids(self) -> None:
+        payload = _runtime_payload_fixture()
+        attachment_set = _payload_mapping(_payload_list(payload["attachment_sets"])[0])
+        variants = _payload_list(attachment_set["variants"])
+        variants.append(json.loads(json.dumps(variants[0])))
+
+        with self.assertRaisesRegex(ValueError, "runtime library.attachment_sets\\[0\\].variants\\[1\\] duplicates id 'default'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_duplicate_sheet_cells(self) -> None:
+        payload = _runtime_payload_fixture()
+        second_tile = _tile_payload_by_id(payload, "testfam:head")
+        second_genesis = _payload_mapping(second_tile["genesis"])
+        second_genesis["sheet_col"] = 1
+        second_genesis["sheet_row"] = 2
+
+        with self.assertRaisesRegex(ValueError, "duplicate sheet cell \\(1, 2\\)"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_dangling_alias_target(self) -> None:
+        payload = _runtime_payload_fixture()
+        aliases = _payload_mapping(payload["aliases"])
+        aliases["missing.alias"] = "testfam:missing"
+
+        with self.assertRaisesRegex(ValueError, "missing.alias points at unknown tile id 'testfam:missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_alias_key_colliding_with_tile_id(self) -> None:
+        payload = _runtime_payload_fixture()
+        aliases = _payload_mapping(payload["aliases"])
+        aliases["testfam:body"] = "testfam:head"
+
+        with self.assertRaisesRegex(ValueError, "aliases key 'testfam:body' collides with a tile id"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_cluster_member(self) -> None:
+        payload = _runtime_payload_fixture()
+        cluster = _payload_mapping(_payload_list(payload["clusters"])[0])
+        cluster["members"] = ["testfam:missing"]
+
+        with self.assertRaisesRegex(ValueError, "clusters.cluster.body.members references unknown tile id 'testfam:missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_tile_cluster_id(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        genesis = _payload_mapping(tile["genesis"])
+        genesis["cluster_ids"] = ["missing.cluster"]
+
+        with self.assertRaisesRegex(ValueError, "tiles.testfam:body.genesis.cluster_ids references unknown cluster 'missing.cluster'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_invalid_exact_duplicate_ref(self) -> None:
+        cases = (
+            ("testfam:missing", "exact_duplicate_of references unknown tile id 'testfam:missing'"),
+            ("testfam:body", "exact_duplicate_of must not reference itself"),
+        )
+        for duplicate_ref, message in cases:
+            with self.subTest(duplicate_ref=duplicate_ref):
+                payload = _runtime_payload_fixture()
+                tile = _tile_payload_by_id(payload, "testfam:body")
+                tile["exact_duplicate_of"] = duplicate_ref
+
+                with self.assertRaisesRegex(ValueError, message):
+                    tile_library_unit_from_payload(payload)
+
+    def test_attachment_set_rejects_unknown_default_variant(self) -> None:
+        with self.assertRaisesRegex(ValueError, "default_variant_id 'missing' is not declared in variants"):
+            ConstructionAttachmentSet(
+                id="attachments",
+                param="choice",
+                canvas=GridBounds(x=0, y=0, width=1, height=1),
+                target_placeable_refs=(PlaceableRef(kind="tile", id="testfam:body"),),
+                variants={
+                    "default": ConstructionAttachmentVariant(
+                        id="default",
+                        placeable_kind="tile",
+                        placeable_id="testfam:head",
+                    )
+                },
+                default_variant_id="missing",
+            )
+
+    def test_parametric_run_rejects_invalid_axis(self) -> None:
+        tile = _make_tile("testfam:tile")
+        with self.assertRaisesRegex(ValueError, "axis must be 'x' or 'y'"):
+            ParametricRunConstruction(
+                id="run",
+                collection_id="kit",
+                axis=cast(Any, "z"),
+                length_param="length",
+                start_tile=tile,
+                repeat_tile=tile,
+                end_tile=tile,
+            )
+
+    def test_frame_slot_rejects_invalid_fill_mode(self) -> None:
+        with self.assertRaisesRegex(ValueError, "fill_mode must be one of"):
+            FrameSlot(tile=_make_tile("testfam:tile"), fill_mode="tile_diagonal")
+
+    def test_runtime_library_loader_rejects_invalid_grid_bounds_payload(self) -> None:
+        cases = (
+            ({"x": -1, "y": 0, "width": 1, "height": 1}, "origin must be non-negative"),
+            ({"x": 0, "y": 0, "width": 0, "height": 1}, "width and height must be positive"),
+        )
+        for canvas, message in cases:
+            with self.subTest(canvas=canvas):
+                payload = _runtime_payload_fixture()
+                attachment_set = _payload_mapping(_payload_list(payload["attachment_sets"])[0])
+                attachment_set["canvas"] = canvas
+
+                with self.assertRaisesRegex(ValueError, message):
+                    tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_default_variant(self) -> None:
+        payload = _runtime_payload_fixture()
+        family = _payload_mapping(payload["family"])
+        family["default_variant_id"] = "missing"
+
+        with self.assertRaisesRegex(ValueError, "default_variant_id references unknown variant 'missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_construction_kind(self) -> None:
+        payload = _runtime_payload_fixture()
+        construction = _payload_mapping(_payload_list(payload["constructions"])[0])
+        construction["kind"] = "mystery"
+
+        with self.assertRaisesRegex(ValueError, "kind must be fixed, parametric_run, or parametric_frame"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_construction_missing_tile(self) -> None:
+        payload = _runtime_payload_fixture()
+        construction = _payload_mapping(_payload_list(payload["constructions"])[0])
+        cells = _payload_list(construction["cells"])
+        row = _payload_list(cells[0])
+        row[0] = "testfam:missing"
+
+        with self.assertRaisesRegex(ValueError, "references unknown tile 'testfam:missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_composite_missing_tile(self) -> None:
+        payload = _runtime_payload_fixture()
+        composite = _payload_mapping(_payload_list(payload["composite_tiles"])[0])
+        cells = _payload_list(composite["cells"])
+        row = _payload_list(cells[0])
+        cell = _payload_mapping(row[0])
+        cell["tile_id"] = "testfam:missing"
+
+        with self.assertRaisesRegex(ValueError, "references unknown tile 'testfam:missing'"):
+            tile_library_unit_from_payload(payload)
+
     def test_legacy_family_runtime_unit_defaults_promoted_metadata_to_empty(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             family_dir = make_family_dir(Path(temp_dir), cluster_ids=["cluster.valid"])

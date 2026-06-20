@@ -6,12 +6,45 @@ from pathlib import Path
 from typing import Mapping, cast
 
 
+def as_int(value: object, *, context: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{context} must be an integer")
+    return value
+
+
 @dataclass(frozen=True)
 class GridBounds:
     x: int
     y: int
     width: int
     height: int
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+        }
+
+    @classmethod
+    def from_payload(cls, raw: object, *, context: str) -> GridBounds:
+        mapping = require_mapping(raw, context=context)
+        x = as_int(mapping.get("x"), context=f"{context}.x")
+        y = as_int(mapping.get("y"), context=f"{context}.y")
+        width = as_int(mapping.get("width"), context=f"{context}.width")
+        height = as_int(mapping.get("height"), context=f"{context}.height")
+        if x < 0 or y < 0:
+            raise ValueError(f"{context} origin must be non-negative")
+        if width <= 0 or height <= 0:
+            raise ValueError(f"{context} width and height must be positive")
+
+        return cls(
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+        )
 
 
 def load_json(path: Path) -> object:
