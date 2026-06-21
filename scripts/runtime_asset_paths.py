@@ -1,4 +1,4 @@
-"""Runtime-owned atomic tile asset addressing helpers."""
+"""Runtime-owned tile asset path helpers."""
 
 from __future__ import annotations
 
@@ -18,6 +18,18 @@ def _validate_digest(digest: str, *, context: str) -> None:
 
 def runtime_family_root(base_dir: Path, family_id: str) -> Path:
     return base_dir / family_id
+
+
+def runtime_atlas_relative_path(variant_id: str) -> Path:
+    if "/" in variant_id or "\\" in variant_id or variant_id in {"", ".", ".."}:
+        raise ValueError(f"Unsupported runtime atlas variant id {variant_id!r}")
+    return Path("sheets") / f"{variant_id}.png"
+
+
+def atlas_cell_box(col: int, row: int, *, tile_width: int, tile_height: int) -> tuple[int, int, int, int]:
+    left = col * tile_width
+    top = row * tile_height
+    return (left, top, left + tile_width, top + tile_height)
 
 
 def atomic_asset_address_from_digest(digest: str) -> str:

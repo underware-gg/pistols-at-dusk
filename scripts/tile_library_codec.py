@@ -28,6 +28,7 @@ from tile_library import (
     ParametricFrameConstruction,
     ParametricRunConstruction,
     PlaceableRef,
+    SheetCell,
     TileClusterRecord,
     TileFamilyVariant,
     TileGenesis,
@@ -249,6 +250,18 @@ def _seam_profiles_from_payload(raw: object, *, context: str) -> dict[str, tuple
     return profiles
 
 
+def _sheet_cell_payload(cell: SheetCell) -> dict[str, object]:
+    return {"col": cell.col, "row": cell.row}
+
+
+def _sheet_cell_from_payload(raw: object, *, context: str) -> SheetCell:
+    mapping = require_mapping(raw, context=context)
+    return SheetCell(
+        col=_as_int(mapping.get("col"), context=f"{context}.col"),
+        row=_as_int(mapping.get("row"), context=f"{context}.row"),
+    )
+
+
 def _tile_record_payload(tile: TileRecord) -> dict[str, object]:
     return {
         "id": tile.id,
@@ -260,6 +273,10 @@ def _tile_record_payload(tile: TileRecord) -> dict[str, object]:
         "genesis": _tile_genesis_payload(tile.genesis),
         "exact_duplicate_of": tile.exact_duplicate_of,
         "variant_assets": {variant_id: address for variant_id, address in sorted(tile.variant_assets.items())},
+        "variant_atlas_cells": {
+            variant_id: _sheet_cell_payload(cell)
+            for variant_id, cell in sorted(tile.variant_atlas_cells.items())
+        },
         "aliases": list(tile.aliases),
         "walkable": tile.walkable,
         "blocking": tile.blocking,
@@ -314,6 +331,16 @@ def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
             for variant_id, address in require_mapping(
                 mapping.get("variant_assets", {}),
                 context=f"{context}.variant_assets",
+            ).items()
+        },
+        variant_atlas_cells={
+            _as_str(variant_id, context=f"{context}.variant_atlas_cells key"): _sheet_cell_from_payload(
+                cell,
+                context=f"{context}.variant_atlas_cells.{variant_id}",
+            )
+            for variant_id, cell in require_mapping(
+                mapping.get("variant_atlas_cells", {}),
+                context=f"{context}.variant_atlas_cells",
             ).items()
         },
         aliases=_as_string_tuple(mapping.get("aliases", []), context=f"{context}.aliases"),
@@ -714,6 +741,9 @@ def _variant_payload(variant: TileFamilyVariant) -> dict[str, object]:
         "notes": variant.notes,
         "grid_columns": variant.grid_columns,
         "grid_rows": variant.grid_rows,
+        "atlas_path": None if variant.atlas_path is None else str(variant.atlas_path),
+        "atlas_columns": variant.atlas_columns,
+        "atlas_rows": variant.atlas_rows,
     }
 
 
@@ -721,6 +751,9 @@ def _variant_from_payload(raw: object, *, context: str) -> TileFamilyVariant:
     mapping = require_mapping(raw, context=context)
     grid_columns = _as_int(mapping.get("grid_columns"), context=f"{context}.grid_columns")
     grid_rows = _as_int(mapping.get("grid_rows"), context=f"{context}.grid_rows")
+    atlas_path = Path(_as_str(mapping.get("atlas_path"), context=f"{context}.atlas_path"))
+    atlas_columns = _as_int(mapping.get("atlas_columns"), context=f"{context}.atlas_columns")
+    atlas_rows = _as_int(mapping.get("atlas_rows"), context=f"{context}.atlas_rows")
     return TileFamilyVariant(
         id=_as_str(mapping.get("id"), context=f"{context}.id"),
         sheet_path=None,
@@ -731,7 +764,31 @@ def _variant_from_payload(raw: object, *, context: str) -> TileFamilyVariant:
         notes=_as_optional_str(mapping.get("notes"), context=f"{context}.notes"),
         grid_columns=grid_columns,
         grid_rows=grid_rows,
+        atlas_path=atlas_path,
+        atlas_columns=atlas_columns,
+        atlas_rows=atlas_rows,
     )
+
+
+def _require_variant_coverage(
+    variant_ids: set[str],
+    declared_variant_ids: set[str],
+    *,
+    tile_id: str,
+    field_name: str,
+) -> None:
+    missing_variant_ids = sorted(declared_variant_ids - variant_ids)
+    unknown_variant_ids = sorted(variant_ids - declared_variant_ids)
+    if missing_variant_ids:
+        raise ValueError(
+            f"runtime library.tiles.{tile_id}.{field_name} is missing variants: "
+            f"{', '.join(missing_variant_ids)}"
+        )
+    if unknown_variant_ids:
+        raise ValueError(
+            f"runtime library.tiles.{tile_id}.{field_name} references unknown variants: "
+            f"{', '.join(unknown_variant_ids)}"
+        )
 
 
 def tile_library_unit_to_payload(unit: TileLibraryUnit) -> dict[str, object]:
@@ -799,20 +856,28 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
                     f"runtime library.clusters.{cluster.id}.members references unknown tile id {member_id!r}"
                 )
     for tile in tiles.values():
-        variant_asset_ids = set(tile.variant_assets)
         declared_variant_ids = set(variants)
-        missing_variant_ids = sorted(declared_variant_ids - variant_asset_ids)
-        unknown_variant_ids = sorted(variant_asset_ids - declared_variant_ids)
-        if missing_variant_ids:
-            raise ValueError(
-                f"runtime library.tiles.{tile.id}.variant_assets is missing variants: "
-                f"{', '.join(missing_variant_ids)}"
-            )
-        if unknown_variant_ids:
-            raise ValueError(
-                f"runtime library.tiles.{tile.id}.variant_assets references unknown variants: "
-                f"{', '.join(unknown_variant_ids)}"
-            )
+        _require_variant_coverage(
+            set(tile.variant_assets),
+            declared_variant_ids,
+            tile_id=tile.id,
+            field_name="variant_assets",
+        )
+        _require_variant_coverage(
+            set(tile.variant_atlas_cells),
+            declared_variant_ids,
+            tile_id=tile.id,
+            field_name="variant_atlas_cells",
+        )
+        for variant_id, cell in tile.variant_atlas_cells.items():
+            variant = variants[variant_id]
+            if variant.atlas_columns is None or variant.atlas_rows is None:
+                raise ValueError(f"runtime library.variants.{variant_id} is missing atlas dimensions")
+            if not (0 <= cell.col < variant.atlas_columns and 0 <= cell.row < variant.atlas_rows):
+                raise ValueError(
+                    f"runtime library.tiles.{tile.id}.variant_atlas_cells.{variant_id} is outside atlas bounds: "
+                    f"({cell.col}, {cell.row}) not within {variant.atlas_columns}x{variant.atlas_rows}"
+                )
         for cluster_id in tile.genesis.cluster_ids:
             if cluster_id not in clusters:
                 raise ValueError(

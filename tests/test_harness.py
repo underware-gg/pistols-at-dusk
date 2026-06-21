@@ -27,6 +27,7 @@ import tile_families
 import source_ingest_ops
 import layout_core
 from runtime_asset_producer import produce_runtime_family_asset
+from runtime_asset_paths import atomic_asset_relative_path
 from tile_library import PlaceableRef
 
 
@@ -850,6 +851,18 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 family_dir=family_dir,
                 runtime_dir=root / "runtime-families",
             )
+            runtime_payload = cast(
+                dict[str, object],
+                json.loads((root / "runtime-families" / "testfam.json").read_text(encoding="utf-8")),
+            )
+            sheet_tile_payload = next(
+                cast(dict[str, object], tile)
+                for tile in cast(list[object], runtime_payload["tiles"])
+                if cast(dict[str, object], tile)["id"] == "testfam:all:0,0"
+            )
+            sheet_asset_address = cast(dict[str, object], sheet_tile_payload["variant_assets"])["base"]
+            self.assertIsInstance(sheet_asset_address, str)
+            (root / "runtime-families" / "testfam" / atomic_asset_relative_path(cast(str, sheet_asset_address))).unlink()
             shutil.rmtree(family_dir)
 
             for module_name in (

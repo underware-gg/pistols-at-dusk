@@ -34,6 +34,7 @@ from tile_library import (
     PlaceableRef,
     ParametricFrameConstruction,
     ParametricRunConstruction,
+    SheetCell,
     TileGenesis,
     TileLibraryRegistry,
     TileLibraryPromotedMetadata,
@@ -53,7 +54,7 @@ from tile_library_codec import (
     tile_library_unit_from_payload,
     tile_library_unit_to_json,
 )
-from layout_core import GridTileset, RuntimeAtomicTileset
+from layout_core import GridTileset, RuntimePackedTileset
 from runtime_asset_paths import atomic_asset_address_from_digest, atomic_asset_relative_path, runtime_family_root
 from runtime_asset_producer import (
     canonical_rgba_bytes,
@@ -1636,10 +1637,13 @@ def _make_runtime_unit(
         variants={
             variant_id: TileFamilyVariant(
                 id=variant_id,
-                sheet_path=Path("sheet.png"),
+                sheet_path=None,
                 transparent_mode="none",
                 grid_columns=3,
                 grid_rows=3,
+                atlas_path=Path(f"sheets/{variant_id}.png"),
+                atlas_columns=3,
+                atlas_rows=3,
             )
             for variant_id in variant_ids
         },
@@ -1985,6 +1989,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         _make_tile("testfam:source"),
         genesis=TileGenesis(kind="sheet", sheet_col=0, sheet_row=0, source_group="characters"),
         variant_assets={"base": "sha256:" + "0" * 64},
+        variant_atlas_cells={"base": SheetCell(col=3, row=0)},
     )
     body = replace(
         _make_tile(
@@ -2011,6 +2016,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         ),
         exact_duplicate_of="testfam:source",
         variant_assets={"base": "sha256:" + "1" * 64},
+        variant_atlas_cells={"base": SheetCell(col=2, row=1)},
         aliases=("body.alias",),
         walkable=True,
         blocking=False,
@@ -2046,11 +2052,13 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         ),
         genesis=TileGenesis(kind="sheet", sheet_col=2, sheet_row=2, source_group="characters", cluster_ids=("cluster.head",)),
         variant_assets={"base": "sha256:" + "2" * 64},
+        variant_atlas_cells={"base": SheetCell(col=1, row=2)},
     )
     fill = replace(
         _make_tile("testfam:fill", compose_role="fill"),
         genesis=TileGenesis(kind="synthetic", derivation="test-fill", parent_tile_ids=("testfam:body",)),
         variant_assets={"base": "sha256:" + "3" * 64},
+        variant_atlas_cells={"base": SheetCell(col=0, row=2)},
     )
     composite = CompositeTileRecord(
         id="character.composite",
@@ -2153,6 +2161,9 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
                 notes="Base variant.",
                 grid_columns=9,
                 grid_rows=7,
+                atlas_path=Path("sheets/base.png"),
+                atlas_columns=4,
+                atlas_rows=3,
             )
         },
         clusters={
@@ -2214,6 +2225,7 @@ _RUNTIME_CODEC_SERIALIZED_DATACLASSES: tuple[type[Any], ...] = (
     ParametricRunConstruction,
     PlaceableRef,
     RenderTraits,
+    SheetCell,
     TileClusterRecord,
     TileFamilyVariant,
     TileGenesis,
@@ -2385,6 +2397,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
                 unit.clusters["cluster.body"],
                 unit.clusters["cluster.head"],
                 body,
+                body.variant_atlas_cells["base"],
                 body.genesis,
                 body.cell_content_inset,
                 composite,
@@ -2566,6 +2579,22 @@ class TileLibraryRegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "grid_rows must be positive"):
             tile_library_unit_from_payload(payload)
 
+    def test_runtime_library_loader_rejects_missing_variant_atlas_path(self) -> None:
+        payload = _runtime_payload_fixture()
+        variant = _payload_mapping(_payload_list(payload["variants"])[0])
+        del variant["atlas_path"]
+
+        with self.assertRaisesRegex(ValueError, "variants\\[0\\].atlas_path must be a string"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_absolute_variant_atlas_path(self) -> None:
+        payload = _runtime_payload_fixture()
+        variant = _payload_mapping(_payload_list(payload["variants"])[0])
+        variant["atlas_path"] = "/tmp/base.png"
+
+        with self.assertRaisesRegex(ValueError, "atlas_path must be relative"):
+            tile_library_unit_from_payload(payload)
+
     def test_runtime_library_loader_rejects_missing_variant_asset(self) -> None:
         payload = _runtime_payload_fixture()
         tile = _tile_payload_by_id(payload, "testfam:body")
@@ -2582,6 +2611,33 @@ class TileLibraryRegistryTests(unittest.TestCase):
         variant_assets["missing"] = "sha256:" + "f" * 64
 
         with self.assertRaisesRegex(ValueError, "variant_assets references unknown variants: missing"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_missing_variant_atlas_cell(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        variant_atlas_cells = _payload_mapping(tile["variant_atlas_cells"])
+        del variant_atlas_cells["base"]
+
+        with self.assertRaisesRegex(ValueError, "variant_atlas_cells is missing variants: base"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_unknown_variant_atlas_cell(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        variant_atlas_cells = _payload_mapping(tile["variant_atlas_cells"])
+        variant_atlas_cells["missing"] = {"col": 0, "row": 0}
+
+        with self.assertRaisesRegex(ValueError, "variant_atlas_cells references unknown variants: missing"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_atlas_cell_outside_variant_atlas(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        variant_atlas_cells = _payload_mapping(tile["variant_atlas_cells"])
+        variant_atlas_cells["base"] = {"col": 4, "row": 0}
+
+        with self.assertRaisesRegex(ValueError, "variant_atlas_cells.base is outside atlas bounds"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_unknown_construction_kind(self) -> None:
@@ -3343,7 +3399,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
 
 
 class RuntimeAssetProducerTests(unittest.TestCase):
-    def test_runtime_atomic_tileset_indexes_tiles_and_treats_holes_as_empty(self) -> None:
+    def test_runtime_packed_tileset_indexes_tiles_and_treats_holes_as_empty(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             runtime_unit = _make_runtime_unit(
@@ -3353,11 +3409,15 @@ class RuntimeAssetProducerTests(unittest.TestCase):
                         _make_tile("testfam:all:1,0"),
                         genesis=TileGenesis(kind="sheet", sheet_col=1, sheet_row=0),
                         variant_assets={"base": "sha256:" + "1" * 64},
+                        variant_atlas_cells={"base": SheetCell(col=1, row=0)},
                     ),
                 ),
             )
+            atlas_path = root / "runtime-families" / runtime_unit.family_id / "sheets" / "base.png"
+            atlas_path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGBA", (24, 24), (0, 0, 0, 0)).save(atlas_path)
 
-            tileset = RuntimeAtomicTileset.from_variant(
+            tileset = RuntimePackedTileset.from_variant(
                 tile_library=runtime_unit,
                 variant_id="base",
                 asset_root=root / "runtime-families" / runtime_unit.family_id,
@@ -3373,37 +3433,56 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             self.assertTrue(tileset.is_empty(hole_index))
             self.assertIsNone(tileset.tile_image(hole_index).getbbox())
 
-    def test_runtime_atomic_tileset_reports_missing_asset_with_tile_context(self) -> None:
+    def test_runtime_packed_tileset_reports_missing_atlas_with_context(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             family_dir = make_image_override_family_dir(root)
             runtime_dir = root / "runtime-families"
             runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
-            tile = runtime_unit.tiles["testfam:all:0,0"]
-            asset_path = _asset_path(runtime_dir, runtime_unit.family_id, tile.variant_assets["base"])
-            asset_path.unlink()
-            tileset = RuntimeAtomicTileset.from_variant(
-                tile_library=runtime_unit,
-                variant_id="base",
-                asset_root=runtime_dir / runtime_unit.family_id,
-            )
+            variant = runtime_unit.variant("base")
+            assert variant.atlas_path is not None
+            atlas_path = runtime_dir / runtime_unit.family_id / variant.atlas_path
+            atlas_path.unlink()
 
-            with self.assertRaisesRegex(ValueError, "testfam:all:0,0.*base.*atomic asset missing"):
-                tileset.tile_image(tileset.index_from_col_row(0, 0))
+            with self.assertRaisesRegex(ValueError, "Runtime packed tileset.*base.*atlas missing"):
+                RuntimePackedTileset.from_variant(
+                    tile_library=runtime_unit,
+                    variant_id="base",
+                    asset_root=runtime_dir / runtime_unit.family_id,
+                )
 
-    def test_runtime_atomic_tileset_reports_unknown_variant(self) -> None:
+    def test_runtime_packed_tileset_rejects_stale_atlas_dimensions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_image_override_family_dir(root)
+            runtime_dir = root / "runtime-families"
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            variant = runtime_unit.variant("base")
+            assert variant.atlas_path is not None
+            atlas_path = runtime_dir / runtime_unit.family_id / variant.atlas_path
+            Image.new("RGBA", (8, 8), (0, 0, 0, 0)).save(atlas_path)
+
+            with self.assertRaisesRegex(ValueError, "has size .* expected"):
+                RuntimePackedTileset.from_variant(
+                    tile_library=runtime_unit,
+                    variant_id="base",
+                    asset_root=runtime_dir / runtime_unit.family_id,
+                )
+
+    def test_runtime_packed_tileset_reports_unknown_variant(self) -> None:
         runtime_unit = _make_runtime_unit(
             family_id="testfam",
             tiles=(
                 replace(
                     _make_tile("testfam:all:0,0"),
                     variant_assets={"base": "sha256:" + "1" * 64},
+                    variant_atlas_cells={"base": SheetCell(col=0, row=0)},
                 ),
             ),
         )
 
         with self.assertRaisesRegex(ValueError, "unknown variant 'missing'"):
-            RuntimeAtomicTileset.from_variant(
+            RuntimePackedTileset.from_variant(
                 tile_library=runtime_unit,
                 variant_id="missing",
                 asset_root=Path("runtime-families") / runtime_unit.family_id,
@@ -3433,9 +3512,125 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             self.assertEqual(loaded.root, Path("."))
             self.assertIsNone(expected.variant("base").sheet_path)
             self.assertEqual((expected.variant("base").grid_columns, expected.variant("base").grid_rows), (1, 2))
+            self.assertEqual(expected.variant("base").atlas_path, Path("sheets/base.png"))
+            self.assertEqual((expected.variant("base").atlas_columns, expected.variant("base").atlas_rows), (1, 2))
             for tile in loaded.tiles.values():
                 self.assertIsNone(expected.tiles[tile.id].image_override)
                 self.assertEqual(set(tile.variant_assets), {"base"})
+                self.assertEqual(set(tile.variant_atlas_cells), {"base"})
+
+            self.assertEqual(loaded.tiles["testfam:all:0,0"].variant_atlas_cells["base"], SheetCell(col=0, row=0))
+            self.assertEqual(
+                loaded.tiles["testfam:derived.override"].variant_atlas_cells["base"],
+                SheetCell(col=0, row=1),
+            )
+
+    def test_runtime_asset_producer_packs_and_renders_content_in_nonzero_atlas_column(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_family_dir(root, cluster_ids=["cluster.valid"], family_id="testfam")
+            sheet = Image.new("RGBA", (16, 8), (0, 0, 0, 0))
+            sheet.paste(Image.new("RGBA", (8, 8), (0, 0, 0, 255)), (0, 0))
+            sheet.paste(Image.new("RGBA", (8, 8), (0, 255, 0, 255)), (8, 0))
+            sheet.save(family_dir / "sheet.png")
+            family_payload = json.loads((family_dir / "family.json").read_text(encoding="utf-8"))
+            family = _payload_mapping(family_payload)
+            family["variants"] = [
+                {
+                    "variant_id": "base",
+                    "sheet": "sheet.png",
+                    "transparent": "none",
+                }
+            ]
+            write_json(family_dir / "family.json", family_payload)
+            write_json(
+                family_dir / "ingestion.json",
+                {
+                    "sheet_bounds": {"x": 0, "y": 0, "width": 2, "height": 1},
+                    "regions": [
+                        {
+                            "id": "sheet.region",
+                            "bounds": {"x": 0, "y": 0, "width": 2, "height": 1},
+                            "label": "All sheet content",
+                        }
+                    ],
+                    "clusters": [
+                        {
+                            "id": "sheet.region.cluster_01",
+                            "source_region_id": "sheet.region",
+                            "bounds": {"x": 0, "y": 0, "width": 2, "height": 1},
+                            "label": "Only cluster",
+                        }
+                    ],
+                    "ignore_regions": [],
+                    "collections": [
+                        {
+                            "id": "sheet.region.collection_01",
+                            "kind": "connected_component",
+                            "bounds": {"x": 0, "y": 0, "width": 2, "height": 1},
+                            "members": [
+                                {"sheet_cell": {"col": 0, "row": 0}},
+                                {"sheet_cell": {"col": 1, "row": 0}},
+                            ],
+                        }
+                    ],
+                },
+            )
+            write_json(
+                family_dir / "clusters.json",
+                [
+                    {
+                        "id": "cluster.valid",
+                        "scope": "family",
+                        "members": ["testfam:all:0,0", "testfam:all:1,0"],
+                    }
+                ],
+            )
+            write_json(
+                family_dir / "tiles.json",
+                [
+                    {
+                        "id": "testfam:all:0,0",
+                        "sheet_col": 0,
+                        "sheet_row": 0,
+                        "layer": "map",
+                        "category": "tile",
+                        "transparent": False,
+                        "cluster_ids": ["cluster.valid"],
+                        "source_group": "test.sheet",
+                        "meaning": "Left tile.",
+                        "meaning_confidence": "confirmed",
+                    },
+                    {
+                        "id": "testfam:all:1,0",
+                        "sheet_col": 1,
+                        "sheet_row": 0,
+                        "layer": "map",
+                        "category": "tile",
+                        "transparent": False,
+                        "cluster_ids": ["cluster.valid"],
+                        "source_group": "test.sheet",
+                        "meaning": "Right tile.",
+                        "meaning_confidence": "confirmed",
+                    },
+                ],
+            )
+            runtime_dir = root / "runtime-families"
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            left = runtime_unit.tiles["testfam:all:0,0"]
+            right = runtime_unit.tiles["testfam:all:1,0"]
+            self.assertEqual(left.variant_atlas_cells["base"], SheetCell(col=0, row=0))
+            self.assertEqual(right.variant_atlas_cells["base"], SheetCell(col=1, row=0))
+
+            tileset = RuntimePackedTileset.from_variant(
+                tile_library=runtime_unit,
+                variant_id="base",
+                asset_root=runtime_dir / runtime_unit.family_id,
+            )
+            left_image = tileset.tile_image(tileset.index_from_col_row(0, 0))
+            right_image = tileset.tile_image(tileset.index_from_col_row(1, 0))
+            self.assertEqual(left_image.getpixel((0, 0)), (0, 0, 0, 255))
+            self.assertEqual(right_image.getpixel((0, 0)), (0, 255, 0, 255))
 
     def test_runtime_asset_producer_rebinds_construction_tiles_to_runtime_tiles(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -3457,6 +3652,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             def assert_runtime_tile(tile: TileRecord, tile_id: str) -> None:
                 self.assertIs(tile, runtime_unit.tiles[tile_id])
                 self.assertEqual(set(tile.variant_assets), {"base"})
+                self.assertEqual(set(tile.variant_atlas_cells), {"base"})
                 self.assertIsNone(tile.image_override)
 
             fixed_cell = fixed.cells[0][0]
@@ -3494,6 +3690,8 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             produced_override_tile = runtime_unit.tiles[override_tile.id]
             self.assertEqual(set(produced_sheet_tile.variant_assets), {"base", "alt"})
             self.assertEqual(set(produced_override_tile.variant_assets), {"base", "alt"})
+            self.assertEqual(set(produced_sheet_tile.variant_atlas_cells), {"base", "alt"})
+            self.assertEqual(set(produced_override_tile.variant_atlas_cells), {"base", "alt"})
             self.assertNotEqual(produced_sheet_tile.variant_assets["base"], produced_sheet_tile.variant_assets["alt"])
             self.assertNotEqual(produced_override_tile.variant_assets["base"], produced_override_tile.variant_assets["alt"])
 
@@ -3573,9 +3771,24 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             output_b = produce_runtime_family_asset(family_b, runtime_b)
 
             self.assertEqual(output_a.read_bytes(), output_b.read_bytes())
-            asset_bytes_a = sorted(path.read_bytes() for path in (runtime_a / "testfam" / "assets").rglob("*.png"))
-            asset_bytes_b = sorted(path.read_bytes() for path in (runtime_b / "testfam" / "assets").rglob("*.png"))
-            self.assertEqual(asset_bytes_a, asset_bytes_b)
+            asset_rgba_a = sorted(
+                canonical_rgba_bytes(Image.open(path).convert("RGBA"))
+                for path in (runtime_a / "testfam" / "assets").rglob("*.png")
+            )
+            asset_rgba_b = sorted(
+                canonical_rgba_bytes(Image.open(path).convert("RGBA"))
+                for path in (runtime_b / "testfam" / "assets").rglob("*.png")
+            )
+            self.assertEqual(asset_rgba_a, asset_rgba_b)
+            atlas_rgba_a = sorted(
+                canonical_rgba_bytes(Image.open(path).convert("RGBA"))
+                for path in (runtime_a / "testfam" / "sheets").rglob("*.png")
+            )
+            atlas_rgba_b = sorted(
+                canonical_rgba_bytes(Image.open(path).convert("RGBA"))
+                for path in (runtime_b / "testfam" / "sheets").rglob("*.png")
+            )
+            self.assertEqual(atlas_rgba_a, atlas_rgba_b)
 
             payload = json.loads(output_a.read_text(encoding="utf-8"))
             strings = _json_strings(payload)

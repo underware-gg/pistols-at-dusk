@@ -545,6 +545,9 @@ class TileFamilyVariant:
     notes: str | None = None
     grid_columns: int | None = None
     grid_rows: int | None = None
+    atlas_path: Path | None = None
+    atlas_columns: int | None = None
+    atlas_rows: int | None = None
 
     def __post_init__(self) -> None:
         if (self.grid_columns is None) != (self.grid_rows is None):
@@ -553,6 +556,15 @@ class TileFamilyVariant:
             raise ValueError("TileFamilyVariant.grid_columns must be positive")
         if self.grid_rows is not None and self.grid_rows <= 0:
             raise ValueError("TileFamilyVariant.grid_rows must be positive")
+        atlas_values = (self.atlas_path, self.atlas_columns, self.atlas_rows)
+        if any(value is not None for value in atlas_values) and not all(value is not None for value in atlas_values):
+            raise ValueError("TileFamilyVariant atlas_path, atlas_columns, and atlas_rows must be provided together")
+        if self.atlas_path is not None and (self.atlas_path.is_absolute() or ".." in self.atlas_path.parts):
+            raise ValueError("TileFamilyVariant.atlas_path must be relative within the runtime family")
+        if self.atlas_columns is not None and self.atlas_columns <= 0:
+            raise ValueError("TileFamilyVariant.atlas_columns must be positive")
+        if self.atlas_rows is not None and self.atlas_rows <= 0:
+            raise ValueError("TileFamilyVariant.atlas_rows must be positive")
 
 
 def require_variant_sheet_path(variant: TileFamilyVariant, *, context: str) -> Path:
@@ -625,6 +637,10 @@ def _empty_variant_assets() -> Mapping[str, str]:
     return {}
 
 
+def _empty_variant_atlas_cells() -> Mapping[str, SheetCell]:
+    return {}
+
+
 @dataclass(frozen=True)
 class SheetCell:
     col: int
@@ -685,6 +701,7 @@ class TileRecord:
     exact_duplicate_of: str | None = None
     image_override: str | None = None
     variant_assets: Mapping[str, str] = field(default_factory=_empty_variant_assets, repr=False)
+    variant_atlas_cells: Mapping[str, SheetCell] = field(default_factory=_empty_variant_atlas_cells, repr=False)
     aliases: tuple[str, ...] = ()
     walkable: bool | None = None
     blocking: bool | None = None
@@ -720,6 +737,7 @@ class TileRecord:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "variant_assets", MappingProxyType(dict(self.variant_assets)))
+        object.__setattr__(self, "variant_atlas_cells", MappingProxyType(dict(self.variant_atlas_cells)))
 
 
 @dataclass(frozen=True)

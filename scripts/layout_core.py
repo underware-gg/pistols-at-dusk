@@ -48,7 +48,7 @@ from tile_library import (
     require_variant_sheet_path,
 )
 from tile_library_codec import tile_library_unit_from_json
-from runtime_asset_paths import atomic_asset_relative_path, runtime_family_root
+from runtime_asset_paths import atlas_cell_box, runtime_family_root
 from tile_family_runtime import TileFamily
 
 
@@ -767,7 +767,7 @@ class GridTileset(_BaseTileset):
         )
 
 
-class RuntimeAtomicTileset(_BaseTileset):
+class RuntimePackedTileset(_BaseTileset):
     def __init__(
         self,
         tileset_id: str,
@@ -780,11 +780,15 @@ class RuntimeAtomicTileset(_BaseTileset):
             variant = tile_library.variant(variant_id)
         except KeyError as exc:
             raise ValueError(
-                f"Runtime atomic tileset {tileset_id!r} references unknown variant {variant_id!r}"
+                f"Runtime packed tileset {tileset_id!r} references unknown variant {variant_id!r}"
             ) from exc
         if variant.grid_columns is None or variant.grid_rows is None:
             raise ValueError(
-                f"Runtime atomic tileset {tileset_id!r} variant {variant_id!r} is missing runtime grid dimensions"
+                f"Runtime packed tileset {tileset_id!r} variant {variant_id!r} is missing runtime grid dimensions"
+            )
+        if variant.atlas_path is None or variant.atlas_columns is None or variant.atlas_rows is None:
+            raise ValueError(
+                f"Runtime packed tileset {tileset_id!r} variant {variant_id!r} is missing runtime atlas metadata"
             )
         super().__init__(
             tileset_id,
@@ -795,8 +799,22 @@ class RuntimeAtomicTileset(_BaseTileset):
             transparent_mode=variant.transparent_mode,
             catalog_scope="all",
         )
-        self.asset_root = asset_root
         self.variant_id = variant_id
+        self.atlas_columns = variant.atlas_columns
+        self.atlas_rows = variant.atlas_rows
+        atlas_path = asset_root / variant.atlas_path
+        try:
+            self.atlas_image = Image.open(atlas_path).convert("RGBA")
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"Runtime packed tileset {tileset_id!r} variant {variant_id!r} atlas missing at {atlas_path}"
+            ) from exc
+        expected_size = (self.atlas_columns * self.tile_width, self.atlas_rows * self.tile_height)
+        if self.atlas_image.size != expected_size:
+            raise ValueError(
+                f"Runtime packed tileset {tileset_id!r} variant {variant_id!r} atlas {atlas_path} "
+                f"has size {self.atlas_image.size}, expected {expected_size}"
+            )
         self._index_to_tile: dict[int, TileRecord] = {}
         self._tile_id_to_index: dict[str, int] = {}
 
@@ -805,7 +823,7 @@ class RuntimeAtomicTileset(_BaseTileset):
                 continue
             if not (0 <= tile.genesis.sheet_col < self.columns and 0 <= tile.genesis.sheet_row < self.rows):
                 raise ValueError(
-                    f"Runtime atomic tileset {tileset_id!r} tile {tile.id!r} has sheet coordinate "
+                    f"Runtime packed tileset {tileset_id!r} tile {tile.id!r} has sheet coordinate "
                     f"outside runtime grid: ({tile.genesis.sheet_col}, {tile.genesis.sheet_row})"
                 )
             index = tile.genesis.sheet_row * self.columns + tile.genesis.sheet_col
@@ -827,7 +845,7 @@ class RuntimeAtomicTileset(_BaseTileset):
         tile_library: TileLibraryUnit,
         variant_id: str,
         asset_root: Path,
-    ) -> RuntimeAtomicTileset:
+    ) -> RuntimePackedTileset:
         return cls(
             tile_library.runtime_tileset_id(variant_id),
             tile_library=tile_library,
@@ -839,7 +857,7 @@ class RuntimeAtomicTileset(_BaseTileset):
         try:
             return self._tile_id_to_index[tile_id]
         except KeyError as exc:
-            raise ValueError(f"Runtime atomic tileset {self.id!r} has no tile {tile_id!r}") from exc
+            raise ValueError(f"Runtime packed tileset {self.id!r} has no tile {tile_id!r}") from exc
 
     def _tile_for_index(self, index: int) -> TileRecord | None:
         tile = self._index_to_tile.get(index)
@@ -854,21 +872,27 @@ class RuntimeAtomicTileset(_BaseTileset):
         if tile is None:
             return self._blank_tile()
         try:
-            address = tile.variant_assets[self.variant_id]
+            cell = tile.variant_atlas_cells[self.variant_id]
         except KeyError as exc:
             raise ValueError(
-                f"Tile {tile.id!r} has no runtime asset for variant {self.variant_id!r}"
+                f"Tile {tile.id!r} has no runtime atlas cell for variant {self.variant_id!r}"
             ) from exc
-        asset_path = self.asset_root / atomic_asset_relative_path(address)
-        try:
-            return Image.open(asset_path).convert("RGBA")
-        except FileNotFoundError as exc:
+        if not (0 <= cell.col < self.atlas_columns and 0 <= cell.row < self.atlas_rows):
             raise ValueError(
-                f"Tile {tile.id!r} variant {self.variant_id!r} atomic asset missing at {asset_path}"
-            ) from exc
+                f"Tile {tile.id!r} variant {self.variant_id!r} atlas cell "
+                f"({cell.col}, {cell.row}) is outside {self.atlas_columns}x{self.atlas_rows}"
+            )
+        return self.atlas_image.crop(
+            atlas_cell_box(
+                cell.col,
+                cell.row,
+                tile_width=self.tile_width,
+                tile_height=self.tile_height,
+            )
+        )
 
 
-ProjectTileset = GridTileset | RuntimeAtomicTileset
+ProjectTileset = GridTileset | RuntimePackedTileset
 
 
 def _metrics_from_tileset(tileset: ProjectTileset) -> TilesetGridMetrics:
@@ -1094,7 +1118,7 @@ class LayoutProject:
                 variant_id=variant_id,
             )
         else:
-            tileset = RuntimeAtomicTileset.from_variant(
+            tileset = RuntimePackedTileset.from_variant(
                 tile_library=tile_library,
                 variant_id=variant_id,
                 asset_root=selection.asset_root,
@@ -1195,7 +1219,7 @@ class LayoutProject:
         runtime_tileset_id = f"{resolved.family_id}@{resolved.variant_id}"
         tileset = self.get_tileset(runtime_tileset_id)
         if resolved.sheet_col is None or resolved.sheet_row is None:
-            if isinstance(tileset, RuntimeAtomicTileset):
+            if isinstance(tileset, RuntimePackedTileset):
                 return ResolvedTile(
                     tileset_id=runtime_tileset_id,
                     index=tileset.index_for_tile_id(resolved.tile_id),
@@ -1228,7 +1252,7 @@ class LayoutProject:
         if tile_library is not None and not allow_family_tileset_load and tileset_id not in self.tilesets:
             selection = self._family_selection_for_tileset(tileset_id)
             if selection is not None and selection.asset_root is not None:
-                tileset = RuntimeAtomicTileset.from_variant(
+                tileset = RuntimePackedTileset.from_variant(
                     tile_library=tile_library,
                     variant_id=self._family_variant_ids_by_tileset[tileset_id],
                     asset_root=selection.asset_root,
