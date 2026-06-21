@@ -1264,6 +1264,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     legacy_semantics: Mapping[str, LegacyTileSemanticRecord] = field(default_factory=_empty_legacy_semantics, repr=False)
 
     def __post_init__(self) -> None:
+        self._validate_legacy_semantics()
         for attachment_set in self.attachment_sets.values():
             self._validate_attachment_set(attachment_set)
 
@@ -1376,6 +1377,15 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
                     f"{fill_bounds.width}x{fill_bounds.height} exceeds canvas "
                     f"{attachment_set.canvas.width}x{attachment_set.canvas.height}"
                 )
+
+    def _validate_legacy_semantics(self) -> None:
+        for tile_id, record in self.legacy_semantics.items():
+            if tile_id != record.tile_id:
+                raise ValueError(
+                    f"legacy semantic record key {tile_id!r} must match record tile_id {record.tile_id!r}"
+                )
+            if tile_id not in self.tiles:
+                raise ValueError(f"legacy semantic record references unknown tile {tile_id!r}")
 
     def runtime_tileset_id_for_construction(
         self,

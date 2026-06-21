@@ -953,11 +953,6 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
         _legacy_semantic_record_from_payload,
         context="runtime library.legacy_tile_semantics",
     )
-    for tile_id in legacy_semantics:
-        if tile_id not in tiles:
-            raise ValueError(
-                f"runtime library.legacy_tile_semantics.{tile_id} references unknown tile id {tile_id!r}"
-            )
     default_variant_id = _as_str(family.get("default_variant_id"), context="runtime library.family.default_variant_id")
     if default_variant_id not in variants:
         raise ValueError(f"runtime library.family.default_variant_id references unknown variant {default_variant_id!r}")

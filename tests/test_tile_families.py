@@ -2545,7 +2545,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
         record = _payload_mapping(legacy_records[0])
         record["tile_id"] = "testfam:missing"
 
-        with self.assertRaisesRegex(ValueError, "legacy_tile_semantics.testfam:missing references unknown tile id"):
+        with self.assertRaisesRegex(ValueError, "legacy semantic record references unknown tile 'testfam:missing'"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_malformed_legacy_semantic_fact(self) -> None:

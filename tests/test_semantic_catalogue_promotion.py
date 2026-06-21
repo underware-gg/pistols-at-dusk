@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -18,6 +19,7 @@ from tile_library import (
     CompositeTileRecord,
     EMPTY_TILE_LIBRARY_PROMOTED_METADATA,
     FixedConstruction,
+    LegacyTileSemanticRecord,
     TileFamilyVariant,
     TileGenesis,
     TileLibraryUnit,
@@ -121,6 +123,116 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
         self.assertEqual(promoted_tile.alt_uses, ("prop",))
         self.assertEqual(promoted_tile.variant_assets, unit.tiles["test.tile"].variant_assets)
         self.assertIsNot(promoted.tiles["test.tile"], unit.tiles["test.tile"])
+        self.assertEqual(promoted.legacy_semantics, {})
+
+    def test_promotion_attaches_legacy_layer_without_overriding_promoted_tile_fields(self) -> None:
+        unit = _unit(_tile("test.tile", sheet_col=0, meaning="stool"))
+        legacy_record = LegacyTileSemanticRecord(
+            tile_id="test.tile",
+            origin="legacy_tiles_json",
+            schema_version=1,
+            facts={
+                "meaning": "legacy stool",
+                "semantics": ("legacy-seat",),
+                "category": "legacy-category",
+                "tags": ("legacy-tag",),
+                "walkable": "legacy-walkable-string",
+            },
+        )
+
+        promoted = promote_semantic_catalogue(
+            unit,
+            resolved=(
+                ResolvedSemanticTile(
+                    content_hash=_HASH_A,
+                    facts={"semantics": ("clean-bed",), "style": "soft"},
+                ),
+            ),
+            content_hash_by_tile_id={"test.tile": _HASH_A},
+            legacy_semantics=(legacy_record,),
+        )
+
+        promoted_tile = promoted.tiles["test.tile"]
+        self.assertEqual(promoted_tile.semantics, ("clean-bed",))
+        self.assertEqual(promoted_tile.style, "soft")
+        self.assertEqual(promoted_tile.meaning, "stool")
+        self.assertEqual(promoted_tile.category, "furniture")
+        self.assertFalse(promoted_tile.walkable)
+        loaded_legacy = promoted.legacy_semantics_for("test.tile")
+        self.assertIs(loaded_legacy, legacy_record)
+        assert loaded_legacy is not None
+        self.assertEqual(loaded_legacy.facts["meaning"], "legacy stool")
+        self.assertEqual(loaded_legacy.facts["semantics"], ("legacy-seat",))
+        self.assertEqual(loaded_legacy.facts["category"], "legacy-category")
+        self.assertEqual(loaded_legacy.facts["walkable"], "legacy-walkable-string")
+
+    def test_empty_legacy_argument_preserves_existing_legacy_layer(self) -> None:
+        legacy_record = LegacyTileSemanticRecord(
+            tile_id="test.tile",
+            origin="legacy_tiles_json",
+            schema_version=1,
+            facts={"meaning": "prior legacy"},
+        )
+        base_unit = _unit(_tile("test.tile", sheet_col=0, meaning="stool"))
+        unit = replace(base_unit, legacy_semantics={legacy_record.tile_id: legacy_record})
+
+        promoted = promote_semantic_catalogue(
+            unit,
+            resolved=(
+                ResolvedSemanticTile(
+                    content_hash=_HASH_A,
+                    facts={"semantics": ("clean-bed",)},
+                ),
+            ),
+            content_hash_by_tile_id={"test.tile": _HASH_A},
+        )
+
+        self.assertIs(promoted.legacy_semantics_for("test.tile"), legacy_record)
+
+    def test_non_empty_legacy_argument_replaces_existing_legacy_layer_wholesale(self) -> None:
+        tile_a = _tile("test.tile.a", sheet_col=0)
+        tile_b = _tile("test.tile.b", sheet_col=1)
+        prior_record = LegacyTileSemanticRecord(
+            tile_id=tile_a.id,
+            origin="legacy_tiles_json",
+            schema_version=1,
+            facts={"meaning": "prior legacy"},
+        )
+        replacement_record = LegacyTileSemanticRecord(
+            tile_id=tile_b.id,
+            origin="legacy_tiles_json",
+            schema_version=1,
+            facts={"meaning": "replacement legacy"},
+        )
+        base_unit = _unit(tile_a, tile_b)
+        unit = replace(base_unit, legacy_semantics={prior_record.tile_id: prior_record})
+
+        promoted = promote_semantic_catalogue(
+            unit,
+            resolved=(
+                ResolvedSemanticTile(content_hash=_HASH_A, facts={"semantics": ("a",)}),
+                ResolvedSemanticTile(content_hash=_HASH_B, facts={"semantics": ("b",)}),
+            ),
+            content_hash_by_tile_id={tile_a.id: _HASH_A, tile_b.id: _HASH_B},
+            legacy_semantics=(replacement_record,),
+        )
+
+        self.assertIsNone(promoted.legacy_semantics_for(tile_a.id))
+        self.assertIs(promoted.legacy_semantics_for(tile_b.id), replacement_record)
+        self.assertEqual(set(promoted.legacy_semantics), {tile_b.id})
+
+    def test_legacy_semantics_map_key_must_match_record_tile_id(self) -> None:
+        tile = _tile("test.tile", sheet_col=0)
+        unit = _unit(tile)
+        record = LegacyTileSemanticRecord(
+            tile_id=tile.id,
+            origin="legacy_tiles_json",
+            schema_version=1,
+            facts={"meaning": "legacy"},
+        )
+
+        with self.assertRaisesRegex(ValueError, "legacy semantic record key 'wrong-key' must match record tile_id"):
+            replace(unit, legacy_semantics={"wrong-key": record})
 
     def test_one_content_record_fans_out_to_multiple_physical_tiles(self) -> None:
         unit = _unit(
@@ -284,6 +396,58 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
                     ),
                 ),
                 content_hash_by_tile_id={"test.tile": _HASH_A},
+            )
+
+    def test_legacy_record_for_unknown_tile_raises(self) -> None:
+        unit = _unit(_tile("test.tile", sheet_col=0))
+
+        with self.assertRaisesRegex(ValueError, "legacy semantic record references unknown tile 'missing.tile'"):
+            promote_semantic_catalogue(
+                unit,
+                resolved=(
+                    ResolvedSemanticTile(
+                        content_hash=_HASH_A,
+                        facts={"semantics": ("bed",), "temperature": "warm"},
+                    ),
+                ),
+                content_hash_by_tile_id={"test.tile": _HASH_A},
+                legacy_semantics=(
+                    LegacyTileSemanticRecord(
+                        tile_id="missing.tile",
+                        origin="legacy_tiles_json",
+                        schema_version=1,
+                        facts={"meaning": "lost"},
+                    ),
+                ),
+            )
+
+    def test_duplicate_legacy_record_raises(self) -> None:
+        unit = _unit(_tile("test.tile", sheet_col=0))
+
+        with self.assertRaisesRegex(ValueError, "Duplicate legacy semantic record for tile 'test.tile'"):
+            promote_semantic_catalogue(
+                unit,
+                resolved=(
+                    ResolvedSemanticTile(
+                        content_hash=_HASH_A,
+                        facts={"semantics": ("bed",), "temperature": "warm"},
+                    ),
+                ),
+                content_hash_by_tile_id={"test.tile": _HASH_A},
+                legacy_semantics=(
+                    LegacyTileSemanticRecord(
+                        tile_id="test.tile",
+                        origin="legacy_tiles_json",
+                        schema_version=1,
+                        facts={"meaning": "first"},
+                    ),
+                    LegacyTileSemanticRecord(
+                        tile_id="test.tile",
+                        origin="legacy_tiles_json",
+                        schema_version=1,
+                        facts={"meaning": "second"},
+                    ),
+                ),
             )
 
 
