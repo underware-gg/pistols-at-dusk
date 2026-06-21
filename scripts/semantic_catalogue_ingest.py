@@ -182,7 +182,7 @@ def _facts_payload(facts: SemanticFacts) -> dict[str, object]:
     return payload
 
 
-def _index_by_hash(
+def index_by_content_hash(
     items: tuple[_HashIndexed, ...],
     *,
     kind: str,
@@ -200,11 +200,11 @@ def resolve_semantic_catalogue(
     detected_base: tuple[DetectedSemanticTile, ...],
     authored_patches: tuple[AuthoredSemanticPatch, ...] = (),
 ) -> tuple[ResolvedSemanticTile, ...]:
-    detected_by_hash = _index_by_hash(
+    detected_by_hash = index_by_content_hash(
         detected_base,
         kind="detected semantic record",
     )
-    patches_by_hash = _index_by_hash(
+    patches_by_hash = index_by_content_hash(
         authored_patches,
         kind="authored semantic patch",
     )
@@ -299,7 +299,7 @@ def semantic_catalogue_from_payload(payload: object, *, context: str = "semantic
         )
         records.append(ResolvedSemanticTile(content_hash=content_hash, facts=facts, authored_fields=authored_fields))
     return tuple(
-        _index_by_hash(
+        index_by_content_hash(
             tuple(records),
             kind="resolved semantic record",
         ).values()

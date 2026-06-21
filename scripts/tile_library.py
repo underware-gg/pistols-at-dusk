@@ -696,8 +696,8 @@ class TileRecord:
     layer: str
     category: str
     transparent: bool
-    tags: tuple[str, ...]
     genesis: TileGenesis
+    tags: tuple[str, ...] = ()
     exact_duplicate_of: str | None = None
     image_override: str | None = None
     variant_assets: Mapping[str, str] = field(default_factory=_empty_variant_assets, repr=False)
@@ -738,6 +738,17 @@ class TileRecord:
     def __post_init__(self) -> None:
         object.__setattr__(self, "variant_assets", MappingProxyType(dict(self.variant_assets)))
         object.__setattr__(self, "variant_atlas_cells", MappingProxyType(dict(self.variant_atlas_cells)))
+
+
+RUNTIME_AUTHORED_TILE_FIELDS = frozenset(
+    {
+        "affordances",
+        "alt_uses",
+        "blocking",
+        "requires_exposed_on",
+        "walkable",
+    }
+)
 
 
 @dataclass(frozen=True)
