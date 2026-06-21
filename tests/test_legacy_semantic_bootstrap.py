@@ -16,6 +16,9 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from legacy_semantic_bootstrap import (
+    LEGACY_TILE_SEMANTIC_FIELDS,
+    LEGACY_TILE_SEMANTICS_ORIGIN,
+    LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
     LegacySemanticBootstrapCollisionError,
     SemanticCollision,
     collision_report_payload,
@@ -24,10 +27,24 @@ from legacy_semantic_bootstrap import (
 )
 from semantic_catalogue_ingest import resolve_semantic_catalogue
 from tile_family_ingest import load_source_tile_family
+from tile_library import LegacyTileSemanticRecord
 
 
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _legacy_record_from_payload(raw: dict[str, object]) -> LegacyTileSemanticRecord:
+    facts_payload = cast(dict[str, object], raw["facts"])
+    return LegacyTileSemanticRecord(
+        tile_id=cast(str, raw["tile_id"]),
+        origin=cast(str, raw["origin"]),
+        schema_version=cast(int, raw["schema_version"]),
+        facts={
+            field: tuple(cast(list[str], value)) if isinstance(value, list) else cast(str | None, value)
+            for field, value in facts_payload.items()
+        },
+    )
 
 
 def _paint_tile(sheet: Image.Image, col: int, colour: tuple[int, int, int, int]) -> None:
@@ -43,6 +60,7 @@ def _make_two_tile_family(
     semantics: tuple[list[str], list[str]] | None = None,
     contrast: tuple[str | None, str | None] = ("high", "high"),
     style: tuple[str | None, str | None] = (None, None),
+    usage: tuple[str | None, str | None] = ("floor", "floor"),
 ) -> Path:
     family_dir = root / "family"
     family_dir.mkdir()
@@ -104,6 +122,17 @@ def _make_two_tile_family(
                 "source_group": "group",
                 "semantics": semantics[0] if semantics is not None else ["left"],
                 "meaning_confidence": "confirmed",
+                "motifs": ["fixture-motif"],
+                "noise": "low",
+                "temperature": "warm",
+                "overlay": "shadow",
+                "footprint": "single",
+                "orientation": "upright",
+                "facing": "south",
+                "pose": "idle",
+                "meaning": "left legacy meaning",
+                "source_notes": "left source note",
+                **({"usage": usage[0]} if usage[0] is not None else {}),
                 **({"contrast": contrast[0]} if contrast[0] is not None else {}),
                 **({"style": style[0]} if style[0] is not None else {}),
             },
@@ -119,6 +148,17 @@ def _make_two_tile_family(
                 "source_group": "group",
                 "semantics": semantics[1] if semantics is not None else ["right"],
                 "meaning_confidence": "confirmed",
+                "motifs": ["fixture-motif"],
+                "noise": "low",
+                "temperature": "warm",
+                "overlay": "shadow",
+                "footprint": "single",
+                "orientation": "upright",
+                "facing": "south",
+                "pose": "idle",
+                "meaning": "right legacy meaning",
+                "source_notes": "right source note",
+                **({"usage": usage[1]} if usage[1] is not None else {}),
                 **({"contrast": contrast[1]} if contrast[1] is not None else {}),
                 **({"style": style[1]} if style[1] is not None else {}),
             },
@@ -129,6 +169,49 @@ def _make_two_tile_family(
 
 
 class LegacySemanticBootstrapTests(unittest.TestCase):
+    def test_bootstrap_preserves_full_legacy_semantic_payload_per_physical_tile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            family = load_source_tile_family(
+                _make_two_tile_family(
+                    Path(temp_dir),
+                    base_colours=((255, 0, 0, 255), (0, 0, 255, 255)),
+                    contrast=("high", "low"),
+                    style=("pixel", "flat"),
+                    usage=("floor", None),
+                )
+            )
+
+            result = bootstrap_legacy_semantic_patch(family)
+
+        records = {record.tile_id: record for record in result.legacy_semantics}
+        left = records["testfam:all:0,0"]
+        right = records["testfam:all:1,0"]
+        self.assertEqual(left.origin, LEGACY_TILE_SEMANTICS_ORIGIN)
+        self.assertEqual(left.schema_version, LEGACY_TILE_SEMANTICS_SCHEMA_VERSION)
+        self.assertEqual(set(left.facts), LEGACY_TILE_SEMANTIC_FIELDS)
+        self.assertEqual(set(right.facts), LEGACY_TILE_SEMANTIC_FIELDS)
+        self.assertEqual(left.facts["category"], "tile")
+        self.assertEqual(left.facts["layer"], "map")
+        self.assertEqual(left.facts["tags"], ("semantic:fixture",))
+        self.assertEqual(left.facts["semantics"], ("left",))
+        self.assertEqual(left.facts["motifs"], ("fixture-motif",))
+        self.assertEqual(left.facts["contrast"], "high")
+        self.assertEqual(left.facts["style"], "pixel")
+        self.assertEqual(left.facts["noise"], "low")
+        self.assertEqual(left.facts["temperature"], "warm")
+        self.assertEqual(left.facts["usage"], "floor")
+        self.assertEqual(left.facts["overlay"], "shadow")
+        self.assertEqual(left.facts["footprint"], "single")
+        self.assertEqual(left.facts["orientation"], "upright")
+        self.assertEqual(left.facts["facing"], "south")
+        self.assertEqual(left.facts["pose"], "idle")
+        self.assertEqual(left.facts["meaning"], "left legacy meaning")
+        self.assertEqual(left.facts["meaning_confidence"], "confirmed")
+        self.assertEqual(left.facts["source_notes"], "left source note")
+        self.assertEqual(right.facts["meaning"], "right legacy meaning")
+        self.assertEqual(right.facts["contrast"], "low")
+        self.assertIsNone(right.facts["usage"])
+
     def test_collision_free_physical_tiles_project_to_content_patches(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             family = load_source_tile_family(
@@ -220,12 +303,24 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
             write_bootstrap_outputs(result, output_dir)
 
             authored_patch = json.loads((output_dir / "authored-patch.json").read_text(encoding="utf-8"))
+            legacy_payload = json.loads((output_dir / "legacy-tile-semantics.json").read_text(encoding="utf-8"))
             detected_base_exists = (output_dir / "detected-base.json").exists()
             collisions_exists = (output_dir / "bootstrap-collisions.json").exists()
 
         self.assertEqual(authored_patch["schema_version"], 1)
         self.assertEqual(len(authored_patch["patches"]), 2)
         self.assertTrue(all(patch["content_hash"].startswith("content-sha256:") for patch in authored_patch["patches"]))
+        self.assertEqual(legacy_payload["schema_version"], LEGACY_TILE_SEMANTICS_SCHEMA_VERSION)
+        legacy_records = tuple(
+            _legacy_record_from_payload(cast(dict[str, object], raw_record))
+            for raw_record in cast(list[object], legacy_payload["legacy_tile_semantics"])
+        )
+        self.assertEqual(len(legacy_records), 2)
+        self.assertEqual(legacy_records[0].origin, LEGACY_TILE_SEMANTICS_ORIGIN)
+        self.assertEqual(legacy_records[0].facts["category"], "tile")
+        self.assertEqual(legacy_records[0].facts["tags"], ("semantic:fixture",))
+        self.assertEqual(legacy_records[0].facts["source_notes"], "left source note")
+        self.assertIsNone(legacy_records[0].facts["style"])
         self.assertTrue(detected_base_exists)
         self.assertTrue(collisions_exists)
 

@@ -389,27 +389,12 @@ def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
     )
 
 
-def _legacy_fact_payload(value: LegacySemanticFactValue) -> object:
-    if isinstance(value, tuple):
-        return list(value)
-    return value
-
-
 def _legacy_fact_from_payload(raw: object, *, context: str) -> LegacySemanticFactValue:
     if raw is None or isinstance(raw, str):
         return raw
     if isinstance(raw, list):
         return _as_string_tuple(cast(object, raw), context=context)
     raise ValueError(f"{context} must be null, a string, or an array of strings")
-
-
-def _legacy_semantic_record_payload(record: LegacyTileSemanticRecord) -> dict[str, object]:
-    return {
-        "tile_id": record.tile_id,
-        "origin": record.origin,
-        "schema_version": record.schema_version,
-        "facts": {field: _legacy_fact_payload(value) for field, value in sorted(record.facts.items())},
-    }
 
 
 def _legacy_semantic_record_from_payload(raw: object, *, context: str) -> LegacyTileSemanticRecord:
@@ -864,7 +849,7 @@ def tile_library_unit_to_payload(unit: TileLibraryUnit) -> dict[str, object]:
             for attachment_set in sorted(unit.attachment_sets.values(), key=lambda item: item.id)
         ],
         "legacy_tile_semantics": [
-            _legacy_semantic_record_payload(record)
+            record.to_payload()
             for record in sorted(unit.legacy_semantics.values(), key=lambda item: item.tile_id)
         ],
     }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
@@ -21,7 +21,40 @@ from semantic_catalogue_ingest import (
     semantic_payload_to_json,
 )
 from tile_family_runtime import TileFamily, resolve_canonical_tile_image
-from tile_library import TileRecord
+from tile_library import LegacyTileSemanticRecord, TileRecord
+
+
+LEGACY_TILE_SEMANTICS_SCHEMA_VERSION = 1
+LEGACY_TILE_SEMANTICS_ORIGIN = "legacy_tiles_json"
+
+# Frozen snapshot of the legacy tiles.json semantic schema. Do not derive this
+# from the live content-keyed taxonomy; this artifact preserves historical input.
+LEGACY_TILE_SEMANTIC_FIELDS = frozenset(
+    {
+        "category",
+        "contrast",
+        "facing",
+        "footprint",
+        "layer",
+        "meaning",
+        "meaning_confidence",
+        "motifs",
+        "noise",
+        "orientation",
+        "overlay",
+        "pose",
+        "semantics",
+        "source_notes",
+        "style",
+        "tags",
+        "temperature",
+        "usage",
+    }
+)
+
+_TILE_RECORD_FIELD_NAMES = frozenset(field.name for field in fields(TileRecord))
+if missing_legacy_fields := sorted(LEGACY_TILE_SEMANTIC_FIELDS - _TILE_RECORD_FIELD_NAMES):
+    raise ValueError(f"LEGACY_TILE_SEMANTIC_FIELDS are not TileRecord fields: {', '.join(missing_legacy_fields)}")
 
 
 @dataclass(frozen=True)
@@ -63,6 +96,7 @@ class SemanticCollision:
 class LegacySemanticBootstrapResult:
     detected_base: tuple[DetectedSemanticTile, ...]
     authored_patches: tuple[AuthoredSemanticPatch, ...]
+    legacy_semantics: tuple[LegacyTileSemanticRecord, ...]
     physical_tiles: tuple[BootstrappedPhysicalTile, ...]
     collisions: tuple[SemanticCollision, ...]
 
@@ -84,11 +118,29 @@ def collision_report_payload(collisions: tuple[SemanticCollision, ...]) -> dict[
     }
 
 
+def legacy_tile_semantics_to_json(records: tuple[LegacyTileSemanticRecord, ...]) -> str:
+    return semantic_payload_to_json(legacy_tile_semantics_payload(records))
+
+
+def legacy_tile_semantics_payload(records: tuple[LegacyTileSemanticRecord, ...]) -> dict[str, object]:
+    return {
+        "schema_version": LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
+        "legacy_tile_semantics": [
+            record.to_payload()
+            for record in sorted(records, key=lambda item: item.tile_id)
+        ],
+    }
+
+
 def write_bootstrap_outputs(result: LegacySemanticBootstrapResult, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "detected-base.json").write_text(detected_base_to_json(result.detected_base), encoding="utf-8")
     (output_dir / "authored-patch.json").write_text(authored_patch_to_json(result.authored_patches), encoding="utf-8")
     (output_dir / "bootstrap-collisions.json").write_text(collision_report_to_json(result.collisions), encoding="utf-8")
+    (output_dir / "legacy-tile-semantics.json").write_text(
+        legacy_tile_semantics_to_json(result.legacy_semantics),
+        encoding="utf-8",
+    )
 
 
 def bootstrap_legacy_semantic_patch(
@@ -104,6 +156,7 @@ def bootstrap_legacy_semantic_patch(
 
     image_cache: dict[Path, Image.Image] = {}
     physical_tiles: list[BootstrappedPhysicalTile] = []
+    legacy_semantics: list[LegacyTileSemanticRecord] = []
     by_content_hash: dict[str, list[BootstrappedPhysicalTile]] = {}
     for tile in family.tiles.values():
         content_hash = _content_hash_for_tile(
@@ -118,6 +171,7 @@ def bootstrap_legacy_semantic_patch(
             facts=_semantic_facts_for_tile(tile),
         )
         physical_tiles.append(physical)
+        legacy_semantics.append(_legacy_semantic_record_for_tile(tile))
         by_content_hash.setdefault(content_hash, []).append(physical)
 
     detected_base: list[DetectedSemanticTile] = []
@@ -138,6 +192,7 @@ def bootstrap_legacy_semantic_patch(
     result = LegacySemanticBootstrapResult(
         detected_base=tuple(detected_base),
         authored_patches=tuple(authored_patches),
+        legacy_semantics=tuple(sorted(legacy_semantics, key=lambda item: item.tile_id)),
         physical_tiles=tuple(sorted(physical_tiles, key=lambda item: item.tile_id)),
         collisions=tuple(collisions),
     )
@@ -172,6 +227,15 @@ def _content_hash_for_tile(
 
 def _semantic_facts_for_tile(tile: TileRecord) -> Mapping[str, SemanticFactValue]:
     return MappingProxyType({field: getattr(tile, field) for field in INGEST_SEMANTIC_FIELDS})
+
+
+def _legacy_semantic_record_for_tile(tile: TileRecord) -> LegacyTileSemanticRecord:
+    return LegacyTileSemanticRecord(
+        tile_id=tile.id,
+        origin=LEGACY_TILE_SEMANTICS_ORIGIN,
+        schema_version=LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
+        facts={field: getattr(tile, field) for field in LEGACY_TILE_SEMANTIC_FIELDS},
+    )
 
 
 def _collision_for_group(content_hash: str, group: list[BootstrappedPhysicalTile]) -> SemanticCollision | None:

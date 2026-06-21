@@ -793,6 +793,23 @@ class LegacyTileSemanticRecord:
             facts[field_name] = tuple(values)
         object.__setattr__(self, "facts", MappingProxyType(facts))
 
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "tile_id": self.tile_id,
+            "origin": self.origin,
+            "schema_version": self.schema_version,
+            "facts": {
+                field: _legacy_fact_payload(value)
+                for field, value in sorted(self.facts.items())
+            },
+        }
+
+
+def _legacy_fact_payload(value: LegacySemanticFactValue) -> object:
+    if isinstance(value, tuple):
+        return list(value)
+    return value
+
 
 def _empty_legacy_semantics() -> Mapping[str, LegacyTileSemanticRecord]:
     return {}
