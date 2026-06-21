@@ -25,6 +25,8 @@ from tile_library import (
     FixedSeamOverrideSide,
     FrameCornerSlot,
     FrameSlot,
+    LegacySemanticFactValue,
+    LegacyTileSemanticRecord,
     ParametricFrameConstruction,
     ParametricRunConstruction,
     PlaceableRef,
@@ -384,6 +386,46 @@ def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
         meaning=_as_optional_str(mapping.get("meaning"), context=f"{context}.meaning"),
         meaning_confidence=_as_optional_str(mapping.get("meaning_confidence"), context=f"{context}.meaning_confidence"),
         source_notes=_as_optional_str(mapping.get("source_notes"), context=f"{context}.source_notes"),
+    )
+
+
+def _legacy_fact_payload(value: LegacySemanticFactValue) -> object:
+    if isinstance(value, tuple):
+        return list(value)
+    return value
+
+
+def _legacy_fact_from_payload(raw: object, *, context: str) -> LegacySemanticFactValue:
+    if raw is None or isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        return _as_string_tuple(cast(object, raw), context=context)
+    raise ValueError(f"{context} must be null, a string, or an array of strings")
+
+
+def _legacy_semantic_record_payload(record: LegacyTileSemanticRecord) -> dict[str, object]:
+    return {
+        "tile_id": record.tile_id,
+        "origin": record.origin,
+        "schema_version": record.schema_version,
+        "facts": {field: _legacy_fact_payload(value) for field, value in sorted(record.facts.items())},
+    }
+
+
+def _legacy_semantic_record_from_payload(raw: object, *, context: str) -> LegacyTileSemanticRecord:
+    mapping = require_mapping(raw, context=context)
+    facts_mapping = require_mapping(mapping.get("facts", {}), context=f"{context}.facts")
+    return LegacyTileSemanticRecord(
+        tile_id=_as_str(mapping.get("tile_id"), context=f"{context}.tile_id"),
+        origin=_as_str(mapping.get("origin"), context=f"{context}.origin"),
+        schema_version=_as_int(mapping.get("schema_version"), context=f"{context}.schema_version"),
+        facts={
+            _as_str(field, context=f"{context}.facts key"): _legacy_fact_from_payload(
+                value,
+                context=f"{context}.facts.{field}",
+            )
+            for field, value in facts_mapping.items()
+        },
     )
 
 
@@ -821,6 +863,10 @@ def tile_library_unit_to_payload(unit: TileLibraryUnit) -> dict[str, object]:
             _attachment_set_payload(attachment_set)
             for attachment_set in sorted(unit.attachment_sets.values(), key=lambda item: item.id)
         ],
+        "legacy_tile_semantics": [
+            _legacy_semantic_record_payload(record)
+            for record in sorted(unit.legacy_semantics.values(), key=lambda item: item.tile_id)
+        ],
     }
 
 
@@ -917,6 +963,16 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
         _attachment_set_from_payload,
         context="runtime library.attachment_sets",
     )
+    legacy_semantics = _records_by_id(
+        payload.get("legacy_tile_semantics", []),
+        _legacy_semantic_record_from_payload,
+        context="runtime library.legacy_tile_semantics",
+    )
+    for tile_id in legacy_semantics:
+        if tile_id not in tiles:
+            raise ValueError(
+                f"runtime library.legacy_tile_semantics.{tile_id} references unknown tile id {tile_id!r}"
+            )
     default_variant_id = _as_str(family.get("default_variant_id"), context="runtime library.family.default_variant_id")
     if default_variant_id not in variants:
         raise ValueError(f"runtime library.family.default_variant_id references unknown variant {default_variant_id!r}")
@@ -949,6 +1005,7 @@ def tile_library_unit_from_payload(raw: object) -> TileLibraryUnit:
         composite_tiles=composite_tiles,
         attachment_sets=attachment_sets,
         attachment_sets_by_target=attachment_sets_by_target(attachment_sets),
+        legacy_semantics=legacy_semantics,
     )
 
 

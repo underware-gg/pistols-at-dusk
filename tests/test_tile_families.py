@@ -31,6 +31,7 @@ from tile_library import (
     FixedConstruction,
     FixedConstructionSeamOverride,
     FixedSeamOverrideSide,
+    LegacyTileSemanticRecord,
     PlaceableRef,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -2126,6 +2127,19 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         notes="Runtime serialization fixture.",
     )
     attachment_sets = {attachment_set.id: attachment_set}
+    legacy_record = LegacyTileSemanticRecord(
+        tile_id=body.id,
+        origin="legacy_tiles_json",
+        schema_version=1,
+        facts={
+            "category": "character",
+            "layer": "sprites",
+            "meaning": "Legacy meaning text.",
+            "source_notes": "Legacy source notes.",
+            "tags": ("actor", "body"),
+            "usage": None,
+        },
+    )
     return TileLibraryUnit(
         family_id="testfam",
         tile_width=8,
@@ -2199,6 +2213,7 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
         attachment_sets=attachment_sets,
         attachment_sets_by_target=attachment_sets_by_target(attachment_sets),
         composite_tiles={composite.id: composite},
+        legacy_semantics={legacy_record.tile_id: legacy_record},
     )
 
 
@@ -2226,6 +2241,7 @@ _RUNTIME_CODEC_SERIALIZED_DATACLASSES: tuple[type[Any], ...] = (
     FrameCornerSlot,
     FrameSlot,
     GridBounds,
+    LegacyTileSemanticRecord,
     ModuleContextValue,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -2337,6 +2353,14 @@ class TileLibraryRegistryTests(unittest.TestCase):
         self.assertEqual(resolved_physical.tile_id, "testfam:body")
         self.assertEqual(loaded.genesis_for("testfam:body"), unit.tiles["testfam:body"].genesis)
         self.assertEqual(loaded.clusters["cluster.body"].members, ("testfam:body",))
+        legacy_record = loaded.legacy_semantics_for("testfam:body")
+        self.assertIsNotNone(legacy_record)
+        assert legacy_record is not None
+        self.assertEqual(legacy_record.origin, "legacy_tiles_json")
+        self.assertEqual(legacy_record.facts["category"], "character")
+        self.assertEqual(legacy_record.facts["tags"], ("actor", "body"))
+        self.assertIsNone(legacy_record.facts["usage"])
+        self.assertIsNone(loaded.legacy_semantics_for("testfam:missing"))
 
         loaded_composite = loaded.composite_tiles["character.composite"]
         loaded_composite_head = loaded_composite.cells[0][0]
@@ -2402,6 +2426,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
                 unit.variants["base"],
                 unit.clusters["cluster.body"],
                 unit.clusters["cluster.head"],
+                unit.legacy_semantics["testfam:body"],
                 body,
                 body.variant_atlas_cells["base"],
                 body.genesis,
@@ -2437,6 +2462,7 @@ class TileLibraryRegistryTests(unittest.TestCase):
             ("constructions", "kit.fixed"),
             ("composite_tiles", "character.composite"),
             ("attachment_sets", "character.heads"),
+            ("legacy_tile_semantics", "testfam:body"),
         )
         for key, duplicate_id in cases:
             with self.subTest(key=key):
@@ -2512,6 +2538,71 @@ class TileLibraryRegistryTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(ValueError, message):
                     tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_legacy_semantics_unknown_tile(self) -> None:
+        payload = _runtime_payload_fixture()
+        legacy_records = _payload_list(payload["legacy_tile_semantics"])
+        record = _payload_mapping(legacy_records[0])
+        record["tile_id"] = "testfam:missing"
+
+        with self.assertRaisesRegex(ValueError, "legacy_tile_semantics.testfam:missing references unknown tile id"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_malformed_legacy_semantic_fact(self) -> None:
+        payload = _runtime_payload_fixture()
+        legacy_records = _payload_list(payload["legacy_tile_semantics"])
+        record = _payload_mapping(legacy_records[0])
+        facts = _payload_mapping(record["facts"])
+        facts["meaning"] = {"bad": "shape"}
+
+        with self.assertRaisesRegex(ValueError, "legacy_tile_semantics\\[0\\].facts.meaning must be null"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_non_string_legacy_semantic_fact_item(self) -> None:
+        payload = _runtime_payload_fixture()
+        legacy_records = _payload_list(payload["legacy_tile_semantics"])
+        record = _payload_mapping(legacy_records[0])
+        facts = _payload_mapping(record["facts"])
+        facts["tags"] = ["actor", 17]
+
+        with self.assertRaisesRegex(ValueError, "legacy_tile_semantics\\[0\\].facts.tags\\[1\\] must be a string"):
+            tile_library_unit_from_payload(payload)
+
+    def test_legacy_semantic_record_rejects_empty_tile_id(self) -> None:
+        with self.assertRaisesRegex(ValueError, "tile_id must not be empty"):
+            LegacyTileSemanticRecord(
+                tile_id="",
+                origin="legacy_tiles_json",
+                schema_version=1,
+                facts={},
+            )
+
+    def test_legacy_semantic_record_rejects_empty_origin(self) -> None:
+        with self.assertRaisesRegex(ValueError, "origin must not be empty"):
+            LegacyTileSemanticRecord(
+                tile_id="testfam:body",
+                origin="",
+                schema_version=1,
+                facts={},
+            )
+
+    def test_legacy_semantic_record_rejects_non_positive_schema_version(self) -> None:
+        with self.assertRaisesRegex(ValueError, "schema_version must be positive"):
+            LegacyTileSemanticRecord(
+                tile_id="testfam:body",
+                origin="legacy_tiles_json",
+                schema_version=0,
+                facts={},
+            )
+
+    def test_legacy_semantic_record_rejects_non_string_fact_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, "facts keys must be non-empty strings"):
+            LegacyTileSemanticRecord(
+                tile_id="testfam:body",
+                origin="legacy_tiles_json",
+                schema_version=1,
+                facts=cast(Any, {17: "bad"}),
+            )
 
     def test_attachment_set_rejects_unknown_default_variant(self) -> None:
         with self.assertRaisesRegex(ValueError, "default_variant_id 'missing' is not declared in variants"):

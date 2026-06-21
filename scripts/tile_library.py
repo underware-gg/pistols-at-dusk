@@ -26,6 +26,7 @@ FixedSeamOverrideSide: TypeAlias = Literal["east", "south"]
 PlaceableKind: TypeAlias = Literal["tile", "composite_tile", "construction"]
 EntityTemplateKind: TypeAlias = Literal["tile", "composite_tile", "fixed", "parametric_run", "parametric_frame"]
 SIDES: tuple[Side, ...] = ("north", "south", "east", "west")
+LegacySemanticFactValue: TypeAlias = Union[str, tuple[str, ...], None]
 
 
 @dataclass(frozen=True)
@@ -752,6 +753,52 @@ RUNTIME_AUTHORED_TILE_FIELDS = frozenset(
 
 
 @dataclass(frozen=True)
+class LegacyTileSemanticRecord:
+    """Marked, opt-in legacy metadata preserved from the physical tiles.json layer.
+
+    This record intentionally does not feed the clean content-keyed semantic or
+    runtime-authored fields. Consumers must ask for the legacy layer explicitly.
+    """
+
+    tile_id: str
+    origin: str
+    schema_version: int
+    facts: Mapping[str, LegacySemanticFactValue] = field(repr=False)
+
+    @property
+    def id(self) -> str:
+        return self.tile_id
+
+    def __post_init__(self) -> None:
+        if self.tile_id == "":
+            raise ValueError("LegacyTileSemanticRecord.tile_id must not be empty")
+        if self.origin == "":
+            raise ValueError("LegacyTileSemanticRecord.origin must not be empty")
+        if self.schema_version <= 0:
+            raise ValueError("LegacyTileSemanticRecord.schema_version must be positive")
+        facts: dict[str, LegacySemanticFactValue] = {}
+        for field_name, value in cast(Mapping[object, object], self.facts).items():
+            if not isinstance(field_name, str) or field_name == "":
+                raise ValueError("LegacyTileSemanticRecord facts keys must be non-empty strings")
+            if value is None or isinstance(value, str):
+                facts[field_name] = value
+                continue
+            if not isinstance(value, tuple):
+                raise ValueError(f"LegacyTileSemanticRecord fact {field_name!r} must be null, a string, or strings")
+            values: list[str] = []
+            for index, item in enumerate(cast(tuple[object, ...], value)):
+                if not isinstance(item, str):
+                    raise ValueError(f"LegacyTileSemanticRecord fact {field_name!r}[{index}] must be a string")
+                values.append(item)
+            facts[field_name] = tuple(values)
+        object.__setattr__(self, "facts", MappingProxyType(facts))
+
+
+def _empty_legacy_semantics() -> Mapping[str, LegacyTileSemanticRecord]:
+    return {}
+
+
+@dataclass(frozen=True)
 class CompositeTileCell:
     tile: TileRecord
     x: int
@@ -1197,6 +1244,7 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
     attachment_sets_by_target: Mapping[PlaceableRef, tuple[ConstructionAttachmentSet, ...]] = field(repr=False)
     composite_tiles: Mapping[str, CompositeTileRecord] = field(default_factory=_empty_composite_tiles, repr=False)
     clusters: Mapping[str, TileClusterRecord] = field(default_factory=_empty_tile_clusters, repr=False)
+    legacy_semantics: Mapping[str, LegacyTileSemanticRecord] = field(default_factory=_empty_legacy_semantics, repr=False)
 
     def __post_init__(self) -> None:
         for attachment_set in self.attachment_sets.values():
@@ -1216,6 +1264,9 @@ class TileLibraryUnit(RuntimeConstructionCatalog):
 
     def tile_record(self, tile_id: str) -> TileRecord | None:
         return self.tiles.get(tile_id)
+
+    def legacy_semantics_for(self, tile_id: str) -> LegacyTileSemanticRecord | None:
+        return self.legacy_semantics.get(tile_id)
 
     def genesis_for(self, tile_id: str) -> TileGenesis | None:
         """One-hop tile-id -> genesis lookup (ADR 0005)."""
