@@ -12,7 +12,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping, Protocol, TypeAlias, TypeVar, cast
+from typing import Iterable, Mapping, Protocol, TypeAlias, TypeVar, cast
 
 from PIL import Image
 
@@ -71,8 +71,28 @@ _HashIndexed = TypeVar("_HashIndexed", bound=HasContentHash)
 
 
 def content_hash_for_image(image: Image.Image) -> str:
-    digest = hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
+    digest = canonical_image_digest(image)
     return f"{CONTENT_HASH_PREFIX}{digest}"
+
+
+def content_hash_for_variant_images(images_by_variant_id: Mapping[str, Image.Image]) -> str:
+    if not images_by_variant_id:
+        raise ValueError("content_hash_for_variant_images requires at least one variant image")
+    digest = hashlib.sha256()
+    digest.update(b"rgba8-variant-set\n")
+    for variant_id in sorted(images_by_variant_id):
+        variant_id_bytes = variant_id.encode("utf-8")
+        image_digest = canonical_image_digest(images_by_variant_id[variant_id])
+        digest.update(f"{len(variant_id_bytes)}:".encode("ascii"))
+        digest.update(variant_id_bytes)
+        digest.update(b":")
+        digest.update(image_digest.encode("ascii"))
+        digest.update(b"\n")
+    return f"{CONTENT_HASH_PREFIX}{digest.hexdigest()}"
+
+
+def canonical_image_digest(image: Image.Image) -> str:
+    return hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
 
 
 def _validate_content_hash(content_hash: str, *, context: str) -> None:
@@ -219,7 +239,45 @@ def semantic_catalogue_payload(records: tuple[ResolvedSemanticTile, ...]) -> dic
 
 
 def semantic_catalogue_to_json(records: tuple[ResolvedSemanticTile, ...]) -> str:
-    return json.dumps(semantic_catalogue_payload(records), indent=2, sort_keys=True) + "\n"
+    return semantic_payload_to_json(semantic_catalogue_payload(records))
+
+
+def authored_patch_payload(patches: Iterable[AuthoredSemanticPatch]) -> dict[str, object]:
+    return {
+        "schema_version": SEMANTIC_CATALOGUE_SCHEMA_VERSION,
+        "patches": [
+            {
+                "content_hash": patch.content_hash,
+                "facts": _facts_payload(patch.facts),
+            }
+            for patch in sorted(patches, key=lambda item: item.content_hash)
+        ],
+    }
+
+
+def authored_patch_to_json(patches: tuple[AuthoredSemanticPatch, ...]) -> str:
+    return semantic_payload_to_json(authored_patch_payload(patches))
+
+
+def detected_base_payload(records: Iterable[DetectedSemanticTile]) -> dict[str, object]:
+    return {
+        "schema_version": SEMANTIC_CATALOGUE_SCHEMA_VERSION,
+        "tiles": [
+            {
+                "content_hash": record.content_hash,
+                "facts": _facts_payload(record.facts),
+            }
+            for record in sorted(records, key=lambda item: item.content_hash)
+        ],
+    }
+
+
+def detected_base_to_json(records: tuple[DetectedSemanticTile, ...]) -> str:
+    return semantic_payload_to_json(detected_base_payload(records))
+
+
+def semantic_payload_to_json(payload: object) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
 def semantic_catalogue_from_payload(payload: object, *, context: str = "semantic catalogue") -> tuple[ResolvedSemanticTile, ...]:
