@@ -47,6 +47,7 @@ from tile_family_ingest import (
     detect_source_layout,
 )
 from tile_family_runtime import TileFamily, TileFamilyIngestReport
+from tile_family_project_ingest import install_source_tile_family_loader
 from _manifest_utils import GridBounds
 from layout_core import (
     resize_nearest,
@@ -66,6 +67,8 @@ from layout_core import (
     render_tile_preview_image,
     render_pattern_image,
 )
+
+install_source_tile_family_loader()
 
 
 
@@ -127,8 +130,17 @@ class SemanticCatalogEntry(TypedDict):
     empty: bool
 
 
-def build_catalog(project: LayoutProject, tileset_id: str) -> list[RawCatalogEntry]:
+def _source_grid_tileset(project: LayoutProject, tileset_id: str) -> GridTileset:
     tileset = project.get_tileset(tileset_id)
+    if not isinstance(tileset, GridTileset):
+        raise ValueError(
+            f"Source-ingest operation requires a source-backed grid tileset, got runtime asset tileset {tileset_id!r}"
+        )
+    return tileset
+
+
+def build_catalog(project: LayoutProject, tileset_id: str) -> list[RawCatalogEntry]:
+    tileset = _source_grid_tileset(project, tileset_id)
     family = project.source_family_for_tileset(tileset_id)
 
     def region_for_cell(col: int, row: int) -> str | None:
@@ -164,7 +176,7 @@ def build_semantic_catalog_entries(
     if family is None:
         return []
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     variant_id = project.variant_id_for_tileset(tileset_id)
     entries: list[SemanticCatalogEntry] = []
     records = family.tiles.values() if tile_records is None else tile_records
@@ -322,7 +334,7 @@ def analyse_tile_edges(tile: Image.Image) -> TileEdgeInfo:
 
 
 def build_tile_edge_catalog(project: LayoutProject, tileset_id: str) -> list[TileEdgeCatalogEntry]:
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     semantic_by_index = {
         entry["index"]: entry
         for entry in build_semantic_catalog_entries(project, tileset_id, include_empty=True)
@@ -388,7 +400,7 @@ def inspect_tile_edges(project: LayoutProject, tileset_id: str, output_dir: Path
     rows = (len(candidates) + columns - 1) // columns
     contact = Image.new("RGBA", (columns * card_width, rows * card_height), (24, 25, 32, 255))
     draw = ImageDraw.Draw(contact)
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
 
     for idx, entry in enumerate(candidates):
         row = idx // columns
@@ -461,7 +473,7 @@ def scaffold_pattern(
     trim: bool,
 ) -> str:
     project = LayoutProject(project_path)
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     rows: list[list[str]] = []
     for row in range(y, y + height):
         current: list[str] = []
@@ -909,7 +921,7 @@ def inspect_source_layout(project: LayoutProject, tileset_id: str, output_dir: P
     payload = _source_layout_payload(layout)
     (output_dir / "source_layout.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     scale = 4
     preview = resize_nearest(tileset.image, (tileset.image.width * scale, tileset.image.height * scale))
     draw = ImageDraw.Draw(preview)
@@ -966,7 +978,7 @@ def inspect_clusters(project: LayoutProject, tileset_id: str, output_dir: Path) 
     payload.sort(key=lambda item: item["id"])
     (output_dir / "clusters.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     scale = 4
     preview = resize_nearest(tileset.image, (tileset.image.width * scale, tileset.image.height * scale))
     draw = ImageDraw.Draw(preview)
@@ -1351,7 +1363,7 @@ def export_collection_review_pack(
     if family is None or family.source_layout is None:
         raise ValueError(f"Tileset {tileset_id!r} does not expose a source-layout ingestion model")
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     root_dir = output_dir
     root_dir.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_collection_review_root(root_dir)
@@ -2249,7 +2261,7 @@ def _write_public_sheet_annotated(
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     preview = resize_nearest(tileset.image, (tileset.image.width * scale, tileset.image.height * scale))
     draw = ImageDraw.Draw(preview)
 
@@ -2549,7 +2561,7 @@ def export_public_tile_pack(
     if family is None:
         raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
 
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     variant_id = project.variant_id_for_tileset(tileset_id)
     images_dir, collections_images_dir, constructions_images_dir = _prepare_public_tile_pack_output_dirs(output_dir)
 
@@ -2664,7 +2676,7 @@ def export_semantic_review_pack(
     alias_prefix: str | None = None,
     scale: int = 8,
 ) -> Path:
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     entries = build_semantic_catalog_entries(project, tileset_id, include_empty=True)
 
     filtered: list[SemanticCatalogEntry] = []
@@ -2980,7 +2992,7 @@ def inspect_family(
     tileset_id: str,
     output_dir: Path,
 ) -> Path:
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     family = project.source_family_for_tileset(tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -3060,7 +3072,7 @@ def detect_family_source_layout(
     tileset_id: str,
     output_dir: Path,
 ) -> Path:
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     detected = detect_source_layout(image=tileset.image, tile_width=project.grid_width, tile_height=project.grid_height)
     (output_dir / "source_layout.detected.json").write_text(json.dumps(detected, indent=2) + "\n", encoding="utf-8")
@@ -3389,7 +3401,7 @@ def write_starter_map(
 
 def export_tiled_kit(project_path: Path, tileset_id: str, output_dir: Path) -> Path:
     project = LayoutProject(project_path)
-    tileset = project.get_tileset(tileset_id)
+    tileset = _source_grid_tileset(project, tileset_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     for stale_dir in (output_dir / "cells", output_dir / "patterns", output_dir / "tiles"):
         if stale_dir.exists():

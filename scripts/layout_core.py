@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Layout core: LayoutProject, the project/layout config and tile data types,
-and the shared rendering / drawing / geometry primitives the harness and the
-source-ingest operators build on. This is the shared base layer over
-tile_library / tile_family_runtime / scene_* / _manifest_utils. During the IRS
-transition it still imports source_manifest_bridge and tile_family_ingest, which
-read ingest source_layout data for source-pack and legacy-path families; Phase
-2/3 removes those dependencies from the runtime load path.
+"""Layout core: LayoutProject, project/layout config, and render primitives.
+
+Runtime project loading uses produced runtime assets and imports only runtime
+or shared modules. Source-pack and legacy family loading live in the
+ingest/operator layer and register an explicit loader when those workflows need
+today's source-family compatibility path.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal, TypedDict, TypeVar, cast
+from typing import Callable, Container, Protocol, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import NotRequired
 
@@ -48,13 +47,9 @@ from tile_library import (
     TileRecord,
     require_variant_sheet_path,
 )
-from tile_family_runtime import (
-    TileFamily,
-)
-# TODO(IRS Phase 2/3): decouple layout_core from ingest; legacy-path families
-# still need source_layout / ingestion.json until runtime assets are promoted.
-from tile_family_ingest import load_source_tile_family
-from source_manifest_bridge import load_bridged_tile_family
+from tile_library_codec import tile_library_unit_from_json
+from runtime_asset_paths import atomic_asset_relative_path, runtime_family_root
+from tile_family_runtime import TileFamily
 
 
 COORD_RE = re.compile(r"^(?P<col>\d+),(?P<row>\d+)$")
@@ -86,6 +81,7 @@ class ProjectGridConfig(TypedDict, total=False):
 class ProjectTileFamilyConfig(TypedDict, total=False):
     path: str
     source_pack: str
+    runtime_asset: str
     tileset_id: str
     tilesheet_id: str
     family_id: NotRequired[str]
@@ -123,6 +119,16 @@ class PatternConfig(TypedDict, total=False):
     rows: list[list[TileRefToken]]
     rect: PatternRectConfig
     trim: bool
+
+
+class SourceTileFamilyLoader(Protocol):
+    def __call__(
+        self,
+        *,
+        base_dir: Path,
+        spec: ProjectTileFamilyConfig,
+    ) -> "TileFamilySelection":
+        ...
 
 
 class ProjectConfig(TypedDict, total=False):
@@ -380,12 +386,10 @@ def humanize_identifier(value: str) -> str:
 @dataclass(frozen=True)
 class TileFamilySelection:
     path: Path
-    source_family: TileFamily
+    runtime_unit: TileLibraryUnit
     selected_variant_id: str
-
-    @property
-    def runtime_unit(self) -> TileLibraryUnit:
-        return self.source_family.runtime_unit
+    asset_root: Path | None = None
+    source_family: TileFamily | None = None
 
     @property
     def selected_tileset_id(self) -> str:
@@ -399,36 +403,55 @@ class TileFamilySelection:
         )
 
 
-def _load_family_from_legacy_path(
+_source_tile_family_loader: SourceTileFamilyLoader | None = None
+
+
+def register_source_tile_family_loader(loader: SourceTileFamilyLoader | None) -> None:
+    global _source_tile_family_loader
+    _source_tile_family_loader = loader
+
+
+def selected_variant_id_for_family(
+    *,
+    spec: ProjectTileFamilyConfig,
+    family_id: str,
+    default_variant_id: str,
+    variant_ids: Container[str],
+) -> str:
+    configured_family_id = spec.get("family_id")
+    if configured_family_id is not None and configured_family_id != family_id:
+        raise ValueError(
+            f"Configured family_id {configured_family_id!r} does not match loaded family {family_id!r}"
+        )
+    selected_variant_id = spec.get("variant_id") or default_variant_id
+    if selected_variant_id not in variant_ids:
+        raise ValueError(
+            f"Configured variant_id {selected_variant_id!r} is not defined in tile family {family_id!r}"
+        )
+    return selected_variant_id
+
+
+def _load_family_from_runtime_asset(
     *,
     base_dir: Path,
     spec: ProjectTileFamilyConfig,
-) -> tuple[Path, TileFamily]:
-    raw_path = spec.get("path")
-    if raw_path is None:
-        raise ValueError("tile_family legacy path config must define path")
-    family_dir = resolve_path(base_dir, raw_path)
-    return family_dir, load_source_tile_family(family_dir)
-
-
-def _load_family_from_source_pack(
-    *,
-    base_dir: Path,
-    spec: ProjectTileFamilyConfig,
-) -> tuple[Path, TileFamily]:
-    if "tileset_id" not in spec or "tilesheet_id" not in spec:
-        raise ValueError("tile_family source_pack config must define tileset_id and tilesheet_id")
-    raw_pack_path = spec.get("source_pack")
-    if raw_pack_path is None:
-        raise ValueError("tile_family source_pack config must define source_pack")
-    pack_path = resolve_path(base_dir, raw_pack_path)
-    return (
-        pack_path,
-        load_bridged_tile_family(
-            pack_path,
-            tileset_id=spec["tileset_id"],
-            tilesheet_id=spec["tilesheet_id"],
-        ),
+) -> TileFamilySelection:
+    raw_asset_path = spec.get("runtime_asset")
+    if raw_asset_path is None:
+        raise ValueError("tile_family runtime_asset config must define runtime_asset")
+    runtime_asset_path = resolve_path(base_dir, raw_asset_path)
+    runtime_unit = tile_library_unit_from_json(runtime_asset_path.read_text(encoding="utf-8"))
+    selected_variant_id = selected_variant_id_for_family(
+        spec=spec,
+        family_id=runtime_unit.family_id,
+        default_variant_id=runtime_unit.default_variant_id,
+        variant_ids=runtime_unit.variants,
+    )
+    return TileFamilySelection(
+        path=runtime_asset_path,
+        runtime_unit=runtime_unit,
+        selected_variant_id=selected_variant_id,
+        asset_root=runtime_family_root(runtime_asset_path.parent, runtime_unit.family_id),
     )
 
 
@@ -440,29 +463,21 @@ def load_tile_family_selection(
         return None
     if isinstance(spec, str):
         spec = cast(ProjectTileFamilyConfig, {"path": spec})
-    if "path" in spec and "source_pack" in spec:
-        raise ValueError("tile_family config must define either path or source_pack, not both")
-    if "path" in spec:
-        selection_path, family = _load_family_from_legacy_path(base_dir=base_dir, spec=spec)
-    elif "source_pack" in spec:
-        selection_path, family = _load_family_from_source_pack(base_dir=base_dir, spec=spec)
-    else:
-        raise ValueError("tile_family config must define path or source_pack")
-    family_id = spec.get("family_id")
-    if family_id is not None and family_id != family.family_id:
+    source_keys = {"path", "source_pack"}
+    selected_keys = source_keys | {"runtime_asset"}
+    present_keys = sorted(key for key in selected_keys if key in spec)
+    if len(present_keys) != 1:
         raise ValueError(
-            f"Configured family_id {family_id!r} does not match loaded family {family.family_id!r}"
+            "tile_family config must define exactly one of path, source_pack, or runtime_asset"
         )
-    selected_variant_id = spec.get("variant_id") or family.default_variant_id
-    if selected_variant_id not in family.variants:
+    if "runtime_asset" in spec:
+        return _load_family_from_runtime_asset(base_dir=base_dir, spec=spec)
+    if _source_tile_family_loader is None:
         raise ValueError(
-            f"Configured variant_id {selected_variant_id!r} is not defined in tile family {family.family_id!r}"
+            "tile_family source_pack/path configs require an ingest/operator source family loader; "
+            "runtime projects should use runtime_asset"
         )
-    return TileFamilySelection(
-        path=selection_path,
-        source_family=family,
-        selected_variant_id=selected_variant_id,
-    )
+    return _source_tile_family_loader(base_dir=base_dir, spec=spec)
 
 
 def load_tile_family_selections(
@@ -687,6 +702,160 @@ class GridTileset:
         )
 
 
+class RuntimeAtomicTileset:
+    def __init__(
+        self,
+        tileset_id: str,
+        *,
+        tile_library: TileLibraryUnit,
+        variant_id: str,
+        asset_root: Path,
+    ) -> None:
+        self.id = tileset_id
+        self.tile_width = tile_library.tile_width
+        self.tile_height = tile_library.tile_height
+        self.margin = 0
+        self.spacing = 0
+        try:
+            variant = tile_library.variant(variant_id)
+        except KeyError as exc:
+            raise ValueError(
+                f"Runtime atomic tileset {tileset_id!r} references unknown variant {variant_id!r}"
+            ) from exc
+        self.transparent_mode = variant.transparent_mode
+        self.catalog_scope = "all"
+        self.regions: dict[str, GridRegionBounds] = {}
+        self.asset_root = asset_root
+        self.variant_id = variant_id
+        self._image_cache: dict[tuple[int, bool, bool], Image.Image] = {}
+        self._empty_cache: dict[int, bool] = {}
+        self._index_to_tile: dict[int, TileRecord] = {}
+        self._tile_id_to_index: dict[str, int] = {}
+
+        max_col = max((tile.genesis.sheet_col for tile in tile_library.tiles.values() if tile.genesis.sheet_col is not None), default=-1)
+        max_row = max((tile.genesis.sheet_row for tile in tile_library.tiles.values() if tile.genesis.sheet_row is not None), default=-1)
+        self.columns = max_col + 1
+        self.rows = max_row + 1
+        for tile in tile_library.tiles.values():
+            if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
+                continue
+            index = tile.genesis.sheet_row * self.columns + tile.genesis.sheet_col
+            self._index_to_tile[index] = tile
+            self._tile_id_to_index[tile.id] = index
+
+        next_index = self.columns * self.rows
+        for tile in tile_library.tiles.values():
+            if tile.id in self._tile_id_to_index:
+                continue
+            self._index_to_tile[next_index] = tile
+            self._tile_id_to_index[tile.id] = next_index
+            next_index += 1
+        self.tile_count = next_index
+
+    @classmethod
+    def from_variant(
+        cls,
+        *,
+        tile_library: TileLibraryUnit,
+        variant_id: str,
+        asset_root: Path,
+    ) -> RuntimeAtomicTileset:
+        return cls(
+            tile_library.runtime_tileset_id(variant_id),
+            tile_library=tile_library,
+            variant_id=variant_id,
+            asset_root=asset_root,
+        )
+
+    def index_for_tile_id(self, tile_id: str) -> int:
+        try:
+            return self._tile_id_to_index[tile_id]
+        except KeyError as exc:
+            raise ValueError(f"Runtime atomic tileset {self.id!r} has no tile {tile_id!r}") from exc
+
+    def index_from_col_row(self, col: int, row: int) -> int:
+        if not (0 <= col < self.columns and 0 <= row < self.rows):
+            raise ValueError(f"Tile coordinate out of bounds for {self.id}: ({col}, {row})")
+        return row * self.columns + col
+
+    def col_row_from_index(self, index: int) -> tuple[int, int]:
+        if not (0 <= index < self.columns * self.rows):
+            raise ValueError(f"Tile index does not map to a sheet coordinate for {self.id}: {index}")
+        return index % self.columns, index // self.columns
+
+    def tile_box(self, col: int, row: int) -> tuple[int, int, int, int]:
+        left = col * self.tile_width
+        top = row * self.tile_height
+        return left, top, left + self.tile_width, top + self.tile_height
+
+    def _tile_for_index(self, index: int) -> TileRecord | None:
+        if not (0 <= index < self.tile_count):
+            raise ValueError(f"Tile index out of bounds for {self.id}: {index}")
+        return self._index_to_tile.get(index)
+
+    def tile_image(self, index: int, *, flip_x: bool = False, flip_y: bool = False) -> Image.Image:
+        key = (index, flip_x, flip_y)
+        if key in self._image_cache:
+            return self._image_cache[key]
+
+        base_key = (index, False, False)
+        if base_key not in self._image_cache:
+            tile = self._tile_for_index(index)
+            if tile is None:
+                col, row = self.col_row_from_index(index)
+                raise ValueError(
+                    f"Runtime atomic tileset {self.id!r} has no tile at coordinate ({col}, {row})"
+                )
+            try:
+                address = tile.variant_assets[self.variant_id]
+            except KeyError as exc:
+                raise ValueError(
+                    f"Tile {tile.id!r} has no runtime asset for variant {self.variant_id!r}"
+                ) from exc
+            asset_path = self.asset_root / atomic_asset_relative_path(address)
+            try:
+                image = Image.open(asset_path).convert("RGBA")
+            except FileNotFoundError as exc:
+                raise ValueError(
+                    f"Tile {tile.id!r} variant {self.variant_id!r} atomic asset missing at {asset_path}"
+                ) from exc
+            self._image_cache[base_key] = image
+
+        image = self._image_cache[base_key]
+        if flip_x:
+            image = ImageOps.mirror(image)
+        if flip_y:
+            image = ImageOps.flip(image)
+        self._image_cache[key] = image
+        return image
+
+    def is_empty(self, index: int) -> bool:
+        if index not in self._empty_cache:
+            tile = self._tile_for_index(index)
+            self._empty_cache[index] = tile is None or self.tile_image(index).getbbox() is None
+        return self._empty_cache[index]
+
+    def iter_indices(self, *, restricted_to_regions: bool = True) -> list[int]:
+        return sorted(index for index in range(self.tile_count) if index in self._index_to_tile)
+
+    def region_name_for_col_row(self, col: int, row: int) -> str | None:
+        return None
+
+    def catalog_indices(self) -> list[int]:
+        return self.iter_indices(restricted_to_regions=False)
+
+
+ProjectTileset = GridTileset | RuntimeAtomicTileset
+
+
+def _metrics_from_tileset(tileset: ProjectTileset) -> TilesetGridMetrics:
+    return TilesetGridMetrics(
+        columns=tileset.columns,
+        rows=tileset.rows,
+        tile_count=tileset.tile_count,
+    )
+
+
 class LayoutProject:
     def __init__(self, project_path: Path) -> None:
         self.project_path = project_path.resolve()
@@ -709,7 +878,7 @@ class LayoutProject:
                 f"{self.project_path} config key `metatiles` is not supported; use `patterns`"
             )
         self.pattern_specs: dict[str, PatternConfig] = dict(self.config.get("patterns", {}))
-        self.tilesets: dict[str, GridTileset] = self._build_project_tilesets()
+        self.tilesets: dict[str, ProjectTileset] = self._build_project_tilesets()
         self._family_variant_ids_by_tileset: dict[str, str] = {}
         self._family_selections_by_tileset: dict[str, TileFamilySelection] = {}
         self._register_family_tilesets()
@@ -795,7 +964,7 @@ class LayoutProject:
             selection.loaded_tile_library for selection in self.tile_family_selections
         )
 
-    def _build_project_tilesets(self) -> dict[str, GridTileset]:
+    def _build_project_tilesets(self) -> dict[str, ProjectTileset]:
         return {
             tileset_id: GridTileset.from_project_spec(
                 tileset_id,
@@ -887,7 +1056,7 @@ class LayoutProject:
                             f"{candidate.placeable_ref.kind}:{candidate.placeable_ref.id!r}"
                         )
 
-    def get_tileset(self, tileset_id: str) -> GridTileset:
+    def get_tileset(self, tileset_id: str) -> ProjectTileset:
         if tileset_id in self.tilesets:
             return self.tilesets[tileset_id]
         if tileset_id not in self._family_variant_ids_by_tileset:
@@ -896,10 +1065,17 @@ class LayoutProject:
         selection = self._family_selections_by_tileset[tileset_id]
         tile_library = selection.runtime_unit
         variant_id = self._family_variant_ids_by_tileset[tileset_id]
-        tileset = GridTileset.from_variant(
-            tile_library=tile_library,
-            variant_id=variant_id,
-        )
+        if selection.asset_root is None:
+            tileset: ProjectTileset = GridTileset.from_variant(
+                tile_library=tile_library,
+                variant_id=variant_id,
+            )
+        else:
+            tileset = RuntimeAtomicTileset.from_variant(
+                tile_library=tile_library,
+                variant_id=variant_id,
+                asset_root=selection.asset_root,
+            )
         self.tilesets[tileset.id] = tileset
         return tileset
 
@@ -996,6 +1172,12 @@ class LayoutProject:
         runtime_tileset_id = f"{resolved.family_id}@{resolved.variant_id}"
         tileset = self.get_tileset(runtime_tileset_id)
         if resolved.sheet_col is None or resolved.sheet_row is None:
+            if isinstance(tileset, RuntimeAtomicTileset):
+                return ResolvedTile(
+                    tileset_id=runtime_tileset_id,
+                    index=tileset.index_for_tile_id(resolved.tile_id),
+                    family_tile_id=resolved.tile_id,
+                )
             return ResolvedTile(
                 tileset_id=runtime_tileset_id,
                 image_override_path=resolved.image_override_path,
@@ -1021,19 +1203,24 @@ class LayoutProject:
 
         tile_library = self.tile_library_unit_for_tileset(tileset_id)
         if tile_library is not None and not allow_family_tileset_load and tileset_id not in self.tilesets:
-            variant_id = self._family_variant_ids_by_tileset[tileset_id]
-            variant = tile_library.variant(variant_id)
-            with Image.open(require_variant_sheet_path(variant, context="family tileset metrics")) as image:
-                columns = image.width // tile_library.tile_width
-                rows = image.height // tile_library.tile_height
-            metrics = TilesetGridMetrics(columns=columns, rows=rows, tile_count=columns * rows)
+            selection = self._family_selection_for_tileset(tileset_id)
+            if selection is not None and selection.asset_root is not None:
+                tileset = RuntimeAtomicTileset.from_variant(
+                    tile_library=tile_library,
+                    variant_id=self._family_variant_ids_by_tileset[tileset_id],
+                    asset_root=selection.asset_root,
+                )
+                metrics = _metrics_from_tileset(tileset)
+            else:
+                variant_id = self._family_variant_ids_by_tileset[tileset_id]
+                variant = tile_library.variant(variant_id)
+                with Image.open(require_variant_sheet_path(variant, context="family tileset metrics")) as image:
+                    columns = image.width // tile_library.tile_width
+                    rows = image.height // tile_library.tile_height
+                metrics = TilesetGridMetrics(columns=columns, rows=rows, tile_count=columns * rows)
         else:
             tileset = self.get_tileset(tileset_id)
-            metrics = TilesetGridMetrics(
-                columns=tileset.columns,
-                rows=tileset.rows,
-                tile_count=tileset.tile_count,
-            )
+            metrics = _metrics_from_tileset(tileset)
         self._tileset_grid_metrics_cache[tileset_id] = metrics
         return metrics
 
@@ -1111,6 +1298,11 @@ class LayoutProject:
         assert target.index is not None
         if not (0 <= target.index < metrics.tile_count):
             raise ValueError(f"Tile index out of bounds for {target.tileset_id}: {target.index}")
+        if target.index >= metrics.columns * metrics.rows:
+            raise ValueError(
+                f"Tile index {target.index} for {target.tileset_id} does not map to a sheet coordinate; "
+                "use a tile id or alias for synthetic runtime tiles"
+            )
         if not materialise:
             return None
         return ResolvedTile(

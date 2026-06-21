@@ -53,6 +53,7 @@ from source_ingest_ops import (
     query_semantic_catalog,
     export_tiled_kit,
 )
+from tile_family_project_ingest import install_source_tile_family_loader
 from layout_core import (
     resize_nearest,
     LayerSpec,
@@ -72,6 +73,8 @@ from layout_core import (
     apply_scatter,
     apply_ascii,
 )
+
+install_source_tile_family_loader()
 
 
 ROOT = Path(__file__).resolve().parents[1]

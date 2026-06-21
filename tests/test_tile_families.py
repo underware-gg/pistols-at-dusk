@@ -53,9 +53,9 @@ from tile_library_codec import (
     tile_library_unit_from_payload,
     tile_library_unit_to_json,
 )
-from layout_core import GridTileset
+from layout_core import GridTileset, RuntimeAtomicTileset
+from runtime_asset_paths import atomic_asset_address_from_digest, atomic_asset_relative_path, runtime_family_root
 from runtime_asset_producer import (
-    atomic_asset_relative_path,
     canonical_rgba_bytes,
     materialize_runtime_unit,
     produce_runtime_family_asset,
@@ -80,10 +80,12 @@ from tile_families import (
 class RuntimeImportBoundaryTests(unittest.TestCase):
     def test_runtime_base_modules_do_not_import_ingest_or_facade(self) -> None:
         runtime_modules = (
+            "layout_core.py",
             "tile_family_runtime.py",
             "source_layout_model.py",
             "tile_library.py",
             "tile_library_codec.py",
+            "runtime_asset_paths.py",
             "seam_matching.py",
             "seam_profiles.py",
             "compatibility_family.py",
@@ -93,6 +95,8 @@ class RuntimeImportBoundaryTests(unittest.TestCase):
         forbidden = (
             "from tile_family_ingest import",
             "import tile_family_ingest",
+            "from source_manifest_bridge import",
+            "import source_manifest_bridge",
             "from tile_families import",
             "import tile_families",
             "from reference_tile_match import",
@@ -104,13 +108,12 @@ class RuntimeImportBoundaryTests(unittest.TestCase):
                 for import_text in forbidden:
                     self.assertNotIn(import_text, source)
 
-    @unittest.expectedFailure
     def test_layout_core_does_not_transitively_import_ingest(self) -> None:
-        """TODO(IRS Phase 2/3): source_manifest_bridge still imports ingest."""
         for module_name in ("layout_core", "source_manifest_bridge", "tile_family_ingest"):
             sys.modules.pop(module_name, None)
         importlib.import_module("layout_core")
         self.assertNotIn("tile_family_ingest", sys.modules)
+        self.assertNotIn("source_manifest_bridge", sys.modules)
 
 
 def build_construction(
@@ -2263,7 +2266,7 @@ def _tile_payload_by_id(payload: dict[str, object], tile_id: str) -> dict[str, o
 
 
 def _asset_path(runtime_families_dir: Path, family_id: str, address: str) -> Path:
-    return runtime_families_dir / family_id / atomic_asset_relative_path(address)
+    return runtime_family_root(runtime_families_dir, family_id) / atomic_asset_relative_path(address)
 
 
 def _json_strings(value: object) -> list[str]:
@@ -3318,6 +3321,80 @@ class TileLibraryRegistryTests(unittest.TestCase):
 
 
 class RuntimeAssetProducerTests(unittest.TestCase):
+    def test_runtime_atomic_tileset_indexes_tiles_and_treats_holes_as_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            runtime_unit = _make_runtime_unit(
+                family_id="testfam",
+                tiles=(
+                    replace(
+                        _make_tile("testfam:all:1,0"),
+                        genesis=TileGenesis(kind="sheet", sheet_col=1, sheet_row=0),
+                        variant_assets={"base": "sha256:" + "1" * 64},
+                    ),
+                ),
+            )
+
+            tileset = RuntimeAtomicTileset.from_variant(
+                tile_library=runtime_unit,
+                variant_id="base",
+                asset_root=root / "runtime-families" / runtime_unit.family_id,
+            )
+
+            index = tileset.index_from_col_row(1, 0)
+            self.assertEqual(index, 1)
+            self.assertEqual(tileset.col_row_from_index(index), (1, 0))
+            self.assertIn(index, tileset.catalog_indices())
+
+            hole_index = tileset.index_from_col_row(0, 0)
+            self.assertNotIn(hole_index, tileset.catalog_indices())
+            self.assertTrue(tileset.is_empty(hole_index))
+            with self.assertRaisesRegex(ValueError, "has no tile at coordinate"):
+                tileset.tile_image(hole_index)
+
+    def test_runtime_atomic_tileset_reports_missing_asset_with_tile_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir = make_image_override_family_dir(root)
+            runtime_dir = root / "runtime-families"
+            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            tile = runtime_unit.tiles["testfam:all:0,0"]
+            asset_path = _asset_path(runtime_dir, runtime_unit.family_id, tile.variant_assets["base"])
+            asset_path.unlink()
+            tileset = RuntimeAtomicTileset.from_variant(
+                tile_library=runtime_unit,
+                variant_id="base",
+                asset_root=runtime_dir / runtime_unit.family_id,
+            )
+
+            with self.assertRaisesRegex(ValueError, "testfam:all:0,0.*base.*atomic asset missing"):
+                tileset.tile_image(tileset.index_from_col_row(0, 0))
+
+    def test_runtime_atomic_tileset_reports_unknown_variant(self) -> None:
+        runtime_unit = _make_runtime_unit(
+            family_id="testfam",
+            tiles=(
+                replace(
+                    _make_tile("testfam:all:0,0"),
+                    variant_assets={"base": "sha256:" + "1" * 64},
+                ),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "unknown variant 'missing'"):
+            RuntimeAtomicTileset.from_variant(
+                tile_library=runtime_unit,
+                variant_id="missing",
+                asset_root=Path("runtime-families") / runtime_unit.family_id,
+            )
+
+    def test_atomic_asset_address_rejects_non_hex_digest(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Unsupported atomic asset digest"):
+            atomic_asset_address_from_digest("g" * 64)
+
+        with self.assertRaisesRegex(ValueError, "Unsupported atomic asset address"):
+            atomic_asset_relative_path("sha256:" + "z" * 64)
+
     def test_runtime_asset_producer_materializes_and_round_trips(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

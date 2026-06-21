@@ -24,9 +24,9 @@ from tile_library import (
     TileRecord,
 )
 from tile_library_codec import tile_library_unit_to_json
+from runtime_asset_paths import atomic_asset_address_from_digest, atomic_asset_relative_path, runtime_family_root
 
 
-ATOMIC_ASSET_ALGORITHM = "sha256"
 ATOMIC_ASSET_FORMAT_HEADER = b"rgba8\n"
 
 
@@ -37,15 +37,7 @@ def canonical_rgba_bytes(image: Image.Image) -> bytes:
 
 def atomic_asset_address(image: Image.Image) -> str:
     digest = hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
-    return f"{ATOMIC_ASSET_ALGORITHM}:{digest}"
-
-
-def atomic_asset_relative_path(address: str) -> Path:
-    prefix = f"{ATOMIC_ASSET_ALGORITHM}:"
-    if not address.startswith(prefix):
-        raise ValueError(f"Unsupported atomic asset address {address!r}")
-    digest = address.removeprefix(prefix)
-    return Path("assets") / ATOMIC_ASSET_ALGORITHM / digest[:2] / f"{digest}.png"
+    return atomic_asset_address_from_digest(digest)
 
 
 def deterministic_png_bytes(image: Image.Image) -> bytes:
@@ -109,7 +101,7 @@ def _runtime_tile(tile: TileRecord, *, variant_assets: Mapping[str, str]) -> Til
 def materialize_runtime_unit(family_dir: Path, *, runtime_families_dir: Path) -> TileLibraryUnit:
     family = load_source_tile_family(family_dir)
     unit = family.runtime_unit
-    runtime_family_dir = runtime_families_dir / unit.family_id
+    runtime_family_dir = runtime_family_root(runtime_families_dir, unit.family_id)
     image_cache: dict[Path, Image.Image] = {}
     runtime_tiles: dict[str, TileRecord] = {}
     for tile in unit.tiles.values():

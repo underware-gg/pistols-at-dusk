@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import io
+import importlib
 import json
 import os
 import shutil
@@ -25,6 +26,7 @@ import harness
 import tile_families
 import source_ingest_ops
 import layout_core
+from runtime_asset_producer import produce_runtime_family_asset
 from tile_library import PlaceableRef
 
 
@@ -104,6 +106,7 @@ def _capture_minimal8_golden_state(
     resolved_tile = project.family_tile_for_ref(ref_token, tileset_id=utility_tileset_id)
     assert resolved_tile is not None
     tileset = project.get_tileset(family_tileset_id)
+    assert isinstance(tileset, layout_core.GridTileset)
     preview = layout_core.render_tile_preview_image(project, resolved_tile)
     runtime = harness.expand_scene_runtime(
         project,
@@ -255,11 +258,23 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
     )
     _write_json(
         family_dir / "clusters.json",
-        [{"id": "cluster.valid", "scope": "family", "members": ["testfam:derived.override"]}],
+        [{"id": "cluster.valid", "scope": "family", "members": ["testfam:all:0,0", "testfam:derived.override"]}],
     )
     _write_json(
         family_dir / "tiles.json",
         [
+            {
+                "id": "testfam:all:0,0",
+                "sheet_col": 0,
+                "sheet_row": 0,
+                "layer": "ui",
+                "category": "ui",
+                "transparent": False,
+                "cluster_ids": ["cluster.valid"],
+                "source_group": "test.sheet",
+                "meaning": "Sheet-backed control tile.",
+                "meaning_confidence": "confirmed",
+            },
             {
                 "id": "testfam:derived.override",
                 "layer": "ui",
@@ -273,7 +288,13 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
             }
         ],
     )
-    _write_json(family_dir / "aliases.json", {"sample.override": "testfam:derived.override"})
+    _write_json(
+        family_dir / "aliases.json",
+        {
+            "sample.alias": "testfam:all:0,0",
+            "sample.override": "testfam:derived.override",
+        },
+    )
 
     project_path = root / "project.json"
     _write_json(
@@ -288,6 +309,46 @@ def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
         },
     )
     return family_dir, project_path
+
+
+def _make_runtime_asset_project(
+    root: Path,
+    *,
+    family_dir: Path,
+    runtime_dir: Path,
+    variant_id: str = "base",
+) -> Path:
+    runtime_asset_path = produce_runtime_family_asset(family_dir, runtime_dir)
+    project_path = root / "runtime-project.json"
+    _write_json(
+        project_path,
+        {
+            "tile_family": {
+                "runtime_asset": str(runtime_asset_path),
+                "family_id": "testfam",
+                "variant_id": variant_id,
+            },
+            "grid": {"tile_width": 8, "tile_height": 8},
+            "tilesets": {},
+            "aliases": {},
+            "patterns": {},
+        },
+    )
+    return project_path
+
+
+def _make_stamp_layout(root: Path, *, project_path: Path, ref: object) -> Path:
+    layout_path = root / f"layout-{len(list(root.glob('layout-*.json')))}.json"
+    _write_json(
+        layout_path,
+        {
+            "project": str(project_path),
+            "output": str(root / f"{layout_path.stem}.png"),
+            "map": {"width": 1, "height": 1, "background": "#00000000"},
+            "layers": [{"name": "terrain", "ops": [{"kind": "stamp", "x": 0, "y": 0, "ref": ref}]}],
+        },
+    )
+    return layout_path
 
 
 def _make_project_with_patterns(
@@ -713,6 +774,96 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(resolved.tileset_id, "family.one@alt")
             self.assertEqual(resolved.family_tile_id, "family.one:all:0,0")
 
+    def test_runtime_asset_project_render_matches_source_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            sheet_family = _make_minimal_family_dir(root, directory_name="sheet_family", family_id="testfam")
+            source_project_path = root / "sheet-source-project.json"
+            _write_json(
+                source_project_path,
+                {
+                    "tile_family": {"path": str(sheet_family), "variant_id": "base"},
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "patterns": {},
+                },
+            )
+            runtime_project_path = _make_runtime_asset_project(
+                root,
+                family_dir=sheet_family,
+                runtime_dir=root / "runtime-families-sheet",
+            )
+            source_layout = _make_stamp_layout(root, project_path=source_project_path, ref="testfam.alias")
+            runtime_layout = _make_stamp_layout(root, project_path=runtime_project_path, ref="testfam.alias")
+
+            source_output = harness.render_layout(source_layout, root / "source-sheet.png")
+            runtime_output = harness.render_layout(runtime_layout, root / "runtime-sheet.png")
+            self.assertEqual(source_output.read_bytes(), runtime_output.read_bytes())
+
+            override_root = root / "override_case"
+            override_root.mkdir()
+            override_family, override_source_project_path = _make_override_family_and_project(override_root)
+            override_runtime_project_path = _make_runtime_asset_project(
+                root,
+                family_dir=override_family,
+                runtime_dir=root / "runtime-families-override",
+            )
+            source_override_layout = _make_stamp_layout(
+                root,
+                project_path=override_source_project_path,
+                ref="sample.override",
+            )
+            runtime_override_layout = _make_stamp_layout(
+                root,
+                project_path=override_runtime_project_path,
+                ref="sample.override",
+            )
+
+            source_override_output = harness.render_layout(source_override_layout, root / "source-override.png")
+            runtime_override_output = harness.render_layout(runtime_override_layout, root / "runtime-override.png")
+            self.assertEqual(source_override_output.read_bytes(), runtime_override_output.read_bytes())
+
+    def test_runtime_asset_project_renders_after_ingest_inputs_are_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            family_dir, _source_project_path = _make_override_family_and_project(root)
+            runtime_project_path = _make_runtime_asset_project(
+                root,
+                family_dir=family_dir,
+                runtime_dir=root / "runtime-families",
+            )
+            shutil.rmtree(family_dir)
+
+            for module_name in (
+                "layout_core",
+                "tile_family_project_ingest",
+                "source_manifest_bridge",
+                "tile_family_ingest",
+            ):
+                sys.modules.pop(module_name, None)
+            runtime_layout_core = importlib.import_module("layout_core")
+            self.assertNotIn("tile_family_ingest", sys.modules)
+            self.assertNotIn("source_manifest_bridge", sys.modules)
+
+            project = runtime_layout_core.LayoutProject(runtime_project_path)
+            pattern = project.pattern_from_ref("sample.override")
+            image = runtime_layout_core.render_pattern_image(project, pattern)
+
+            self.assertEqual(image.size, (8, 8))
+            self.assertEqual(image.getpixel((0, 0)), (255, 0, 255, 255))
+
+            sheet_pattern = project.pattern_from_ref("testfam@base#0,0")
+            sheet_image = runtime_layout_core.render_pattern_image(project, sheet_pattern)
+            self.assertEqual(sheet_image.size, (8, 8))
+            self.assertEqual(sheet_image.getpixel((0, 0)), (0, 0, 0, 255))
+
+            with self.assertRaisesRegex(ValueError, "does not map to a sheet coordinate"):
+                project.resolve_tile("testfam@base:1")
+            self.assertNotIn("tile_family_ingest", sys.modules)
+            self.assertNotIn("source_manifest_bridge", sys.modules)
+
     def test_runtime_scene_work_stays_self_sufficient_after_manifest_files_are_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             fixture = _copy_minimal8_runtime_fixture(Path(temp_dir))
@@ -785,6 +936,8 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 assert resolved is not None
 
                 post_tileset = project.get_tileset(fixture.family_tileset_id)
+                self.assertIsInstance(post_tileset, layout_core.GridTileset)
+                assert isinstance(post_tileset, layout_core.GridTileset)
                 self.assertEqual(post_tileset.id, golden.tileset.id)
                 self.assertEqual(post_tileset.sheet_path, fixture.selected_variant_sheet_path)
                 self.assertEqual(post_tileset.sheet_path, golden.tileset.sheet_path)
@@ -871,7 +1024,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 },
             )
 
-            with self.assertRaisesRegex(ValueError, "either path or source_pack, not both"):
+            with self.assertRaisesRegex(ValueError, "exactly one of path, source_pack, or runtime_asset"):
                 layout_core.LayoutProject(project_path)
 
     def test_project_rejects_source_pack_config_without_tileset_and_tilesheet_ids(self) -> None:
@@ -921,7 +1074,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 },
             )
 
-            with self.assertRaisesRegex(ValueError, "must define path or source_pack"):
+            with self.assertRaisesRegex(ValueError, "exactly one of path, source_pack, or runtime_asset"):
                 layout_core.LayoutProject(project_path)
 
     def test_project_rejects_empty_tile_family_entries(self) -> None:
@@ -1518,7 +1671,7 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
                 layouts_dir=layouts_dir,
             )
 
-            self.assertEqual(report["total_resolved_family_tiles"], 2)
+            self.assertEqual(report["total_resolved_family_tiles"], 3)
             self.assertEqual(report["flagged_references"], 0)
 
     def test_apply_ascii_places_tiles_and_ignores_blank_markers(self) -> None:
