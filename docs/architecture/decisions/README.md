@@ -35,4 +35,5 @@ Per the [Agent-Ready Documentation Standard v1.0](../../contributor/documentatio
 | [0009](0009-composition-asset-model.md) | Composition Asset Model: Tiles (incl. Metatiles), Constructions, Scenes, and Variations | accepted |
 | [0010](0010-runtime-flippability-and-role-aware-frame-seams.md) | Runtime Flippability and Role-Aware Frame Seam Verification | accepted |
 | [0011](0011-runtime-ingest-family-module-split.md) | Runtime/Ingest Family Module Split | accepted |
-| [0012](0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md) | Runtime Owns Its Pixels: Atomic Content-Addressed Tile Assets and Synthetic Runtime Sheets | accepted |
+| [0012](0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md) | Runtime Owns Its Pixels: Atomic Content-Addressed Tile Assets and Synthetic Runtime Sheets | extended |
+| [0013](0013-content-keyed-semantics-and-legacy-metadata-layer.md) | Content-Keyed Semantics and a Preserved Legacy Metadata Layer | accepted |

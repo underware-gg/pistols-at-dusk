@@ -52,10 +52,9 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
             DetectedSemanticTile(
                 content_hash=content_hash,
                 facts={
-                    "category": "furniture",
-                    "layer": "object",
-                    "meaning": "stool",
-                    "tags": ("wood",),
+                    "semantics": ("stool",),
+                    "temperature": "warm",
+                    "style": "wood",
                 },
             ),
         )
@@ -63,7 +62,7 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
             AuthoredSemanticPatch(
                 content_hash=content_hash,
                 facts={
-                    "meaning": "bed",
+                    "semantics": ("bed",),
                 },
             ),
         )
@@ -71,33 +70,32 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
         resolved = resolve_semantic_catalogue(detected, patch)
 
         self.assertEqual(len(resolved), 1)
-        self.assertEqual(resolved[0].facts["meaning"], "bed")
-        self.assertEqual(resolved[0].facts["category"], "furniture")
-        self.assertEqual(resolved[0].facts["layer"], "object")
-        self.assertEqual(resolved[0].facts["tags"], ("wood",))
-        self.assertEqual(resolved[0].authored_fields, ("meaning",))
+        self.assertEqual(resolved[0].facts["semantics"], ("bed",))
+        self.assertEqual(resolved[0].facts["temperature"], "warm")
+        self.assertEqual(resolved[0].facts["style"], "wood")
+        self.assertEqual(resolved[0].authored_fields, ("semantics",))
 
     def test_resolved_catalogue_serialization_is_deterministic(self) -> None:
         red = content_hash_for_image(_image((255, 0, 0, 255)))
         blue = content_hash_for_image(_image((0, 0, 255, 255)))
         first = resolve_semantic_catalogue(
             (
-                DetectedSemanticTile(content_hash=blue, facts={"meaning": "water"}),
-                DetectedSemanticTile(content_hash=red, facts={"meaning": "blood"}),
+                DetectedSemanticTile(content_hash=blue, facts={"temperature": "cool"}),
+                DetectedSemanticTile(content_hash=red, facts={"temperature": "warm"}),
             ),
             (
-                AuthoredSemanticPatch(content_hash=red, facts={"source_notes": "human reviewed"}),
-                AuthoredSemanticPatch(content_hash=blue, facts={"source_notes": "detector uncertain"}),
+                AuthoredSemanticPatch(content_hash=red, facts={"contrast": "high"}),
+                AuthoredSemanticPatch(content_hash=blue, facts={"contrast": "low"}),
             ),
         )
         second = resolve_semantic_catalogue(
             (
-                DetectedSemanticTile(content_hash=red, facts={"meaning": "blood"}),
-                DetectedSemanticTile(content_hash=blue, facts={"meaning": "water"}),
+                DetectedSemanticTile(content_hash=red, facts={"temperature": "warm"}),
+                DetectedSemanticTile(content_hash=blue, facts={"temperature": "cool"}),
             ),
             (
-                AuthoredSemanticPatch(content_hash=blue, facts={"source_notes": "detector uncertain"}),
-                AuthoredSemanticPatch(content_hash=red, facts={"source_notes": "human reviewed"}),
+                AuthoredSemanticPatch(content_hash=blue, facts={"contrast": "low"}),
+                AuthoredSemanticPatch(content_hash=red, facts={"contrast": "high"}),
             ),
         )
 
@@ -113,20 +111,20 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "unknown content hashes"):
             resolve_semantic_catalogue(
-                (DetectedSemanticTile(content_hash=known, facts={"meaning": "known"}),),
-                (AuthoredSemanticPatch(content_hash=unknown, facts={"meaning": "unknown"}),),
+                (DetectedSemanticTile(content_hash=known, facts={"temperature": "warm"}),),
+                (AuthoredSemanticPatch(content_hash=unknown, facts={"temperature": "cool"}),),
             )
 
     def test_malformed_content_hash_raises_on_construct_and_load(self) -> None:
         with self.assertRaisesRegex(ValueError, "content-sha256"):
-            DetectedSemanticTile(content_hash="sha256:" + "0" * 64, facts={"meaning": "bad prefix"})
+            DetectedSemanticTile(content_hash="sha256:" + "0" * 64, facts={"temperature": "warm"})
 
         payload: dict[str, object] = {
             "schema_version": 1,
             "tiles": [
                 {
                     "content_hash": "content-sha256:" + "z" * 64,
-                    "facts": {"meaning": "bad hex"},
+                    "facts": {"temperature": "warm"},
                     "authored_fields": [],
                 }
             ],
@@ -140,8 +138,8 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate detected semantic record"):
             resolve_semantic_catalogue(
                 (
-                    DetectedSemanticTile(content_hash=content_hash, facts={"meaning": "first"}),
-                    DetectedSemanticTile(content_hash=content_hash, facts={"meaning": "second"}),
+                    DetectedSemanticTile(content_hash=content_hash, facts={"temperature": "warm"}),
+                    DetectedSemanticTile(content_hash=content_hash, facts={"temperature": "cool"}),
                 )
             )
 
@@ -150,10 +148,10 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Duplicate authored semantic patch"):
             resolve_semantic_catalogue(
-                (DetectedSemanticTile(content_hash=content_hash, facts={"meaning": "base"}),),
+                (DetectedSemanticTile(content_hash=content_hash, facts={"temperature": "warm"}),),
                 (
-                    AuthoredSemanticPatch(content_hash=content_hash, facts={"meaning": "first"}),
-                    AuthoredSemanticPatch(content_hash=content_hash, facts={"meaning": "second"}),
+                    AuthoredSemanticPatch(content_hash=content_hash, facts={"temperature": "cool"}),
+                    AuthoredSemanticPatch(content_hash=content_hash, facts={"temperature": "neutral"}),
                 ),
             )
 
@@ -168,7 +166,7 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
         resolved = (
             ResolvedSemanticTile(
                 content_hash=content_hash,
-                facts={"semantics": ("door", "wood"), "meaning": None},
+                facts={"semantics": ("door", "wood"), "style": None},
                 authored_fields=("semantics",),
             ),
         )
@@ -184,19 +182,19 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
 
         resolved = ResolvedSemanticTile(
             content_hash=content_hash,
-            facts={"meaning": "door", "source_notes": "reviewed"},
-            authored_fields=("source_notes", "meaning", "source_notes"),
+            facts={"semantics": ("door",), "temperature": "warm"},
+            authored_fields=("temperature", "semantics", "temperature"),
         )
 
-        self.assertEqual(resolved.authored_fields, ("meaning", "source_notes"))
+        self.assertEqual(resolved.authored_fields, ("semantics", "temperature"))
 
     def test_resolved_catalogue_rejects_duplicate_content_hashes(self) -> None:
         content_hash = content_hash_for_image(_image((6, 6, 6, 255)))
         payload: dict[str, object] = {
             "schema_version": 1,
             "tiles": [
-                {"content_hash": content_hash, "facts": {"meaning": "first"}, "authored_fields": []},
-                {"content_hash": content_hash, "facts": {"meaning": "second"}, "authored_fields": []},
+                {"content_hash": content_hash, "facts": {"temperature": "warm"}, "authored_fields": []},
+                {"content_hash": content_hash, "facts": {"temperature": "cool"}, "authored_fields": []},
             ],
         }
 
@@ -209,8 +207,8 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "authored fields absent from facts"):
             ResolvedSemanticTile(
                 content_hash=content_hash,
-                facts={"meaning": "door"},
-                authored_fields=("source_notes",),
+                facts={"semantics": ("door",)},
+                authored_fields=("temperature",),
             )
 
 

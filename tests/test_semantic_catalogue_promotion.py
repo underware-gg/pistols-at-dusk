@@ -90,13 +90,11 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
             ResolvedSemanticTile(
                 content_hash=_HASH_A,
                 facts={
-                    "category": "bedding",
-                    "layer": "floor",
-                    "meaning": "bed",
-                    "tags": ("bed", "furniture"),
                     "semantics": ("sleep",),
+                    "style": "soft",
+                    "temperature": "warm",
                 },
-                authored_fields=("meaning",),
+                authored_fields=("semantics",),
             ),
         )
 
@@ -107,13 +105,15 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
         )
 
         promoted_tile = promoted.tiles["test.tile"]
-        self.assertEqual(promoted_tile.meaning, "bed")
-        self.assertEqual(promoted_tile.tags, ("bed", "furniture"))
         self.assertEqual(promoted_tile.semantics, ("sleep",))
         self.assertEqual(promoted_tile.motifs, ())
-        self.assertIsNone(promoted_tile.source_notes)
-        self.assertEqual(promoted_tile.category, "bedding")
-        self.assertEqual(promoted_tile.layer, "floor")
+        self.assertEqual(promoted_tile.style, "soft")
+        self.assertEqual(promoted_tile.temperature, "warm")
+        self.assertEqual(promoted_tile.meaning, "stool")
+        self.assertEqual(promoted_tile.tags, ("legacy",))
+        self.assertEqual(promoted_tile.source_notes, "legacy source note")
+        self.assertEqual(promoted_tile.category, "furniture")
+        self.assertEqual(promoted_tile.layer, "object")
         self.assertFalse(promoted_tile.walkable)
         self.assertTrue(promoted_tile.blocking)
         self.assertEqual(promoted_tile.requires_exposed_on, ("north",))
@@ -130,7 +130,7 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
         resolved = (
             ResolvedSemanticTile(
                 content_hash=_HASH_A,
-                facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("shared",)},
+                facts={"semantics": ("shared",), "temperature": "warm"},
             ),
         )
 
@@ -143,28 +143,25 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(promoted.tiles["test.tile.a"].meaning, "bed")
-        self.assertEqual(promoted.tiles["test.tile.b"].meaning, "bed")
-        self.assertEqual(promoted.tiles["test.tile.a"].tags, ("shared",))
-        self.assertEqual(promoted.tiles["test.tile.b"].tags, ("shared",))
+        self.assertEqual(promoted.tiles["test.tile.a"].semantics, ("shared",))
+        self.assertEqual(promoted.tiles["test.tile.b"].semantics, ("shared",))
+        self.assertEqual(promoted.tiles["test.tile.a"].temperature, "warm")
+        self.assertEqual(promoted.tiles["test.tile.b"].temperature, "warm")
 
-    def test_missing_required_ingest_field_raises(self) -> None:
+    def test_absent_clean_ingest_fields_reset_to_defaults(self) -> None:
         unit = _unit(_tile("test.tile", sheet_col=0))
 
-        with self.assertRaisesRegex(
-            ValueError,
-            f"{re.escape(_HASH_A)}.*tile 'test.tile' omits required ingest field 'category'",
-        ):
-            promote_semantic_catalogue(
-                unit,
-                resolved=(
-                    ResolvedSemanticTile(
-                        content_hash=_HASH_A,
-                        facts={"layer": "object", "meaning": "bed", "tags": ("bed",)},
-                    ),
-                ),
-                content_hash_by_tile_id={"test.tile": _HASH_A},
-            )
+        promoted = promote_semantic_catalogue(
+            unit,
+            resolved=(ResolvedSemanticTile(content_hash=_HASH_A, facts={"temperature": "cool"}),),
+            content_hash_by_tile_id={"test.tile": _HASH_A},
+        )
+
+        promoted_tile = promoted.tiles["test.tile"]
+        self.assertEqual(promoted_tile.temperature, "cool")
+        self.assertEqual(promoted_tile.semantics, ())
+        self.assertEqual(promoted_tile.motifs, ())
+        self.assertIsNone(promoted_tile.style)
 
     def test_with_tiles_rebinds_construction_and_composite_tile_references(self) -> None:
         tile_a = _tile("test.tile.a", sheet_col=0)
@@ -189,11 +186,11 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
         resolved = (
             ResolvedSemanticTile(
                 content_hash=_HASH_A,
-                facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("bed",)},
+                facts={"semantics": ("bed",), "temperature": "warm"},
             ),
             ResolvedSemanticTile(
                 content_hash=_HASH_B,
-                facts={"category": "furniture", "layer": "object", "meaning": "chair", "tags": ("chair",)},
+                facts={"semantics": ("chair",), "temperature": "cool"},
             ),
         )
 
@@ -230,7 +227,7 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
                 resolved=(
                     ResolvedSemanticTile(
                         content_hash=_HASH_A,
-                        facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("bed",)},
+                        facts={"semantics": ("bed",), "temperature": "warm"},
                     ),
                 ),
                 content_hash_by_tile_id={},
@@ -245,7 +242,7 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
                 resolved=(
                     ResolvedSemanticTile(
                         content_hash=_HASH_A,
-                        facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("bed",)},
+                        facts={"semantics": ("bed",), "temperature": "warm"},
                     ),
                 ),
                 content_hash_by_tile_id={"test.tile": _HASH_B},
@@ -260,11 +257,11 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
                 resolved=(
                     ResolvedSemanticTile(
                         content_hash=_HASH_A,
-                        facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("bed",)},
+                        facts={"semantics": ("bed",), "temperature": "warm"},
                     ),
                     ResolvedSemanticTile(
                         content_hash=_HASH_C,
-                        facts={"category": "furniture", "layer": "object", "meaning": "unused", "tags": ("unused",)},
+                        facts={"semantics": ("unused",), "temperature": "cool"},
                     ),
                 ),
                 content_hash_by_tile_id={"test.tile": _HASH_A},
@@ -279,11 +276,11 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
                 resolved=(
                     ResolvedSemanticTile(
                         content_hash=_HASH_A,
-                        facts={"category": "furniture", "layer": "object", "meaning": "bed", "tags": ("bed",)},
+                        facts={"semantics": ("bed",), "temperature": "warm"},
                     ),
                     ResolvedSemanticTile(
                         content_hash=_HASH_A,
-                        facts={"category": "furniture", "layer": "object", "meaning": "duplicate", "tags": ("duplicate",)},
+                        facts={"semantics": ("duplicate",), "temperature": "cool"},
                     ),
                 ),
                 content_hash_by_tile_id={"test.tile": _HASH_A},

@@ -40,9 +40,9 @@ def _make_two_tile_family(
     *,
     base_colours: tuple[tuple[int, int, int, int], tuple[int, int, int, int]],
     alt_colours: tuple[tuple[int, int, int, int], tuple[int, int, int, int]] | None = None,
-    meanings: tuple[str, str] = ("left", "right"),
-    tags: tuple[list[str], list[str]] | None = None,
-    source_notes: tuple[str | None, str | None] = (None, None),
+    semantics: tuple[list[str], list[str]] | None = None,
+    contrast: tuple[str | None, str | None] = ("high", "high"),
+    style: tuple[str | None, str | None] = (None, None),
 ) -> Path:
     family_dir = root / "family"
     family_dir.mkdir()
@@ -99,12 +99,13 @@ def _make_two_tile_family(
                 "layer": "map",
                 "category": "tile",
                 "transparent": False,
-                "tags": tags[0] if tags is not None else ["semantic:fixture"],
+                "tags": ["semantic:fixture"],
                 "cluster_ids": ["cluster.valid"],
                 "source_group": "group",
-                "meaning": meanings[0],
+                "semantics": semantics[0] if semantics is not None else ["left"],
                 "meaning_confidence": "confirmed",
-                **({"source_notes": source_notes[0]} if source_notes[0] is not None else {}),
+                **({"contrast": contrast[0]} if contrast[0] is not None else {}),
+                **({"style": style[0]} if style[0] is not None else {}),
             },
             {
                 "id": "testfam:all:1,0",
@@ -113,12 +114,13 @@ def _make_two_tile_family(
                 "layer": "map",
                 "category": "tile",
                 "transparent": False,
-                "tags": tags[1] if tags is not None else ["semantic:fixture"],
+                "tags": ["semantic:fixture"],
                 "cluster_ids": ["cluster.valid"],
                 "source_group": "group",
-                "meaning": meanings[1],
+                "semantics": semantics[1] if semantics is not None else ["right"],
                 "meaning_confidence": "confirmed",
-                **({"source_notes": source_notes[1]} if source_notes[1] is not None else {}),
+                **({"contrast": contrast[1]} if contrast[1] is not None else {}),
+                **({"style": style[1]} if style[1] is not None else {}),
             },
         ],
     )
@@ -142,8 +144,8 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
         self.assertEqual(len(result.detected_base), 2)
         self.assertEqual(len(result.authored_patches), 2)
         resolved = resolve_semantic_catalogue(result.detected_base, result.authored_patches)
-        meanings = sorted(cast(str, record.facts["meaning"]) for record in resolved)
-        self.assertEqual(meanings, ["left", "right"])
+        semantic_values = sorted(cast(tuple[str, ...], record.facts["semantics"]) for record in resolved)
+        self.assertEqual(semantic_values, [("left",), ("right",)])
 
     def test_identical_pixels_with_identical_facts_collapse_to_one_patch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -151,7 +153,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 _make_two_tile_family(
                     Path(temp_dir),
                     base_colours=((12, 12, 12, 255), (12, 12, 12, 255)),
-                    meanings=("same", "same"),
+                    semantics=(["same"], ["same"]),
                 )
             )
 
@@ -171,7 +173,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 _make_two_tile_family(
                     Path(temp_dir),
                     base_colours=((12, 12, 12, 255), (12, 12, 12, 255)),
-                    meanings=("left", "right"),
+                    semantics=(["left"], ["right"]),
                 )
             )
 
@@ -181,9 +183,9 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
         self.assertEqual(len(caught.exception.collisions), 1)
         collision = caught.exception.collisions[0]
         self.assertEqual(collision.tile_ids, ("testfam:all:0,0", "testfam:all:1,0"))
-        self.assertIn("meaning", collision.differing_fields)
-        self.assertEqual(collision.differing_fields["meaning"]["string:left"], ("testfam:all:0,0",))
-        self.assertEqual(collision.differing_fields["meaning"]["string:right"], ("testfam:all:1,0",))
+        self.assertIn("semantics", collision.differing_fields)
+        self.assertEqual(collision.differing_fields["semantics"]['tuple:["left"]'], ("testfam:all:0,0",))
+        self.assertEqual(collision.differing_fields["semantics"]['tuple:["right"]'], ("testfam:all:1,0",))
 
     def test_multi_variant_identity_does_not_false_merge_default_identical_tiles(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -192,7 +194,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                     Path(temp_dir),
                     base_colours=((40, 40, 40, 255), (40, 40, 40, 255)),
                     alt_colours=((40, 40, 40, 255), (80, 80, 80, 255)),
-                    meanings=("same", "same"),
+                    semantics=(["same"], ["same"]),
                 )
             )
 
@@ -233,8 +235,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 _make_two_tile_family(
                     Path(temp_dir),
                     base_colours=((12, 12, 12, 255), (12, 12, 12, 255)),
-                    meanings=("same", "same"),
-                    tags=(["a", "b"], ["a, b"]),
+                    semantics=(["a", "b"], ["a, b"]),
                 )
             )
 
@@ -242,8 +243,8 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 bootstrap_legacy_semantic_patch(family)
 
         collision = caught.exception.collisions[0]
-        self.assertEqual(collision.differing_fields["tags"]['tuple:["a","b"]'], ("testfam:all:0,0",))
-        self.assertEqual(collision.differing_fields["tags"]['tuple:["a, b"]'], ("testfam:all:1,0",))
+        self.assertEqual(collision.differing_fields["semantics"]['tuple:["a","b"]'], ("testfam:all:0,0",))
+        self.assertEqual(collision.differing_fields["semantics"]['tuple:["a, b"]'], ("testfam:all:1,0",))
 
     def test_collision_detection_distinguishes_null_from_literal_null_string(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -251,8 +252,8 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 _make_two_tile_family(
                     Path(temp_dir),
                     base_colours=((12, 12, 12, 255), (12, 12, 12, 255)),
-                    meanings=("same", "same"),
-                    source_notes=(None, "<null>"),
+                    semantics=(["same"], ["same"]),
+                    style=(None, "<null>"),
                 )
             )
 
@@ -260,8 +261,8 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 bootstrap_legacy_semantic_patch(family)
 
         collision = caught.exception.collisions[0]
-        self.assertEqual(collision.differing_fields["source_notes"]["null"], ("testfam:all:0,0",))
-        self.assertEqual(collision.differing_fields["source_notes"]["string:<null>"], ("testfam:all:1,0",))
+        self.assertEqual(collision.differing_fields["style"]["null"], ("testfam:all:0,0",))
+        self.assertEqual(collision.differing_fields["style"]["string:<null>"], ("testfam:all:1,0",))
 
     def test_write_outputs_serializes_non_empty_collision_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -270,7 +271,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                 _make_two_tile_family(
                     temp_path,
                     base_colours=((12, 12, 12, 255), (12, 12, 12, 255)),
-                    meanings=("left", "right"),
+                    semantics=(["left"], ["right"]),
                 )
             )
             output_dir = temp_path / "semantic-catalogues" / "main"
@@ -283,8 +284,8 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
         self.assertEqual(len(collisions_payload["collisions"]), 1)
         collision = collisions_payload["collisions"][0]
         self.assertEqual(collision["tile_ids"], ["testfam:all:0,0", "testfam:all:1,0"])
-        self.assertEqual(collision["differing_fields"]["meaning"]["string:left"], ["testfam:all:0,0"])
-        self.assertEqual(collision["differing_fields"]["meaning"]["string:right"], ["testfam:all:1,0"])
+        self.assertEqual(collision["differing_fields"]["semantics"]['tuple:["left"]'], ["testfam:all:0,0"])
+        self.assertEqual(collision["differing_fields"]["semantics"]['tuple:["right"]'], ["testfam:all:1,0"])
 
     def test_collision_report_payload_preserves_group_order_and_field_aggregation(self) -> None:
         first = SemanticCollision(
@@ -295,7 +296,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
                     "string:wall": ("tile.a", "tile.c"),
                     "string:floor": ("tile.b",),
                 },
-                "tags": {
+                "semantics": {
                     'tuple:["a"]': ("tile.a",),
                     'tuple:["b"]': ("tile.b", "tile.c"),
                 },
@@ -324,7 +325,7 @@ class LegacySemanticBootstrapTests(unittest.TestCase):
         differing_fields = cast(dict[str, dict[str, list[str]]], first_payload["differing_fields"])
         self.assertEqual(differing_fields["meaning"]["string:wall"], ["tile.a", "tile.c"])
         self.assertEqual(differing_fields["meaning"]["string:floor"], ["tile.b"])
-        self.assertEqual(differing_fields["tags"]['tuple:["b"]'], ["tile.b", "tile.c"])
+        self.assertEqual(differing_fields["semantics"]['tuple:["b"]'], ["tile.b", "tile.c"])
 
 
 if __name__ == "__main__":

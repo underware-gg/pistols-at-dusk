@@ -29,7 +29,6 @@ _LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
 
 _SEQUENCE_FACT_FIELDS = frozenset(
     {
-        "tags",
         "semantics",
         "motifs",
     }
@@ -37,24 +36,15 @@ _SEQUENCE_FACT_FIELDS = frozenset(
 
 INGEST_SEMANTIC_FIELDS = frozenset(
     {
-        "category",
         "contrast",
         "facing",
-        "footprint",
-        "layer",
-        "meaning",
-        "meaning_confidence",
         "motifs",
         "noise",
         "orientation",
-        "overlay",
         "pose",
         "semantics",
-        "source_notes",
         "style",
-        "tags",
         "temperature",
-        "usage",
     }
 )
 

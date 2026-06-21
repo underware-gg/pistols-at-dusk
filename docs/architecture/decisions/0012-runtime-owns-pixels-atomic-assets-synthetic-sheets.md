@@ -1,6 +1,7 @@
 # 0012 - Runtime Owns Its Pixels: Atomic Content-Addressed Tile Assets and Synthetic Runtime Sheets
 
-- Status: accepted
+- Status: extended
+- Extended by: [0013](0013-content-keyed-semantics-and-legacy-metadata-layer.md)
 - Scope: Ingestion–Runtime Separation Phase 2 (runtime asset model)
 - Related: [0001](0001-physical-address-is-canonical.md), [0005](0005-runtime-tile-genesis-and-provenance.md), [0008](0008-locate-seam-contact-line-at-content-box-edge.md), [0011](0011-runtime-ingest-family-module-split.md)
 
