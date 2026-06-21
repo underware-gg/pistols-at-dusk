@@ -18,6 +18,7 @@ from typing import Mapping
 from PIL import Image
 
 from layout_core import grid_dimensions_for_image
+from pixel_content import canonical_rgba_bytes
 from tile_family_ingest import load_source_tile_family
 from tile_family_runtime import resolve_canonical_tile_image
 from tile_library import (
@@ -35,14 +36,6 @@ from runtime_asset_paths import (
     runtime_atlas_relative_path,
     runtime_family_root,
 )
-
-
-ATOMIC_ASSET_FORMAT_HEADER = b"rgba8\n"
-
-
-def canonical_rgba_bytes(image: Image.Image) -> bytes:
-    rgba = image.convert("RGBA")
-    return ATOMIC_ASSET_FORMAT_HEADER + f"{rgba.width}x{rgba.height}\n".encode("ascii") + rgba.tobytes()
 
 
 def atomic_asset_address(image: Image.Image) -> str:

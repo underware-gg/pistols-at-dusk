@@ -98,6 +98,8 @@ class RuntimeImportBoundaryTests(unittest.TestCase):
             "import tile_family_ingest",
             "from source_manifest_bridge import",
             "import source_manifest_bridge",
+            "from semantic_catalogue_ingest import",
+            "import semantic_catalogue_ingest",
             "from tile_families import",
             "import tile_families",
             "from reference_tile_match import",
