@@ -712,11 +712,15 @@ def _variant_payload(variant: TileFamilyVariant) -> dict[str, object]:
         "colorway": variant.colorway,
         "background_mode": variant.background_mode,
         "notes": variant.notes,
+        "grid_columns": variant.grid_columns,
+        "grid_rows": variant.grid_rows,
     }
 
 
 def _variant_from_payload(raw: object, *, context: str) -> TileFamilyVariant:
     mapping = require_mapping(raw, context=context)
+    grid_columns = _as_int(mapping.get("grid_columns"), context=f"{context}.grid_columns")
+    grid_rows = _as_int(mapping.get("grid_rows"), context=f"{context}.grid_rows")
     return TileFamilyVariant(
         id=_as_str(mapping.get("id"), context=f"{context}.id"),
         sheet_path=None,
@@ -725,6 +729,8 @@ def _variant_from_payload(raw: object, *, context: str) -> TileFamilyVariant:
         colorway=_as_optional_str(mapping.get("colorway"), context=f"{context}.colorway"),
         background_mode=_as_optional_str(mapping.get("background_mode"), context=f"{context}.background_mode"),
         notes=_as_optional_str(mapping.get("notes"), context=f"{context}.notes"),
+        grid_columns=grid_columns,
+        grid_rows=grid_rows,
     )
 
 

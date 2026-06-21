@@ -554,14 +554,15 @@ class Pattern:
     cells: tuple[tuple[ResolvedTile | None, ...], ...]
 
 
-class GridTileset:
+class _BaseTileset:
     def __init__(
         self,
         tileset_id: str,
         *,
-        sheet_path: Path,
         tile_width: int,
         tile_height: int,
+        columns: int,
+        rows: int,
         margin: int = 0,
         spacing: int = 0,
         transparent_mode: str = "top_left",
@@ -569,7 +570,6 @@ class GridTileset:
         regions: dict[str, GridRegionBounds] | None = None,
     ) -> None:
         self.id = tileset_id
-        self.sheet_path = sheet_path.resolve()
         self.tile_width = tile_width
         self.tile_height = tile_height
         self.margin = margin
@@ -579,16 +579,12 @@ class GridTileset:
         if self.catalog_scope not in {"regions", "all"}:
             raise ValueError(f"Unsupported catalog_scope for {tileset_id}: {self.catalog_scope!r}")
         self.regions = regions or {}
-        self.image = Image.open(self.sheet_path).convert("RGBA")
-        self.transparent_key = transparent_key_for_sheet(self.image, self.transparent_mode)
-
-        step_x = self.tile_width + self.spacing
-        step_y = self.tile_height + self.spacing
-        self.columns = (self.image.width - self.margin * 2 + self.spacing) // step_x
-        self.rows = (self.image.height - self.margin * 2 + self.spacing) // step_y
+        self.columns = columns
+        self.rows = rows
         self.tile_count = self.columns * self.rows
         self._image_cache: dict[tuple[int, bool, bool], Image.Image] = {}
         self._empty_cache: dict[int, bool] = {}
+        self._transparent_tile: Image.Image | None = None
 
     def index_from_col_row(self, col: int, row: int) -> int:
         if not (0 <= col < self.columns and 0 <= row < self.rows):
@@ -605,6 +601,15 @@ class GridTileset:
         top = self.margin + row * (self.tile_height + self.spacing)
         return left, top, left + self.tile_width, top + self.tile_height
 
+    def _base_image(self, index: int) -> Image.Image:
+        raise NotImplementedError
+
+    def _blank_tile(self) -> Image.Image:
+        # tile_image results are paste sources; callers must not mutate them in place.
+        if self._transparent_tile is None:
+            self._transparent_tile = Image.new("RGBA", (self.tile_width, self.tile_height), (0, 0, 0, 0))
+        return self._transparent_tile
+
     def tile_image(self, index: int, *, flip_x: bool = False, flip_y: bool = False) -> Image.Image:
         key = (index, flip_x, flip_y)
         if key in self._image_cache:
@@ -612,11 +617,7 @@ class GridTileset:
 
         base_key = (index, False, False)
         if base_key not in self._image_cache:
-            col, row = self.col_row_from_index(index)
-            image = self.image.crop(self.tile_box(col, row)).convert("RGBA")
-            if self.transparent_key is not None:
-                apply_transparent_key(image, self.transparent_key)
-            self._image_cache[base_key] = image
+            self._image_cache[base_key] = self._base_image(index)
 
         image = self._image_cache[base_key]
         if flip_x:
@@ -653,6 +654,70 @@ class GridTileset:
 
     def catalog_indices(self) -> list[int]:
         return self.iter_indices(restricted_to_regions=self.catalog_scope != "all")
+
+
+def grid_dimensions_for_image(
+    *,
+    image_width: int,
+    image_height: int,
+    tile_width: int,
+    tile_height: int,
+    margin: int = 0,
+    spacing: int = 0,
+) -> tuple[int, int]:
+    step_x = tile_width + spacing
+    step_y = tile_height + spacing
+    columns = (image_width - margin * 2 + spacing) // step_x
+    rows = (image_height - margin * 2 + spacing) // step_y
+    return columns, rows
+
+
+class GridTileset(_BaseTileset):
+    def __init__(
+        self,
+        tileset_id: str,
+        *,
+        sheet_path: Path,
+        tile_width: int,
+        tile_height: int,
+        margin: int = 0,
+        spacing: int = 0,
+        transparent_mode: str = "top_left",
+        catalog_scope: str = "regions",
+        regions: dict[str, GridRegionBounds] | None = None,
+    ) -> None:
+        self.sheet_path = sheet_path.resolve()
+        self.image = Image.open(self.sheet_path).convert("RGBA")
+        self.transparent_key = transparent_key_for_sheet(self.image, transparent_mode)
+        columns, rows = grid_dimensions_for_image(
+            image_width=self.image.width,
+            image_height=self.image.height,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            margin=margin,
+            spacing=spacing,
+        )
+        super().__init__(
+            tileset_id,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            columns=columns,
+            rows=rows,
+            margin=margin,
+            spacing=spacing,
+            transparent_mode=transparent_mode,
+            catalog_scope=catalog_scope,
+            regions=regions,
+        )
+
+    def _base_image(self, index: int) -> Image.Image:
+        col, row = self.col_row_from_index(index)
+        image = self.image.crop(self.tile_box(col, row)).convert("RGBA")
+        if self.transparent_key is not None:
+            apply_transparent_key(image, self.transparent_key)
+        if image.getbbox() is None:
+            return self._blank_tile()
+        return image
 
     @classmethod
     def from_project_spec(
@@ -702,7 +767,7 @@ class GridTileset:
         )
 
 
-class RuntimeAtomicTileset:
+class RuntimeAtomicTileset(_BaseTileset):
     def __init__(
         self,
         tileset_id: str,
@@ -711,46 +776,49 @@ class RuntimeAtomicTileset:
         variant_id: str,
         asset_root: Path,
     ) -> None:
-        self.id = tileset_id
-        self.tile_width = tile_library.tile_width
-        self.tile_height = tile_library.tile_height
-        self.margin = 0
-        self.spacing = 0
         try:
             variant = tile_library.variant(variant_id)
         except KeyError as exc:
             raise ValueError(
                 f"Runtime atomic tileset {tileset_id!r} references unknown variant {variant_id!r}"
             ) from exc
-        self.transparent_mode = variant.transparent_mode
-        self.catalog_scope = "all"
-        self.regions: dict[str, GridRegionBounds] = {}
+        if variant.grid_columns is None or variant.grid_rows is None:
+            raise ValueError(
+                f"Runtime atomic tileset {tileset_id!r} variant {variant_id!r} is missing runtime grid dimensions"
+            )
+        super().__init__(
+            tileset_id,
+            tile_width=tile_library.tile_width,
+            tile_height=tile_library.tile_height,
+            columns=variant.grid_columns,
+            rows=variant.grid_rows,
+            transparent_mode=variant.transparent_mode,
+            catalog_scope="all",
+        )
         self.asset_root = asset_root
         self.variant_id = variant_id
-        self._image_cache: dict[tuple[int, bool, bool], Image.Image] = {}
-        self._empty_cache: dict[int, bool] = {}
         self._index_to_tile: dict[int, TileRecord] = {}
         self._tile_id_to_index: dict[str, int] = {}
 
-        max_col = max((tile.genesis.sheet_col for tile in tile_library.tiles.values() if tile.genesis.sheet_col is not None), default=-1)
-        max_row = max((tile.genesis.sheet_row for tile in tile_library.tiles.values() if tile.genesis.sheet_row is not None), default=-1)
-        self.columns = max_col + 1
-        self.rows = max_row + 1
         for tile in tile_library.tiles.values():
             if tile.genesis.sheet_col is None or tile.genesis.sheet_row is None:
                 continue
+            if not (0 <= tile.genesis.sheet_col < self.columns and 0 <= tile.genesis.sheet_row < self.rows):
+                raise ValueError(
+                    f"Runtime atomic tileset {tileset_id!r} tile {tile.id!r} has sheet coordinate "
+                    f"outside runtime grid: ({tile.genesis.sheet_col}, {tile.genesis.sheet_row})"
+                )
             index = tile.genesis.sheet_row * self.columns + tile.genesis.sheet_col
             self._index_to_tile[index] = tile
             self._tile_id_to_index[tile.id] = index
 
-        next_index = self.columns * self.rows
+        next_index = self.tile_count
         for tile in tile_library.tiles.values():
             if tile.id in self._tile_id_to_index:
                 continue
             self._index_to_tile[next_index] = tile
             self._tile_id_to_index[tile.id] = next_index
             next_index += 1
-        self.tile_count = next_index
 
     @classmethod
     def from_variant(
@@ -773,76 +841,31 @@ class RuntimeAtomicTileset:
         except KeyError as exc:
             raise ValueError(f"Runtime atomic tileset {self.id!r} has no tile {tile_id!r}") from exc
 
-    def index_from_col_row(self, col: int, row: int) -> int:
-        if not (0 <= col < self.columns and 0 <= row < self.rows):
-            raise ValueError(f"Tile coordinate out of bounds for {self.id}: ({col}, {row})")
-        return row * self.columns + col
-
-    def col_row_from_index(self, index: int) -> tuple[int, int]:
-        if not (0 <= index < self.columns * self.rows):
-            raise ValueError(f"Tile index does not map to a sheet coordinate for {self.id}: {index}")
-        return index % self.columns, index // self.columns
-
-    def tile_box(self, col: int, row: int) -> tuple[int, int, int, int]:
-        left = col * self.tile_width
-        top = row * self.tile_height
-        return left, top, left + self.tile_width, top + self.tile_height
-
     def _tile_for_index(self, index: int) -> TileRecord | None:
-        if not (0 <= index < self.tile_count):
-            raise ValueError(f"Tile index out of bounds for {self.id}: {index}")
-        return self._index_to_tile.get(index)
+        tile = self._index_to_tile.get(index)
+        if tile is not None:
+            return tile
+        if 0 <= index < self.tile_count:
+            return None
+        raise ValueError(f"Tile index out of bounds for {self.id}: {index}")
 
-    def tile_image(self, index: int, *, flip_x: bool = False, flip_y: bool = False) -> Image.Image:
-        key = (index, flip_x, flip_y)
-        if key in self._image_cache:
-            return self._image_cache[key]
-
-        base_key = (index, False, False)
-        if base_key not in self._image_cache:
-            tile = self._tile_for_index(index)
-            if tile is None:
-                col, row = self.col_row_from_index(index)
-                raise ValueError(
-                    f"Runtime atomic tileset {self.id!r} has no tile at coordinate ({col}, {row})"
-                )
-            try:
-                address = tile.variant_assets[self.variant_id]
-            except KeyError as exc:
-                raise ValueError(
-                    f"Tile {tile.id!r} has no runtime asset for variant {self.variant_id!r}"
-                ) from exc
-            asset_path = self.asset_root / atomic_asset_relative_path(address)
-            try:
-                image = Image.open(asset_path).convert("RGBA")
-            except FileNotFoundError as exc:
-                raise ValueError(
-                    f"Tile {tile.id!r} variant {self.variant_id!r} atomic asset missing at {asset_path}"
-                ) from exc
-            self._image_cache[base_key] = image
-
-        image = self._image_cache[base_key]
-        if flip_x:
-            image = ImageOps.mirror(image)
-        if flip_y:
-            image = ImageOps.flip(image)
-        self._image_cache[key] = image
-        return image
-
-    def is_empty(self, index: int) -> bool:
-        if index not in self._empty_cache:
-            tile = self._tile_for_index(index)
-            self._empty_cache[index] = tile is None or self.tile_image(index).getbbox() is None
-        return self._empty_cache[index]
-
-    def iter_indices(self, *, restricted_to_regions: bool = True) -> list[int]:
-        return sorted(index for index in range(self.tile_count) if index in self._index_to_tile)
-
-    def region_name_for_col_row(self, col: int, row: int) -> str | None:
-        return None
-
-    def catalog_indices(self) -> list[int]:
-        return self.iter_indices(restricted_to_regions=False)
+    def _base_image(self, index: int) -> Image.Image:
+        tile = self._tile_for_index(index)
+        if tile is None:
+            return self._blank_tile()
+        try:
+            address = tile.variant_assets[self.variant_id]
+        except KeyError as exc:
+            raise ValueError(
+                f"Tile {tile.id!r} has no runtime asset for variant {self.variant_id!r}"
+            ) from exc
+        asset_path = self.asset_root / atomic_asset_relative_path(address)
+        try:
+            return Image.open(asset_path).convert("RGBA")
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"Tile {tile.id!r} variant {self.variant_id!r} atomic asset missing at {asset_path}"
+            ) from exc
 
 
 ProjectTileset = GridTileset | RuntimeAtomicTileset
@@ -1298,11 +1321,6 @@ class LayoutProject:
         assert target.index is not None
         if not (0 <= target.index < metrics.tile_count):
             raise ValueError(f"Tile index out of bounds for {target.tileset_id}: {target.index}")
-        if target.index >= metrics.columns * metrics.rows:
-            raise ValueError(
-                f"Tile index {target.index} for {target.tileset_id} does not map to a sheet coordinate; "
-                "use a tile id or alias for synthetic runtime tiles"
-            )
         if not materialise:
             return None
         return ResolvedTile(

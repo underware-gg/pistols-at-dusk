@@ -492,7 +492,9 @@ def make_image_override_family_dir(root: Path, *, image_size: tuple[int, int] = 
     family_dir = root / "family"
     family_dir.mkdir()
 
-    Image.new("RGBA", (8, 16), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+    sheet = Image.new("RGBA", (8, 16), (0, 0, 0, 0))
+    sheet.paste(Image.new("RGBA", (8, 8), (0, 0, 0, 255)), (0, 0))
+    sheet.save(family_dir / "sheet.png")
     derived_dir = family_dir / "derived"
     derived_dir.mkdir()
     Image.new("RGBA", image_size, (255, 0, 255, 255)).save(derived_dir / "override.png")
@@ -1636,6 +1638,8 @@ def _make_runtime_unit(
                 id=variant_id,
                 sheet_path=Path("sheet.png"),
                 transparent_mode="none",
+                grid_columns=3,
+                grid_rows=3,
             )
             for variant_id in variant_ids
         },
@@ -2147,6 +2151,8 @@ def _make_serialized_runtime_unit_fixture() -> TileLibraryUnit:
                 colorway="green",
                 background_mode="transparent",
                 notes="Base variant.",
+                grid_columns=9,
+                grid_rows=7,
             )
         },
         clusters={
@@ -2542,6 +2548,22 @@ class TileLibraryRegistryTests(unittest.TestCase):
         family["default_variant_id"] = "missing"
 
         with self.assertRaisesRegex(ValueError, "default_variant_id references unknown variant 'missing'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_missing_variant_grid_dimensions(self) -> None:
+        payload = _runtime_payload_fixture()
+        variant = _payload_mapping(_payload_list(payload["variants"])[0])
+        del variant["grid_columns"]
+
+        with self.assertRaisesRegex(ValueError, "variants\\[0\\].grid_columns must be an integer"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_invalid_variant_grid_dimensions(self) -> None:
+        payload = _runtime_payload_fixture()
+        variant = _payload_mapping(_payload_list(payload["variants"])[0])
+        variant["grid_rows"] = 0
+
+        with self.assertRaisesRegex(ValueError, "grid_rows must be positive"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_missing_variant_asset(self) -> None:
@@ -3347,10 +3369,9 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             self.assertIn(index, tileset.catalog_indices())
 
             hole_index = tileset.index_from_col_row(0, 0)
-            self.assertNotIn(hole_index, tileset.catalog_indices())
+            self.assertIn(hole_index, tileset.catalog_indices())
             self.assertTrue(tileset.is_empty(hole_index))
-            with self.assertRaisesRegex(ValueError, "has no tile at coordinate"):
-                tileset.tile_image(hole_index)
+            self.assertIsNone(tileset.tile_image(hole_index).getbbox())
 
     def test_runtime_atomic_tileset_reports_missing_asset_with_tile_context(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -3411,6 +3432,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             self.assertEqual(loaded, expected)
             self.assertEqual(loaded.root, Path("."))
             self.assertIsNone(expected.variant("base").sheet_path)
+            self.assertEqual((expected.variant("base").grid_columns, expected.variant("base").grid_rows), (1, 2))
             for tile in loaded.tiles.values():
                 self.assertIsNone(expected.tiles[tile.id].image_override)
                 self.assertEqual(set(tile.variant_assets), {"base"})

@@ -232,7 +232,9 @@ def _copy_minimal8_runtime_fixture(root: Path) -> Minimal8RuntimeFixture:
 def _make_override_family_and_project(root: Path) -> tuple[Path, Path]:
     family_dir = root / "family"
     family_dir.mkdir()
-    Image.new("RGBA", (8, 16), (0, 0, 0, 255)).save(family_dir / "sheet.png")
+    sheet = Image.new("RGBA", (8, 16), (0, 0, 0, 0))
+    sheet.paste(Image.new("RGBA", (8, 8), (0, 0, 0, 255)), (0, 0))
+    sheet.save(family_dir / "sheet.png")
     derived_dir = family_dir / "derived"
     derived_dir.mkdir()
     Image.new("RGBA", (8, 8), (255, 0, 255, 255)).save(derived_dir / "override.png")
@@ -825,6 +827,20 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             runtime_override_output = harness.render_layout(runtime_override_layout, root / "runtime-override.png")
             self.assertEqual(source_override_output.read_bytes(), runtime_override_output.read_bytes())
 
+            source_trailing_layout = _make_stamp_layout(
+                root,
+                project_path=override_source_project_path,
+                ref="testfam@base:1",
+            )
+            runtime_trailing_layout = _make_stamp_layout(
+                root,
+                project_path=override_runtime_project_path,
+                ref="testfam@base:1",
+            )
+            source_trailing_output = harness.render_layout(source_trailing_layout, root / "source-trailing.png")
+            runtime_trailing_output = harness.render_layout(runtime_trailing_layout, root / "runtime-trailing.png")
+            self.assertEqual(source_trailing_output.read_bytes(), runtime_trailing_output.read_bytes())
+
     def test_runtime_asset_project_renders_after_ingest_inputs_are_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -859,8 +875,12 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             self.assertEqual(sheet_image.size, (8, 8))
             self.assertEqual(sheet_image.getpixel((0, 0)), (0, 0, 0, 255))
 
-            with self.assertRaisesRegex(ValueError, "does not map to a sheet coordinate"):
-                project.resolve_tile("testfam@base:1")
+            trailing_pattern = project.pattern_from_ref("testfam@base:1")
+            trailing_image = runtime_layout_core.render_pattern_image(project, trailing_pattern)
+            self.assertIsNone(trailing_image.getbbox())
+
+            with self.assertRaisesRegex(ValueError, "Tile index out of bounds"):
+                project.resolve_tile("testfam@base:2")
             self.assertNotIn("tile_family_ingest", sys.modules)
             self.assertNotIn("source_manifest_bridge", sys.modules)
 

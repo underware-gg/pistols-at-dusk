@@ -16,12 +16,14 @@ from typing import Mapping
 
 from PIL import Image
 
+from layout_core import grid_dimensions_for_image
 from tile_family_ingest import load_source_tile_family
 from tile_family_runtime import resolve_canonical_tile_image
 from tile_library import (
     TileFamilyVariant,
     TileLibraryUnit,
     TileRecord,
+    require_variant_sheet_path,
 )
 from tile_library_codec import tile_library_unit_to_json
 from runtime_asset_paths import atomic_asset_address_from_digest, atomic_asset_relative_path, runtime_family_root
@@ -98,6 +100,31 @@ def _runtime_tile(tile: TileRecord, *, variant_assets: Mapping[str, str]) -> Til
     )
 
 
+def _runtime_variant(
+    unit: TileLibraryUnit,
+    variant: TileFamilyVariant,
+    *,
+    image_cache: dict[Path, Image.Image],
+) -> TileFamilyVariant:
+    sheet_path = require_variant_sheet_path(variant, context="runtime asset grid dimensions")
+    sheet = image_cache.get(sheet_path)
+    if sheet is None:
+        sheet = Image.open(sheet_path).convert("RGBA")
+        image_cache[sheet_path] = sheet
+    grid_columns, grid_rows = grid_dimensions_for_image(
+        image_width=sheet.width,
+        image_height=sheet.height,
+        tile_width=unit.tile_width,
+        tile_height=unit.tile_height,
+    )
+    return replace(
+        variant,
+        sheet_path=None,
+        grid_columns=grid_columns,
+        grid_rows=grid_rows,
+    )
+
+
 def materialize_runtime_unit(family_dir: Path, *, runtime_families_dir: Path) -> TileLibraryUnit:
     family = load_source_tile_family(family_dir)
     unit = family.runtime_unit
@@ -114,7 +141,10 @@ def materialize_runtime_unit(family_dir: Path, *, runtime_families_dir: Path) ->
     return replace(
         unit,
         root=Path("."),
-        variants={variant_id: replace(variant, sheet_path=None) for variant_id, variant in unit.variants.items()},
+        variants={
+            variant_id: _runtime_variant(unit, variant, image_cache=image_cache)
+            for variant_id, variant in unit.variants.items()
+        },
     ).with_tiles(runtime_tiles)
 
 

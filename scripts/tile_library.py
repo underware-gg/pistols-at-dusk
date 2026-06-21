@@ -543,6 +543,16 @@ class TileFamilyVariant:
     colorway: str | None = None
     background_mode: str | None = None
     notes: str | None = None
+    grid_columns: int | None = None
+    grid_rows: int | None = None
+
+    def __post_init__(self) -> None:
+        if (self.grid_columns is None) != (self.grid_rows is None):
+            raise ValueError("TileFamilyVariant grid_columns and grid_rows must be provided together")
+        if self.grid_columns is not None and self.grid_columns <= 0:
+            raise ValueError("TileFamilyVariant.grid_columns must be positive")
+        if self.grid_rows is not None and self.grid_rows <= 0:
+            raise ValueError("TileFamilyVariant.grid_rows must be positive")
 
 
 def require_variant_sheet_path(variant: TileFamilyVariant, *, context: str) -> Path:
