@@ -6,7 +6,16 @@ from dataclasses import MISSING, fields, replace
 from typing import Mapping
 
 from semantic_catalogue_ingest import INGEST_SEMANTIC_FIELDS, ResolvedSemanticTile, SemanticFactValue, index_by_content_hash
-from tile_library import LegacyTileSemanticRecord, RUNTIME_AUTHORED_TILE_FIELDS, TileLibraryUnit, TileRecord
+from tile_library import (
+    LegacyTileSemanticRecord,
+    NON_CONTENT_LEGACY_TILE_FIELDS,
+    REQUIRED_NON_CONTENT_TILE_FIELDS,
+    RUNTIME_AUTHORED_TILE_FIELDS,
+    STRUCTURAL_TILE_RECORD_FIELDS,
+    TILE_RECORD_FIELD_DEFAULTS,
+    TileLibraryUnit,
+    TileRecord,
+)
 
 
 if INGEST_SEMANTIC_FIELDS & RUNTIME_AUTHORED_TILE_FIELDS:
@@ -16,21 +25,57 @@ _TILE_RECORD_FIELD_NAMES = frozenset(field.name for field in fields(TileRecord))
 if missing_fields := sorted(INGEST_SEMANTIC_FIELDS - _TILE_RECORD_FIELD_NAMES):
     raise ValueError(f"INGEST_SEMANTIC_FIELDS are not TileRecord fields: {', '.join(missing_fields)}")
 
-_TILE_RECORD_FIELD_DEFAULTS: dict[str, object] = {}
-for field in fields(TileRecord):
-    if field.default is not MISSING:
-        _TILE_RECORD_FIELD_DEFAULTS[field.name] = field.default
-    elif field.default_factory is not MISSING:
-        _TILE_RECORD_FIELD_DEFAULTS[field.name] = field.default_factory()
-    else:
-        _TILE_RECORD_FIELD_DEFAULTS[field.name] = MISSING
+_TILE_RECORD_FIELD_PARTITION_BUCKETS = {
+    "content-keyed ingest": INGEST_SEMANTIC_FIELDS,
+    "non-content legacy": NON_CONTENT_LEGACY_TILE_FIELDS,
+    "runtime-authored": RUNTIME_AUTHORED_TILE_FIELDS,
+    "required non-content": REQUIRED_NON_CONTENT_TILE_FIELDS,
+    "structural": STRUCTURAL_TILE_RECORD_FIELDS,
+}
+_seen_partition_fields: dict[str, str] = {}
+for bucket_name, bucket_fields in _TILE_RECORD_FIELD_PARTITION_BUCKETS.items():
+    for field in bucket_fields:
+        if field in _seen_partition_fields:
+            raise ValueError(
+                f"TileRecord field {field!r} is classified in both "
+                f"{_seen_partition_fields[field]} and {bucket_name}"
+            )
+        _seen_partition_fields[field] = bucket_name
+
+_TILE_RECORD_FIELD_PARTITION = (
+    INGEST_SEMANTIC_FIELDS
+    | NON_CONTENT_LEGACY_TILE_FIELDS
+    | RUNTIME_AUTHORED_TILE_FIELDS
+    | REQUIRED_NON_CONTENT_TILE_FIELDS
+    | STRUCTURAL_TILE_RECORD_FIELDS
+)
+if missing_partition_fields := sorted(_TILE_RECORD_FIELD_NAMES - _TILE_RECORD_FIELD_PARTITION):
+    raise ValueError(f"TileRecord fields are not classified for semantic promotion: {', '.join(missing_partition_fields)}")
+if extra_partition_fields := sorted(_TILE_RECORD_FIELD_PARTITION - _TILE_RECORD_FIELD_NAMES):
+    raise ValueError(f"Semantic promotion field sets are not TileRecord fields: {', '.join(extra_partition_fields)}")
+
 if fields_without_defaults := sorted(
-    field for field in INGEST_SEMANTIC_FIELDS if _TILE_RECORD_FIELD_DEFAULTS[field] is MISSING
+    field for field in INGEST_SEMANTIC_FIELDS if TILE_RECORD_FIELD_DEFAULTS[field] is MISSING
 ):
     raise ValueError(
         "INGEST_SEMANTIC_FIELDS must have TileRecord defaults for authoritative reset: "
         f"{', '.join(fields_without_defaults)}"
     )
+if reset_fields_without_defaults := sorted(
+    field for field in NON_CONTENT_LEGACY_TILE_FIELDS if TILE_RECORD_FIELD_DEFAULTS[field] is MISSING
+):
+    raise ValueError(
+        "NON_CONTENT_LEGACY_TILE_FIELDS must have TileRecord defaults for bridge reset: "
+        f"{', '.join(reset_fields_without_defaults)}"
+    )
+
+
+class SemanticPromotionError(ValueError):
+    def __init__(self, *, kind: str, message: str, tile_id: str | None = None, content_hash: str | None = None) -> None:
+        self.kind = kind
+        self.tile_id = tile_id
+        self.content_hash = content_hash
+        super().__init__(message)
 
 
 def promote_semantic_catalogue(
@@ -55,14 +100,26 @@ def promote_semantic_catalogue(
     for tile_id, tile in unit.tiles.items():
         content_hash = content_hash_by_tile_id.get(tile_id)
         if content_hash is None:
-            raise ValueError(f"Missing content hash for tile {tile_id!r}")
+            raise SemanticPromotionError(
+                kind="missing_content_hash",
+                tile_id=tile_id,
+                message=f"Missing content hash for tile {tile_id!r}",
+            )
         semantic_record = resolved_by_hash.get(content_hash)
         if semantic_record is None:
-            raise ValueError(f"Tile {tile_id!r} content hash {content_hash!r} has no resolved semantic record")
+            raise SemanticPromotionError(
+                kind="missing_resolved_record",
+                tile_id=tile_id,
+                content_hash=content_hash,
+                message=f"Tile {tile_id!r} content hash {content_hash!r} has no resolved semantic record",
+            )
         unused_hashes.discard(content_hash)
         runtime_tiles[tile_id] = _promote_tile_semantics(tile, semantic_record)
     if unused_hashes:
-        raise ValueError(f"Resolved semantic catalogue contains unused content hashes: {', '.join(sorted(unused_hashes))}")
+        raise SemanticPromotionError(
+            kind="unused_hashes",
+            message=f"Resolved semantic catalogue contains unused content hashes: {', '.join(sorted(unused_hashes))}",
+        )
     promoted = unit.with_tiles(runtime_tiles)
     if not legacy_semantics:
         return promoted
@@ -78,7 +135,7 @@ def _promote_tile_semantics(tile: TileRecord, semantic_record: ResolvedSemanticT
 
 
 def _resolved_field_value(field: str, value: SemanticFactValue | None) -> object:
-    return value if value is not None else _TILE_RECORD_FIELD_DEFAULTS[field]
+    return value if value is not None else TILE_RECORD_FIELD_DEFAULTS[field]
 
 
 def _legacy_semantics_by_tile_id(

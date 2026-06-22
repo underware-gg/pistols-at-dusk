@@ -150,9 +150,7 @@ def bootstrap_legacy_semantic_patch(
     raise_on_collisions: bool = True,
 ) -> LegacySemanticBootstrapResult:
     selected_variant_ids = variant_ids or tuple(sorted(family.variants))
-    unknown_variants = sorted(set(selected_variant_ids) - set(family.variants))
-    if unknown_variants:
-        raise ValueError(f"Unknown bootstrap variant ids: {', '.join(unknown_variants)}")
+    _require_known_variants(family, selected_variant_ids, context="bootstrap")
 
     image_cache: dict[Path, Image.Image] = {}
     physical_tiles: list[BootstrappedPhysicalTile] = []
@@ -223,6 +221,36 @@ def _content_hash_for_tile(
     # variant set. Re-running bootstrap must use the same variant set to
     # preserve authored-patch keys.
     return content_hash_for_variant_images(images_by_variant_id)
+
+
+def content_hashes_by_tile_id(
+    family: TileFamily,
+    *,
+    variant_ids: tuple[str, ...],
+) -> dict[str, str]:
+    """Compute content-hash identities for every physical tile in a family.
+
+    The caller must pass the same variant set that keyed the resolved semantic
+    catalogue. A different set produces different content identities by design.
+    """
+
+    _require_known_variants(family, variant_ids, context="content-hash")
+    image_cache: dict[Path, Image.Image] = {}
+    return {
+        tile.id: _content_hash_for_tile(
+            tile,
+            family=family,
+            variant_ids=variant_ids,
+            image_cache=image_cache,
+        )
+        for tile in family.tiles.values()
+    }
+
+
+def _require_known_variants(family: TileFamily, variant_ids: tuple[str, ...], *, context: str) -> None:
+    unknown_variants = sorted(set(variant_ids) - set(family.variants))
+    if unknown_variants:
+        raise ValueError(f"Unknown {context} variant ids: {', '.join(unknown_variants)}")
 
 
 def _semantic_facts_for_tile(tile: TileRecord) -> Mapping[str, SemanticFactValue]:

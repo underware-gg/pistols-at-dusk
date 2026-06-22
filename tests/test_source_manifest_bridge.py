@@ -5,7 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Callable, cast
+from typing import Any, Callable, cast
 
 from PIL import Image
 
@@ -14,9 +14,17 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from source_manifest_bridge import load_bridged_tile_family
+from legacy_semantic_bootstrap import content_hashes_by_tile_id
+from semantic_catalogue_ingest import ResolvedSemanticTile
+from source_manifest_bridge import (
+    BridgedSemanticInputs,
+    compare_staged_and_legacy_compatibility_family,
+    load_bridged_tile_family,
+    load_bridged_tile_library_unit,
+)
+from source_manifests import load_tile_pack_manifest
 from tile_families import TileFamily
-from tile_library import CellContentInset
+from tile_library import CellContentInset, LegacyTileSemanticRecord
 
 
 def read_json(path: Path) -> object:
@@ -302,9 +310,15 @@ def write_minimal8_source_wrapper(root: Path) -> Path:
                     if "siblings_share_semantics" in family_payload
                     else {}
                 ),
+                **(
+                    {"cell_content_inset": family_payload["cell_content_inset"]}
+                    if "cell_content_inset" in family_payload
+                    else {}
+                ),
                 "notes": ["Bridge wrapper for the current Minimal 8 legacy family package."],
             },
             "render_traits": {"alignment_origin": "bottom_left"},
+            "notes": family_payload.get("notes"),
             "render_variants": [
                 {
                     "variant_id": variant["variant_id"],
@@ -363,20 +377,17 @@ class SourceManifestBridgeTests(unittest.TestCase):
             assert resolved is not None
             self.assertEqual(resolved.tile_id, "demo.overworld:all:0,0")
 
-    def test_bridge_uses_legacy_notes_when_logical_tilesheet_notes_are_omitted(self) -> None:
+    def test_bridge_uses_empty_notes_when_logical_tilesheet_notes_are_omitted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             delete_json_value(pack_path.parent / "tilesheets" / "overworld.json", ["notes"])
 
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
-            self.assertEqual(family.notes, ("Legacy overworld compatibility note.",))
-            self.assertEqual(
-                family.runtime_unit.promoted_metadata.documented_hints,
-                ("Legacy overworld compatibility note.",),
-            )
+            self.assertEqual(family.notes, ())
+            self.assertEqual(family.runtime_unit.promoted_metadata.documented_hints, ())
 
-    def test_bridge_uses_staged_notes_when_legacy_family_notes_are_omitted(self) -> None:
+    def test_bridge_uses_staged_notes_without_reading_legacy_family_notes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             set_json_value(
@@ -391,7 +402,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(family.notes, ("Staged overworld note.",))
             self.assertEqual(family.runtime_unit.promoted_metadata.documented_hints, ("Staged overworld note.",))
 
-    def test_bridge_uses_legacy_title_when_logical_tilesheet_title_is_omitted(self) -> None:
+    def test_bridge_uses_no_title_when_logical_tilesheet_title_is_omitted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             delete_json_value(pack_path.parent / "tilesheets" / "overworld.json", ["title"])
@@ -400,9 +411,9 @@ class SourceManifestBridgeTests(unittest.TestCase):
 
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
-            self.assertEqual(family.title, "Overworld Atlas")
+            self.assertIsNone(family.title)
 
-    def test_bridge_uses_legacy_siblings_share_semantics_when_staged_value_is_omitted(self) -> None:
+    def test_bridge_uses_no_siblings_share_semantics_when_staged_value_is_omitted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             delete_json_value(
@@ -412,9 +423,9 @@ class SourceManifestBridgeTests(unittest.TestCase):
 
             family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
-            self.assertTrue(family.siblings_share_semantics)
+            self.assertFalse(family.siblings_share_semantics)
 
-    def test_bridge_uses_staged_siblings_share_semantics_when_legacy_value_is_omitted(self) -> None:
+    def test_bridge_uses_staged_siblings_share_semantics_without_reading_legacy_value(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             delete_json_value(pack_path.parent / "legacy-family" / "family.json", ["siblings_share_semantics"])
@@ -423,7 +434,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
 
             self.assertTrue(family.siblings_share_semantics)
 
-    def test_bridge_uses_staged_render_step_defaults_when_legacy_values_are_omitted(self) -> None:
+    def test_bridge_uses_staged_render_step_defaults_without_reading_legacy_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
             delete_json_value(pack_path.parent / "legacy-family" / "family.json", ["render_defaults"])
@@ -468,6 +479,19 @@ class SourceManifestBridgeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, r"runtime_flippable must be a boolean"):
                 load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
+    def test_bridge_defaults_omitted_runtime_flippable_to_safe_false(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pack_path = make_bridged_source_pack(Path(temp_dir))
+            delete_json_value(
+                pack_path.parent / "tilesheets" / "overworld.json",
+                ["compatibility_family", "runtime_flippable"],
+            )
+
+            family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+
+            self.assertFalse(family.header.runtime_flippable)
+            self.assertFalse(family.runtime_unit.runtime_flippable)
+
     def test_bridge_rejects_logical_tilesheet_without_compatibility_family(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
@@ -476,14 +500,9 @@ class SourceManifestBridgeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, r"does not declare a compatibility_family bridge"):
                 load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
-    def test_bridge_rejects_staged_header_mismatches_against_legacy_family(self) -> None:
+    def test_bridge_load_path_allows_staged_header_mismatches_against_legacy_family(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            cases: list[tuple[str, Callable[[Path], None], str]] = [
-                (
-                    "pack_grid",
-                    lambda pack_path: set_pack_grid_and_resize_art(pack_path, tile_width=16),
-                    r"Staged pack grid 16x8 does not match compatibility family grid 8x8",
-                ),
+            cases: list[tuple[str, Callable[[Path], None], Callable[[Any], None]]] = [
                 (
                     "family_id",
                     lambda pack_path: set_json_value(
@@ -491,7 +510,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["compatibility_family", "family_id"],
                         "demo.other",
                     ),
-                    r"Staged compatibility family_id 'demo\.other' does not match compatibility family manifest family_id 'demo\.overworld'",
+                    lambda family: self.assertEqual(family.family_id, "demo.other"),
                 ),
                 (
                     "default_variant_id",
@@ -500,7 +519,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["default_variant_id"],
                         "bg",
                     ),
-                    r"Staged default_variant_id 'bg' does not match compatibility family default_variant_id 'base'",
+                    lambda family: self.assertEqual(family.default_variant_id, "bg"),
                 ),
                 (
                     "title",
@@ -509,7 +528,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["title"],
                         "Other Atlas",
                     ),
-                    r"Staged logical tilesheet title 'Other Atlas' does not match compatibility family title 'Overworld Atlas'",
+                    lambda family: self.assertEqual(family.title, "Other Atlas"),
                 ),
                 (
                     "notes",
@@ -518,7 +537,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["notes"],
                         ["Different staged note."],
                     ),
-                    r"Staged logical tilesheet notes do not match compatibility family notes",
+                    lambda family: self.assertEqual(family.notes, ("Different staged note.",)),
                 ),
                 (
                     "render_step_width",
@@ -527,7 +546,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["compatibility_family", "render_step_width"],
                         16,
                     ),
-                    r"Staged render_step_width 16 does not match compatibility family render_step_width 8",
+                    lambda family: self.assertEqual(family.render_step_width, 16),
                 ),
                 (
                     "render_step_height",
@@ -536,7 +555,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["compatibility_family", "render_step_height"],
                         16,
                     ),
-                    r"Staged render_step_height 16 does not match compatibility family render_step_height 8",
+                    lambda family: self.assertEqual(family.render_step_height, 16),
                 ),
                 (
                     "siblings_share_semantics",
@@ -545,7 +564,33 @@ class SourceManifestBridgeTests(unittest.TestCase):
                         ["compatibility_family", "siblings_share_semantics"],
                         False,
                     ),
-                    r"Staged siblings_share_semantics False does not match compatibility family siblings_share_semantics True",
+                    lambda family: self.assertFalse(family.siblings_share_semantics),
+                ),
+            ]
+
+            for label, mutate, assert_family in cases:
+                with self.subTest(label=label):
+                    pack_path = make_bridged_source_pack(Path(temp_dir) / label)
+                    mutate(pack_path)
+                    family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+                    assert_family(family)
+
+    def test_bridge_rejects_corruption_bearing_staged_mismatches_against_legacy_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cases: list[tuple[str, Callable[[Path], None], str]] = [
+                (
+                    "pack_grid",
+                    lambda pack_path: set_pack_grid_and_resize_art(pack_path, tile_width=16),
+                    r"Staged pack grid '16x8' does not match compatibility family grid '8x8'",
+                ),
+                (
+                    "render_variants",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["render_variants", 1, "background_mode"],
+                        "gradient",
+                    ),
+                    r"Staged render variants for logical tilesheet 'overworld' do not match compatibility family pixel-driving variants",
                 ),
             ]
 
@@ -556,20 +601,186 @@ class SourceManifestBridgeTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, expected):
                         load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
 
-    def test_bridge_rejects_render_variant_mismatch_against_legacy_family(self) -> None:
+    def test_bridge_diagnostic_reports_staged_mismatches_against_legacy_family(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cases: list[tuple[str, Callable[[Path], None], str]] = [
+                (
+                    "pack_grid",
+                    lambda pack_path: set_pack_grid_and_resize_art(pack_path, tile_width=16),
+                    "pack grid",
+                ),
+                (
+                    "family_id",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["compatibility_family", "family_id"],
+                        "demo.other",
+                    ),
+                    "compatibility family_id",
+                ),
+                (
+                    "default_variant_id",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["default_variant_id"],
+                        "bg",
+                    ),
+                    "default_variant_id",
+                ),
+                (
+                    "title",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["title"],
+                        "Other Atlas",
+                    ),
+                    "logical tilesheet title",
+                ),
+                (
+                    "notes",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["notes"],
+                        ["Different staged note."],
+                    ),
+                    "logical tilesheet notes",
+                ),
+                (
+                    "render_step_width",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["compatibility_family", "render_step_width"],
+                        16,
+                    ),
+                    "render_step_width",
+                ),
+                (
+                    "render_step_height",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["compatibility_family", "render_step_height"],
+                        16,
+                    ),
+                    "render_step_height",
+                ),
+                (
+                    "siblings_share_semantics",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["compatibility_family", "siblings_share_semantics"],
+                        False,
+                    ),
+                    "siblings_share_semantics",
+                ),
+                (
+                    "render_variants",
+                    lambda pack_path: set_json_value(
+                        pack_path.parent / "tilesheets" / "overworld.json",
+                        ["render_variants", 1, "background_mode"],
+                        "gradient",
+                    ),
+                    "render variants",
+                ),
+            ]
+
+            for label, mutate, expected_text in cases:
+                with self.subTest(label=label):
+                    pack_path = make_bridged_source_pack(Path(temp_dir) / label)
+                    mutate(pack_path)
+                    mismatches = compare_staged_and_legacy_compatibility_family(
+                        load_tile_pack_manifest(pack_path),
+                        tileset_id="demo.base",
+                        tilesheet_id="overworld",
+                    )
+                    self.assertTrue(
+                        any(expected_text in mismatch for mismatch in mismatches),
+                        mismatches,
+                    )
+
+    def test_bridge_promotes_fixture_semantics_instead_of_tiles_json_semantics(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pack_path = make_bridged_source_pack(Path(temp_dir))
-            set_json_value(
-                pack_path.parent / "tilesheets" / "overworld.json",
-                ["render_variants", 1, "background_mode"],
-                "gradient",
+            tile_id = "demo.overworld:all:0,0"
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "temperature"], "poison-hot")
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "semantics"], ["poison-semantic"])
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "motifs"], ["poison-motif"])
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "meaning"], "poison meaning")
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "tags"], ["poison-tag"])
+
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            content_hash = content_hashes_by_tile_id(base_family, variant_ids=("base", "bg"))[tile_id]
+            unit = load_bridged_tile_library_unit(
+                pack_path,
+                tileset_id="demo.base",
+                tilesheet_id="overworld",
+                semantic_inputs=BridgedSemanticInputs(
+                    resolved=(
+                        ResolvedSemanticTile(
+                            content_hash=content_hash,
+                            facts={
+                                "temperature": "resolved-cool",
+                                "semantics": ("resolved-semantic",),
+                                "motifs": ("resolved-motif",),
+                            },
+                        ),
+                    ),
+                    legacy_semantics=(
+                        LegacyTileSemanticRecord(
+                            tile_id=tile_id,
+                            origin="test-fixture",
+                            schema_version=1,
+                            facts={
+                                "meaning": "fixture legacy meaning",
+                                "temperature": "fixture legacy temperature",
+                                "tags": ("fixture-legacy-tag",),
+                            },
+                        ),
+                    ),
+                    variant_ids=("base", "bg"),
+                ),
             )
 
-            with self.assertRaisesRegex(
-                ValueError,
-                r"Staged render variants for logical tilesheet 'overworld' do not match compatibility family variants",
-            ):
-                load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            tile = unit.tiles[tile_id]
+            self.assertEqual(tile.temperature, "resolved-cool")
+            self.assertEqual(tile.semantics, ("resolved-semantic",))
+            self.assertEqual(tile.motifs, ("resolved-motif",))
+            self.assertIsNone(tile.meaning)
+            self.assertEqual(tile.tags, ())
+            # Category/layer are required non-content runtime fields; ADR 0014
+            # makes their final production source a slice-6 cutover concern.
+            self.assertEqual(tile.category, "ground")
+            self.assertEqual(tile.layer, "terrain")
+            legacy = unit.legacy_semantics_for(tile_id)
+            self.assertIsNotNone(legacy)
+            assert legacy is not None
+            self.assertEqual(legacy.origin, "test-fixture")
+            self.assertEqual(legacy.facts["meaning"], "fixture legacy meaning")
+            self.assertEqual(legacy.facts["temperature"], "fixture legacy temperature")
+            self.assertEqual(legacy.facts["tags"], ("fixture-legacy-tag",))
+
+    def test_bridge_names_variant_set_invariant_when_semantic_catalogue_hashes_do_not_match(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pack_path = make_bridged_source_pack(Path(temp_dir))
+            tile_id = "demo.overworld:all:0,0"
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            base_only_hash = content_hashes_by_tile_id(base_family, variant_ids=("base",))[tile_id]
+
+            with self.assertRaisesRegex(ValueError, r"does not cover.*variant set \('bg',\)"):
+                load_bridged_tile_library_unit(
+                    pack_path,
+                    tileset_id="demo.base",
+                    tilesheet_id="overworld",
+                    semantic_inputs=BridgedSemanticInputs(
+                        resolved=(
+                            ResolvedSemanticTile(
+                                content_hash=base_only_hash,
+                                facts={"temperature": "resolved-cool"},
+                            ),
+                        ),
+                        legacy_semantics=(),
+                        variant_ids=("bg",),
+                    ),
+                )
 
     def test_bridge_rejects_source_layout_bounds_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -610,6 +821,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(bridged.render_step_width, legacy.render_step_width)
             self.assertEqual(bridged.render_step_height, legacy.render_step_height)
             self.assertEqual(bridged.default_variant_id, legacy.default_variant_id)
+            self.assertEqual(bridged.header.cell_content_inset, legacy.header.cell_content_inset)
             self.assertEqual(bridged.header.runtime_flippable, legacy.header.runtime_flippable)
             self.assertEqual(bridged.runtime_unit.runtime_flippable, legacy.runtime_unit.runtime_flippable)
             self.assertEqual(bridged.notes, legacy.notes)
@@ -654,6 +866,7 @@ class SourceManifestBridgeTests(unittest.TestCase):
         self.assertEqual(bridged.render_step_width, legacy.render_step_width)
         self.assertEqual(bridged.render_step_height, legacy.render_step_height)
         self.assertEqual(bridged.default_variant_id, legacy.default_variant_id)
+        self.assertEqual(bridged.header.cell_content_inset, legacy.header.cell_content_inset)
         self.assertEqual(bridged.header.runtime_flippable, legacy.header.runtime_flippable)
         self.assertEqual(bridged.runtime_unit.runtime_flippable, legacy.runtime_unit.runtime_flippable)
         self.assertEqual(bridged.notes, legacy.notes)

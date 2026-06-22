@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field, replace
+from dataclasses import MISSING, dataclass, field, fields, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Iterable, Literal, Mapping, Protocol, Union, cast
@@ -750,6 +750,55 @@ RUNTIME_AUTHORED_TILE_FIELDS = frozenset(
         "walkable",
     }
 )
+
+
+REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
+
+NON_CONTENT_LEGACY_TILE_FIELDS = frozenset(
+    {
+        "footprint",
+        "meaning",
+        "meaning_confidence",
+        "overlay",
+        "source_notes",
+        "tags",
+        "usage",
+    }
+)
+
+STRUCTURAL_TILE_RECORD_FIELDS = frozenset(
+    {
+        "aliases",
+        "animation_frame",
+        "animation_frame_count",
+        "animation_group",
+        "cell_content_inset",
+        "compose_group",
+        "compose_role",
+        "connects_on",
+        "exact_duplicate_of",
+        "family_id",
+        "genesis",
+        "id",
+        "image_override",
+        "scenes",
+        "seam_profiles",
+        "state_group",
+        "state_role",
+        "transparent",
+        "variant_assets",
+        "variant_atlas_cells",
+    }
+)
+
+TILE_RECORD_FIELD_DEFAULTS: dict[str, object] = {}
+for _tile_record_field in fields(TileRecord):
+    if _tile_record_field.default is not MISSING:
+        TILE_RECORD_FIELD_DEFAULTS[_tile_record_field.name] = _tile_record_field.default
+    elif _tile_record_field.default_factory is not MISSING:
+        TILE_RECORD_FIELD_DEFAULTS[_tile_record_field.name] = _tile_record_field.default_factory()
+    else:
+        TILE_RECORD_FIELD_DEFAULTS[_tile_record_field.name] = MISSING
 
 
 @dataclass(frozen=True)

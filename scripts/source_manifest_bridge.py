@@ -3,20 +3,29 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Mapping, TypeVar
+from typing import Mapping
 
 from compatibility_family import CompatibilityFamilyPaths
+from legacy_semantic_bootstrap import content_hashes_by_tile_id
+from semantic_catalogue_ingest import ResolvedSemanticTile
+from semantic_catalogue_promotion import SemanticPromotionError, promote_semantic_catalogue
 from source_manifests import (
     RenderVariantTilesheetManifest,
     TilePackManifest,
     load_tile_pack_manifest,
 )
 from tile_library import (
+    CellContentInset,
+    LegacyTileSemanticRecord,
+    NON_CONTENT_LEGACY_TILE_FIELDS,
+    TILE_RECORD_FIELD_DEFAULTS,
     TileFamilyHeader,
     TileFamilyVariant,
+    TileLibraryUnit,
     TileLibraryPromotedMetadata,
+    TileRecord,
 )
 from source_layout_model import (
     SourceLayoutIngestion,
@@ -32,8 +41,6 @@ from tile_family_runtime import (
     load_family_catalog_sources,
     load_family_header_and_variants,
 )
-
-ComparableT = TypeVar("ComparableT")
 
 
 def _bridge_variants(
@@ -57,56 +64,20 @@ def _bridge_variants(
     }
 
 
-def _require_match(
+def _mismatch_message(
     *,
     staged_label: str,
-    staged: ComparableT,
+    staged: object,
     legacy_label: str,
-    legacy: ComparableT,
-    formatter: Callable[[ComparableT], str] = repr,
-) -> None:
+    legacy: object,
+) -> str | None:
     if staged != legacy:
-        raise ValueError(
-            f"Staged {staged_label} {formatter(staged)} does not match {legacy_label} {formatter(legacy)}"
-        )
+        return f"Staged {staged_label} {staged!r} does not match {legacy_label} {legacy!r}"
+    return None
 
 
-def _resolve_bridged_notes(
-    *,
-    logical_tilesheet_notes: tuple[str, ...] | None,
-    legacy_notes: tuple[str, ...] | None,
-) -> tuple[str, ...]:
-    if logical_tilesheet_notes is None:
-        return legacy_notes or ()
-    if legacy_notes is None:
-        return logical_tilesheet_notes
-    if logical_tilesheet_notes == legacy_notes:
-        return logical_tilesheet_notes
-    # An explicitly-authored empty list is a real "clear inherited notes" choice,
-    # not the same thing as "notes omitted, fall back to legacy."
-    if not logical_tilesheet_notes or not legacy_notes:
-        return logical_tilesheet_notes
-    raise ValueError(
-        "Staged logical tilesheet notes do not match compatibility family notes"
-    )
-
-
-def _resolve_optional_override(
-    *,
-    staged_label: str,
-    staged: ComparableT | None,
-    legacy_label: str,
-    legacy: ComparableT | None,
-) -> ComparableT | None:
-    if staged is None:
-        return legacy
-    if legacy is None:
-        return staged
-    if staged != legacy:
-        raise ValueError(
-            f"Staged {staged_label} {staged!r} does not match {legacy_label} {legacy!r}"
-        )
-    return staged
+def _normalised_notes(notes: tuple[str, ...] | None) -> tuple[str, ...]:
+    return notes or ()
 
 
 @dataclass(frozen=True)
@@ -116,6 +87,20 @@ class BridgedFamilyInputs:
     variants: dict[str, TileFamilyVariant]
     compatibility_paths: CompatibilityFamilyPaths
     source_layout: SourceLayoutIngestion | None
+
+
+@dataclass(frozen=True)
+class BridgedSemanticInputs:
+    resolved: tuple[ResolvedSemanticTile, ...]
+    legacy_semantics: tuple[LegacyTileSemanticRecord, ...]
+    variant_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "resolved", tuple(self.resolved))
+        object.__setattr__(self, "legacy_semantics", tuple(self.legacy_semantics))
+        object.__setattr__(self, "variant_ids", tuple(self.variant_ids))
+        if not self.variant_ids:
+            raise ValueError("Bridged semantic inputs must name the content-hash variant set")
 
 
 def _build_bridged_family_inputs(
@@ -128,62 +113,15 @@ def _build_bridged_family_inputs(
     logical_tilesheet = tileset.logical_tilesheet(tilesheet_id)
     compatibility = logical_tilesheet.require_compatibility_family()
     compatibility_root = compatibility.paths.root
-    legacy_header, legacy_variants, _ = load_family_header_and_variants(compatibility_root)
     bridged_variants = _bridge_variants(logical_tilesheet.render_variants)
+    _assert_corruption_bearing_compatibility(
+        pack=pack,
+        logical_tilesheet_id=logical_tilesheet.id,
+        compatibility_root=compatibility_root,
+        bridged_variants=bridged_variants,
+    )
 
-    _require_match(
-        staged_label="compatibility family_id",
-        staged=compatibility.family_id,
-        legacy_label="compatibility family manifest family_id",
-        legacy=legacy_header.family_id,
-    )
-    _require_match(
-        staged_label="pack grid",
-        staged=f"{pack.grid.tile_width}x{pack.grid.tile_height}",
-        legacy_label="compatibility family grid",
-        legacy=f"{legacy_header.tile_width}x{legacy_header.tile_height}",
-        formatter=str,
-    )
-    _require_match(
-        staged_label="default_variant_id",
-        staged=logical_tilesheet.default_variant_id,
-        legacy_label="compatibility family default_variant_id",
-        legacy=legacy_header.default_variant_id,
-    )
-    if bridged_variants != legacy_variants:
-        raise ValueError(
-            f"Staged render variants for logical tilesheet {logical_tilesheet.id!r} do not match compatibility family "
-            f"variants in {compatibility_root / 'family.json'}"
-        )
-
-    bridged_title = _resolve_optional_override(
-        staged_label="logical tilesheet title",
-        staged=logical_tilesheet.title,
-        legacy_label="compatibility family title",
-        legacy=legacy_header.title,
-    )
-    bridged_notes = _resolve_bridged_notes(
-        logical_tilesheet_notes=logical_tilesheet.notes,
-        legacy_notes=legacy_header.notes,
-    )
-    bridged_render_step_width = _resolve_optional_override(
-        staged_label="render_step_width",
-        staged=compatibility.render_step_width,
-        legacy_label="compatibility family render_step_width",
-        legacy=legacy_header.render_step_width,
-    )
-    bridged_render_step_height = _resolve_optional_override(
-        staged_label="render_step_height",
-        staged=compatibility.render_step_height,
-        legacy_label="compatibility family render_step_height",
-        legacy=legacy_header.render_step_height,
-    )
-    bridged_siblings_share_semantics = _resolve_optional_override(
-        staged_label="siblings_share_semantics",
-        staged=compatibility.siblings_share_semantics,
-        legacy_label="compatibility family siblings_share_semantics",
-        legacy=legacy_header.siblings_share_semantics,
-    )
+    bridged_notes = logical_tilesheet.notes or ()
 
     source_layout = None
     if logical_tilesheet.source_layout_path is not None:
@@ -198,28 +136,16 @@ def _build_bridged_family_inputs(
         header=TileFamilyHeader(
             root=compatibility_root,
             family_id=compatibility.family_id,
-            title=bridged_title,
+            title=logical_tilesheet.title,
             tile_width=pack.grid.tile_width,
             tile_height=pack.grid.tile_height,
-            render_step_width=bridged_render_step_width,
-            render_step_height=bridged_render_step_height,
-            siblings_share_semantics=bridged_siblings_share_semantics,
+            render_step_width=compatibility.render_step_width,
+            render_step_height=compatibility.render_step_height,
+            siblings_share_semantics=compatibility.siblings_share_semantics,
             notes=bridged_notes,
             default_variant_id=logical_tilesheet.default_variant_id,
-            # The staged source manifest owns the cell-content inset (ADR 0008);
-            # fall back to the transitional family bundle only when it is silent.
-            cell_content_inset=(
-                compatibility.cell_content_inset
-                if compatibility.cell_content_inset is not None
-                else legacy_header.cell_content_inset
-            ),
-            # The staged source manifest owns runtime flip safety too; fall back
-            # to the transitional family bundle only while the bridge is quiet.
-            runtime_flippable=(
-                compatibility.runtime_flippable
-                if compatibility.runtime_flippable is not None
-                else legacy_header.runtime_flippable
-            ),
+            cell_content_inset=compatibility.cell_content_inset or CellContentInset(),
+            runtime_flippable=False if compatibility.runtime_flippable is None else compatibility.runtime_flippable,
         ),
         promoted_metadata=TileLibraryPromotedMetadata(
             source_pack_id=pack.id,
@@ -236,6 +162,85 @@ def _build_bridged_family_inputs(
         compatibility_paths=compatibility.paths,
         source_layout=source_layout,
     )
+
+
+def compare_staged_and_legacy_compatibility_family(
+    pack: TilePackManifest,
+    *,
+    tileset_id: str,
+    tilesheet_id: str,
+) -> tuple[str, ...]:
+    """Return staged-vs-legacy compatibility mismatches for migration diagnostics.
+
+    Normal source-pack loading does not call this helper. It exists only for
+    operator migration checks while the legacy compatibility family is retired.
+    """
+
+    tileset = pack.tileset(tileset_id)
+    logical_tilesheet = tileset.logical_tilesheet(tilesheet_id)
+    compatibility = logical_tilesheet.require_compatibility_family()
+    legacy_header, legacy_variants, _ = load_family_header_and_variants(compatibility.paths.root)
+    bridged_variants = _bridge_variants(logical_tilesheet.render_variants)
+
+    mismatches: list[str] = []
+    for message in (
+        _mismatch_message(
+            staged_label="compatibility family_id",
+            staged=compatibility.family_id,
+            legacy_label="compatibility family manifest family_id",
+            legacy=legacy_header.family_id,
+        ),
+        _mismatch_message(
+            staged_label="pack grid",
+            staged=f"{pack.grid.tile_width}x{pack.grid.tile_height}",
+            legacy_label="compatibility family grid",
+            legacy=f"{legacy_header.tile_width}x{legacy_header.tile_height}",
+        ),
+        _mismatch_message(
+            staged_label="default_variant_id",
+            staged=logical_tilesheet.default_variant_id,
+            legacy_label="compatibility family default_variant_id",
+            legacy=legacy_header.default_variant_id,
+        ),
+        _mismatch_message(
+            staged_label="logical tilesheet title",
+            staged=logical_tilesheet.title,
+            legacy_label="compatibility family title",
+        legacy=legacy_header.title,
+    ),
+    _mismatch_message(
+        staged_label="logical tilesheet notes",
+        staged=_normalised_notes(logical_tilesheet.notes),
+        legacy_label="compatibility family notes",
+        legacy=_normalised_notes(legacy_header.notes),
+        ),
+        _mismatch_message(
+            staged_label="render_step_width",
+            staged=compatibility.render_step_width,
+            legacy_label="compatibility family render_step_width",
+            legacy=legacy_header.render_step_width,
+        ),
+        _mismatch_message(
+            staged_label="render_step_height",
+            staged=compatibility.render_step_height,
+            legacy_label="compatibility family render_step_height",
+            legacy=legacy_header.render_step_height,
+        ),
+        _mismatch_message(
+            staged_label="siblings_share_semantics",
+            staged=compatibility.siblings_share_semantics,
+            legacy_label="compatibility family siblings_share_semantics",
+            legacy=legacy_header.siblings_share_semantics,
+        ),
+    ):
+        if message is not None:
+            mismatches.append(message)
+    if bridged_variants != legacy_variants:
+        mismatches.append(
+            f"Staged render variants for logical tilesheet {logical_tilesheet.id!r} do not match compatibility "
+            f"family variants in {compatibility.paths.root / 'family.json'}"
+        )
+    return tuple(mismatches)
 
 
 def bridge_logical_tilesheet_to_family(
@@ -258,6 +263,79 @@ def bridge_logical_tilesheet_to_family(
     )
 
 
+def _variant_pixel_signature(
+    variants: Mapping[str, TileFamilyVariant],
+) -> dict[str, tuple[Path | None, str, str | None]]:
+    return {
+        variant_id: (variant.sheet_path, variant.transparent_mode, variant.background_mode)
+        for variant_id, variant in variants.items()
+    }
+
+
+def _assert_corruption_bearing_compatibility(
+    *,
+    pack: TilePackManifest,
+    logical_tilesheet_id: str,
+    compatibility_root: Path,
+    bridged_variants: Mapping[str, TileFamilyVariant],
+) -> None:
+    legacy_header, legacy_variants, _ = load_family_header_and_variants(compatibility_root)
+    if message := _mismatch_message(
+        staged_label="pack grid",
+        staged=f"{pack.grid.tile_width}x{pack.grid.tile_height}",
+        legacy_label="compatibility family grid",
+        legacy=f"{legacy_header.tile_width}x{legacy_header.tile_height}",
+    ):
+        raise ValueError(message)
+    if _variant_pixel_signature(bridged_variants) != _variant_pixel_signature(legacy_variants):
+        raise ValueError(
+            f"Staged render variants for logical tilesheet {logical_tilesheet_id!r} do not match compatibility "
+            "family pixel-driving variants"
+        )
+
+
+def bridge_logical_tilesheet_to_runtime_unit(
+    pack: TilePackManifest,
+    *,
+    tileset_id: str,
+    tilesheet_id: str,
+    semantic_inputs: BridgedSemanticInputs,
+) -> TileLibraryUnit:
+    base_family = bridge_logical_tilesheet_to_family(
+        pack,
+        tileset_id=tileset_id,
+        tilesheet_id=tilesheet_id,
+    )
+    content_hash_by_tile_id = content_hashes_by_tile_id(
+        base_family,
+        variant_ids=semantic_inputs.variant_ids,
+    )
+    structural_unit = _structural_base_unit(base_family.runtime_unit)
+    try:
+        return promote_semantic_catalogue(
+            structural_unit,
+            resolved=semantic_inputs.resolved,
+            content_hash_by_tile_id=content_hash_by_tile_id,
+            legacy_semantics=semantic_inputs.legacy_semantics,
+        )
+    except SemanticPromotionError as exc:
+        if exc.kind == "missing_resolved_record":
+            raise ValueError(
+                "Bridged semantic promotion failed because the resolved catalogue does not cover "
+                f"tile {exc.tile_id!r} content hash {exc.content_hash!r} computed from variant set "
+                f"{semantic_inputs.variant_ids!r}"
+            ) from exc
+        raise
+
+
+def _structural_base_unit(unit: TileLibraryUnit) -> TileLibraryUnit:
+    updates = {field: TILE_RECORD_FIELD_DEFAULTS[field] for field in NON_CONTENT_LEGACY_TILE_FIELDS}
+    runtime_tiles: dict[str, TileRecord] = {}
+    for tile_id, tile in unit.tiles.items():
+        runtime_tiles[tile_id] = replace(tile, **updates)
+    return unit.with_tiles(runtime_tiles)
+
+
 def load_bridged_tile_family(
     pack_path: Path,
     *,
@@ -268,4 +346,19 @@ def load_bridged_tile_family(
         load_tile_pack_manifest(pack_path),
         tileset_id=tileset_id,
         tilesheet_id=tilesheet_id,
+    )
+
+
+def load_bridged_tile_library_unit(
+    pack_path: Path,
+    *,
+    tileset_id: str,
+    tilesheet_id: str,
+    semantic_inputs: BridgedSemanticInputs,
+) -> TileLibraryUnit:
+    return bridge_logical_tilesheet_to_runtime_unit(
+        load_tile_pack_manifest(pack_path),
+        tileset_id=tileset_id,
+        tilesheet_id=tilesheet_id,
+        semantic_inputs=semantic_inputs,
     )
