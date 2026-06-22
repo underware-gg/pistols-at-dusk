@@ -36,4 +36,5 @@ Per the [Agent-Ready Documentation Standard v1.0](../../contributor/documentatio
 | [0010](0010-runtime-flippability-and-role-aware-frame-seams.md) | Runtime Flippability and Role-Aware Frame Seam Verification | accepted |
 | [0011](0011-runtime-ingest-family-module-split.md) | Runtime/Ingest Family Module Split | accepted |
 | [0012](0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md) | Runtime Owns Its Pixels: Atomic Content-Addressed Tile Assets and Synthetic Runtime Sheets | extended |
-| [0013](0013-content-keyed-semantics-and-legacy-metadata-layer.md) | Content-Keyed Semantics and a Preserved Legacy Metadata Layer | accepted |
+| [0013](0013-content-keyed-semantics-and-legacy-metadata-layer.md) | Content-Keyed Semantics and a Preserved Legacy Metadata Layer | extended |
+| [0014](0014-tile-membership-is-plural-category-is-a-primary-grouping.md) | Tile Membership Is Plural; Category Is a Single Primary Grouping | accepted |

@@ -1,6 +1,7 @@
 # 0013 - Content-Keyed Semantics and a Preserved Legacy Metadata Layer
 
-- Status: accepted
+- Status: extended
+- Extended by: [0014](0014-tile-membership-is-plural-category-is-a-primary-grouping.md)
 - Scope: Ingestion–Runtime Separation Phase 3 (semantic catalogue flow-through)
 - Extends: [0012](0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md)
 - Related: [0001](0001-physical-address-is-canonical.md), [0005](0005-runtime-tile-genesis-and-provenance.md), [0011](0011-runtime-ingest-family-module-split.md)
