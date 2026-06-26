@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "patches": [
+    {
+      "content_hash": "content-sha256:17d1cd8514f7a1850b500edd072b5160d5f6dfe5d34449f0dec80d105d0beea6",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "content_hash": "content-sha256:5abac92647a33057620dd781afe8238fc63481651557383c522175a19b76a635",
+      "facts": {
+        "contrast": "high",
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": "neutral"
+      }
+    },
+    {
+      "content_hash": "content-sha256:8f7ea9c0aa482a6d31e36bf868ddf9a010a484b27e1e8fc8c88c5a5077586961",
+      "facts": {
+        "contrast": "high",
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": "neutral"
+      }
+    },
+    {
+      "content_hash": "content-sha256:ddaade7967086f46d37c858926d783e5ee16b04bed511faa3b343d9d15b79515",
+      "facts": {
+        "contrast": "high",
+        "facing": null,
+        "motifs": [],
+        "noise": "dense",
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": "neutral"
+      }
+    }
+  ]
+}
