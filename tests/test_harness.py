@@ -12,7 +12,7 @@ import unittest
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Mapping, cast
 from unittest.mock import patch
 
 from PIL import Image
@@ -27,12 +27,34 @@ import tile_families
 import source_ingest_ops
 import layout_core
 from runtime_asset_producer import produce_runtime_family_asset
+from runtime_asset_producer import produce_source_pack_runtime_family_asset
 from runtime_asset_paths import atomic_asset_relative_path
-from tile_library import PlaceableRef
+from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_from_json
+from semantic_catalogue_ingest import index_by_content_hash, semantic_catalogue_with_identity_from_json
+from source_manifest_bridge import load_bridged_tile_family
+from tile_library import LEGACY_LAYER_TAG_PREFIX, TRANSITIONAL_NEUTRAL_TILE_LAYER, PlaceableRef
 
 
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+INGEST_ONLY_MODULES = frozenset(
+    {
+        "legacy_semantic_bootstrap",
+        "semantic_catalogue_ingest",
+        "semantic_catalogue_promotion",
+        "source_manifest_bridge",
+        "tile_family_ingest",
+        "tile_family_project_ingest",
+    }
+)
+MINIMAL8_PRODUCTION_MAIN_TILE_ID = "minimal8:architecture:0,0"
+MINIMAL8_PRODUCTION_MAIN_TILE_REF = f"minimal8@1bit_colored_bg:{MINIMAL8_PRODUCTION_MAIN_TILE_ID}"
+MINIMAL8_PRODUCTION_MAIN_TILESET_ID = "minimal8@1bit_colored_bg"
+MINIMAL8_PRODUCTION_CHARACTER_TILE_ID = "minimal8.characters:head_study.shared_body.bottom_left"
+MINIMAL8_PRODUCTION_CHARACTER_TILE_REF = "minimal8.characters@2bit_colored#6,4"
+MINIMAL8_PRODUCTION_CHARACTER_TILESET_ID = "minimal8.characters@2bit_colored"
 
 
 @dataclass(frozen=True)
@@ -54,6 +76,15 @@ class Minimal8GoldenState:
     preview_size: tuple[int, int]
     preview_bytes: bytes
     runtime: harness.SceneExpansionResult
+
+
+@dataclass(frozen=True)
+class Minimal8SemanticExpectation:
+    family_tileset_id: str
+    tile_id: str
+    clean_facts: Mapping[str, object]
+    legacy_category: str
+    legacy_layer: str
 
 
 def _copy_file(src: Path, dest: Path) -> None:
@@ -88,6 +119,17 @@ def _reject_if_protected_path(candidate: Path, *, protected_paths: frozenset[Pat
     resolved = candidate.resolve()
     if resolved in protected_paths:
         raise AssertionError(f"runtime should not reopen deleted manifest {resolved}")
+
+
+def _restore_modules_after_test(test_case: unittest.TestCase, module_names: tuple[str, ...]) -> None:
+    saved = {name: sys.modules[name] for name in module_names if name in sys.modules}
+
+    def restore() -> None:
+        for name in module_names:
+            sys.modules.pop(name, None)
+        sys.modules.update(saved)
+
+    test_case.addCleanup(restore)
 
 
 def _capture_minimal8_golden_state(
@@ -338,6 +380,206 @@ def _make_runtime_asset_project(
         },
     )
     return project_path
+
+
+def _copy_minimal8_production_harness(root: Path) -> Path:
+    source_root = ROOT / "prototypes" / "minimal8-harness"
+    fixture_root = root / "minimal8-harness"
+    fixture_root.mkdir()
+    shutil.copytree(
+        ROOT / "resources" / "Super Assets 3000" / "Minimal 8",
+        fixture_root / "resources" / "Super Assets 3000" / "Minimal 8",
+    )
+    for filename in ("project.minimal8.json",):
+        _copy_file(source_root / filename, fixture_root / filename)
+    for dirname in (
+        "assets",
+        "layouts",
+        "scene-rules",
+        "scene-templates",
+        "semantic-catalogue",
+        "tile-families",
+        "tile-packs",
+    ):
+        shutil.copytree(
+            source_root / dirname,
+            fixture_root / dirname,
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
+    for manifest_path, list_key, resource_prefix in (
+        (
+            fixture_root / "tile-packs" / "minimal8" / "tilesheets" / "main.json",
+            "render_variants",
+            "../../../../../resources/Super Assets 3000/Minimal 8/",
+        ),
+        (
+            fixture_root / "tile-packs" / "minimal8" / "tilesheets" / "characters.json",
+            "render_variants",
+            "../../../../../resources/Super Assets 3000/Minimal 8/",
+        ),
+        (
+            fixture_root / "tile-families" / "minimal8" / "family.json",
+            "variants",
+            "../../../../resources/Super Assets 3000/Minimal 8/",
+        ),
+        (
+            fixture_root / "tile-families" / "minimal8-characters" / "family.json",
+            "variants",
+            "../../../../resources/Super Assets 3000/Minimal 8/",
+        ),
+    ):
+        _localise_minimal8_variant_sheets(
+            manifest_path,
+            list_key=list_key,
+            fixture_root=fixture_root,
+            resource_prefix=resource_prefix,
+        )
+    return fixture_root
+
+
+def _localise_minimal8_variant_sheets(
+    manifest_path: Path,
+    *,
+    list_key: str,
+    fixture_root: Path,
+    resource_prefix: str,
+) -> None:
+    payload = cast(dict[str, object], json.loads(manifest_path.read_text(encoding="utf-8")))
+    matched = False
+    for raw_variant in cast(list[object], payload[list_key]):
+        variant = cast(dict[str, object], raw_variant)
+        raw_sheet = cast(str, variant["sheet"])
+        if raw_sheet.startswith(resource_prefix):
+            local_sheet = fixture_root / "resources" / "Super Assets 3000" / "Minimal 8" / raw_sheet[len(resource_prefix) :]
+            variant["sheet"] = os.path.relpath(local_sheet, manifest_path.parent)
+            matched = True
+    if not matched:
+        raise AssertionError(f"{manifest_path} did not contain any Minimal 8 resource sheet paths to localise")
+    _write_json(manifest_path, payload)
+
+
+def _minimal8_catalogue_dir(fixture_root: Path, family_id: str) -> Path:
+    directory_name = {
+        "minimal8": "minimal8-clean-fields",
+        "minimal8.characters": "minimal8-characters-clean-fields",
+    }[family_id]
+    return fixture_root / "semantic-catalogue" / directory_name
+
+
+def _produce_minimal8_runtime_assets(fixture_root: Path) -> dict[str, Path]:
+    runtime_dir = fixture_root / "runtime-families"
+    pack_path = fixture_root / "tile-packs" / "minimal8" / "pack.json"
+    generated: dict[str, Path] = {}
+    # Full production breadth is intentional: this proves the real production
+    # packs materialise, not a reduced runtime fixture.
+    for family_id, tileset_id, tilesheet_id in (
+        ("minimal8", "minimal8", "main"),
+        ("minimal8.characters", "characters", "characters"),
+    ):
+        catalogue_dir = _minimal8_catalogue_dir(fixture_root, family_id)
+        generated[family_id] = produce_source_pack_runtime_family_asset(
+            pack_path,
+            tileset_id=tileset_id,
+            tilesheet_id=tilesheet_id,
+            resolved_catalogue_path=catalogue_dir / "resolved-catalogue.json",
+            legacy_semantics_path=catalogue_dir / "legacy-tile-semantics.json",
+            runtime_families_dir=runtime_dir,
+        )
+    return generated
+
+
+def _write_minimal8_runtime_asset_project(
+    fixture_root: Path,
+    *,
+    runtime_assets: dict[str, Path],
+) -> Path:
+    source_project_path = fixture_root / "project.minimal8.json"
+    project_payload = cast(dict[str, object], json.loads(source_project_path.read_text(encoding="utf-8")))
+    runtime_specs: list[dict[str, object]] = []
+    for raw_spec in cast(list[object], project_payload["tile_families"]):
+        spec = cast(dict[str, object], raw_spec)
+        family_id = cast(str, spec["family_id"])
+        runtime_specs.append(
+            {
+                "runtime_asset": os.path.relpath(runtime_assets[family_id], fixture_root),
+                "family_id": family_id,
+                "variant_id": spec["variant_id"],
+            }
+        )
+    project_payload["tile_families"] = runtime_specs
+    runtime_project_path = fixture_root / "project.runtime.minimal8.json"
+    _write_json(runtime_project_path, project_payload)
+    return runtime_project_path
+
+
+def _write_minimal8_production_stamp_layout(
+    path: Path,
+    *,
+    project_path: Path,
+    output_path: Path,
+) -> Path:
+    _write_json(
+        path,
+        {
+            "project": os.path.relpath(project_path, path.parent),
+            "default_tileset": "minimal8@1bit_colored_bg",
+            "map": {"width": 2, "height": 1, "background": "#00000000"},
+            "layers": [
+                {
+                    "name": "production",
+                    "ops": [
+                        {"kind": "stamp", "ref": MINIMAL8_PRODUCTION_MAIN_TILE_ID, "x": 0, "y": 0},
+                        {"kind": "stamp", "ref": MINIMAL8_PRODUCTION_CHARACTER_TILE_REF, "x": 1, "y": 0},
+                    ],
+                }
+            ],
+            "output": os.path.relpath(output_path, path.parent),
+        },
+    )
+    return path
+
+
+def _minimal8_semantic_expectation(
+    fixture_root: Path,
+    *,
+    family_id: str,
+    tileset_id: str,
+    tilesheet_id: str,
+    family_tileset_id: str,
+    tile_id: str,
+) -> Minimal8SemanticExpectation:
+    catalogue_dir = _minimal8_catalogue_dir(fixture_root, family_id)
+    catalogue = semantic_catalogue_with_identity_from_json(
+        (catalogue_dir / "resolved-catalogue.json").read_text(encoding="utf-8")
+    )
+    source_family = load_bridged_tile_family(
+        fixture_root / "tile-packs" / "minimal8" / "pack.json",
+        tileset_id=tileset_id,
+        tilesheet_id=tilesheet_id,
+    )
+    content_hash = content_hashes_by_tile_id(
+        source_family,
+        variant_ids=catalogue.content_identity.variant_ids,
+    )[tile_id]
+    resolved = index_by_content_hash(catalogue.records, kind="resolved semantic record")[content_hash]
+    legacy_by_tile_id = {
+        record.tile_id: record
+        for record in legacy_tile_semantics_from_json(
+            (catalogue_dir / "legacy-tile-semantics.json").read_text(encoding="utf-8")
+        )
+    }
+    legacy = legacy_by_tile_id[tile_id]
+    legacy_category = legacy.facts["category"]
+    legacy_layer = legacy.facts["layer"]
+    assert isinstance(legacy_category, str)
+    assert isinstance(legacy_layer, str)
+    return Minimal8SemanticExpectation(
+        family_tileset_id=family_tileset_id,
+        tile_id=tile_id,
+        clean_facts=dict(resolved.facts),
+        legacy_category=legacy_category,
+        legacy_layer=legacy_layer,
+    )
 
 
 def _make_stamp_layout(root: Path, *, project_path: Path, ref: object) -> Path:
@@ -865,16 +1107,12 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             (root / "runtime-families" / "testfam" / atomic_asset_relative_path(cast(str, sheet_asset_address))).unlink()
             shutil.rmtree(family_dir)
 
-            for module_name in (
-                "layout_core",
-                "tile_family_project_ingest",
-                "source_manifest_bridge",
-                "tile_family_ingest",
-            ):
+            runtime_module_names = ("layout_core", *tuple(sorted(INGEST_ONLY_MODULES)))
+            _restore_modules_after_test(self, runtime_module_names)
+            for module_name in runtime_module_names:
                 sys.modules.pop(module_name, None)
             runtime_layout_core = importlib.import_module("layout_core")
-            self.assertNotIn("tile_family_ingest", sys.modules)
-            self.assertNotIn("source_manifest_bridge", sys.modules)
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
 
             project = runtime_layout_core.LayoutProject(runtime_project_path)
             pattern = project.pattern_from_ref("sample.override")
@@ -894,8 +1132,88 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "Tile index out of bounds"):
                 project.resolve_tile("testfam@base:2")
-            self.assertNotIn("tile_family_ingest", sys.modules)
-            self.assertNotIn("source_manifest_bridge", sys.modules)
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
+
+    def test_minimal8_production_runtime_asset_project_renders_after_ingest_inputs_are_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_root = _copy_minimal8_production_harness(root)
+            runtime_assets = _produce_minimal8_runtime_assets(fixture_root)
+            runtime_project_path = _write_minimal8_runtime_asset_project(
+                fixture_root,
+                runtime_assets=runtime_assets,
+            )
+            semantic_expectations = (
+                _minimal8_semantic_expectation(
+                    fixture_root,
+                    family_id="minimal8",
+                    tileset_id="minimal8",
+                    tilesheet_id="main",
+                    family_tileset_id=MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
+                    tile_id=MINIMAL8_PRODUCTION_MAIN_TILE_ID,
+                ),
+                _minimal8_semantic_expectation(
+                    fixture_root,
+                    family_id="minimal8.characters",
+                    tileset_id="characters",
+                    tilesheet_id="characters",
+                    family_tileset_id=MINIMAL8_PRODUCTION_CHARACTER_TILESET_ID,
+                    tile_id=MINIMAL8_PRODUCTION_CHARACTER_TILE_ID,
+                ),
+            )
+
+            source_layout_path = _write_minimal8_production_stamp_layout(
+                root / "source-production-layout.json",
+                project_path=fixture_root / "project.minimal8.json",
+                output_path=root / "source-production.png",
+            )
+            runtime_layout_path = _write_minimal8_production_stamp_layout(
+                root / "runtime-production-layout.json",
+                project_path=runtime_project_path,
+                output_path=root / "runtime-production.png",
+            )
+            source_output = harness.render_layout(source_layout_path, root / "source-production.png")
+            runtime_output = harness.render_layout(runtime_layout_path, root / "runtime-production.png")
+            self.assertEqual(source_output.read_bytes(), runtime_output.read_bytes())
+
+            for ingest_dirname in ("semantic-catalogue", "tile-families", "tile-packs"):
+                shutil.rmtree(fixture_root / ingest_dirname)
+            shutil.rmtree(fixture_root / "resources")
+
+            runtime_module_names = ("layout_core", *tuple(sorted(INGEST_ONLY_MODULES)))
+            _restore_modules_after_test(self, runtime_module_names)
+            for module_name in runtime_module_names:
+                sys.modules.pop(module_name, None)
+            runtime_layout_core = importlib.import_module("layout_core")
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
+
+            project = runtime_layout_core.LayoutProject(runtime_project_path)
+            main_pattern = project.pattern_from_ref(MINIMAL8_PRODUCTION_MAIN_TILE_REF)
+            main_image = runtime_layout_core.render_pattern_image(project, main_pattern)
+            self.assertEqual(main_image.size, (8, 8))
+            self.assertIsNotNone(main_image.getbbox())
+
+            character_pattern = project.pattern_from_ref(MINIMAL8_PRODUCTION_CHARACTER_TILE_REF)
+            character_image = runtime_layout_core.render_pattern_image(project, character_pattern)
+            self.assertEqual(character_image.size, (8, 8))
+            self.assertIsNotNone(character_image.getbbox())
+
+            for semantic_expectation in semantic_expectations:
+                tile_library = project.tile_library_unit_for_tileset(semantic_expectation.family_tileset_id)
+                self.assertIsNotNone(tile_library)
+                assert tile_library is not None
+                tile = tile_library.tiles[semantic_expectation.tile_id]
+                for field, expected_value in semantic_expectation.clean_facts.items():
+                    self.assertEqual(getattr(tile, field), expected_value)
+                self.assertEqual(tile.category, semantic_expectation.legacy_category)
+                self.assertEqual(tile.layer, TRANSITIONAL_NEUTRAL_TILE_LAYER)
+                self.assertIn(f"{LEGACY_LAYER_TAG_PREFIX}{semantic_expectation.legacy_layer}", tile.tags)
+                legacy = tile_library.legacy_semantics_for(semantic_expectation.tile_id)
+                self.assertIsNotNone(legacy)
+                assert legacy is not None
+                self.assertEqual(legacy.facts["category"], semantic_expectation.legacy_category)
+                self.assertEqual(legacy.facts["layer"], semantic_expectation.legacy_layer)
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
 
     def test_runtime_scene_work_stays_self_sufficient_after_manifest_files_are_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
