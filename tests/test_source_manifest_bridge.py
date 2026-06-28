@@ -14,8 +14,9 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from legacy_semantic_bootstrap import content_hashes_by_tile_id
-from semantic_catalogue_ingest import ResolvedSemanticTile
+from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_to_json
+from runtime_asset_producer import produce_source_pack_runtime_family_asset
+from semantic_catalogue_ingest import ResolvedSemanticTile, semantic_catalogue_to_json
 from source_manifest_bridge import (
     BridgedSemanticInputs,
     compare_staged_and_legacy_compatibility_family,
@@ -24,7 +25,14 @@ from source_manifest_bridge import (
 )
 from source_manifests import load_tile_pack_manifest
 from tile_families import TileFamily
-from tile_library import CellContentInset, LegacyTileSemanticRecord
+from tile_library import (
+    CellContentInset,
+    LEGACY_LAYER_TAG_PREFIX,
+    LegacySemanticFactValue,
+    LegacyTileSemanticRecord,
+    TRANSITIONAL_NEUTRAL_TILE_LAYER,
+)
+from tile_library_codec import tile_library_unit_from_json
 
 
 def read_json(path: Path) -> object:
@@ -757,6 +765,188 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(legacy.facts["meaning"], "fixture legacy meaning")
             self.assertEqual(legacy.facts["temperature"], "fixture legacy temperature")
             self.assertEqual(legacy.facts["tags"], ("fixture-legacy-tag",))
+
+    def test_source_pack_runtime_asset_producer_uses_durable_semantics_and_catalogue_variant_set(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = make_bridged_source_pack(root / "pack")
+            tile_id = "demo.overworld:all:0,0"
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "temperature"], "poison-hot")
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "semantics"], ["poison-semantic"])
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "category"], "poison-category")
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "layer"], "poison-layer")
+            set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "tags"], ["poison-tag"])
+
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            content_hash = content_hashes_by_tile_id(base_family, variant_ids=("base",))[tile_id]
+            semantic_dir = root / "semantic-catalogue"
+            semantic_dir.mkdir()
+            resolved_path = semantic_dir / "resolved-catalogue.json"
+            legacy_path = semantic_dir / "legacy-tile-semantics.json"
+            resolved_path.write_text(
+                semantic_catalogue_to_json(
+                    (
+                        ResolvedSemanticTile(
+                            content_hash=content_hash,
+                            facts={
+                                "temperature": "resolved-cool",
+                                "semantics": ("resolved-semantic",),
+                                "motifs": ("resolved-motif",),
+                            },
+                        ),
+                    ),
+                    variant_ids=("base",),
+                ),
+                encoding="utf-8",
+            )
+            legacy_path.write_text(
+                legacy_tile_semantics_to_json(
+                    (
+                        LegacyTileSemanticRecord(
+                            tile_id=tile_id,
+                            origin="test-fixture",
+                            schema_version=1,
+                            facts={
+                                "category": "fixture-category",
+                                "layer": "fixture-layer",
+                                "meaning": "fixture legacy meaning",
+                                "tags": ("fixture-legacy-tag",),
+                            },
+                        ),
+                    )
+                ),
+                encoding="utf-8",
+            )
+
+            output_path = produce_source_pack_runtime_family_asset(
+                pack_path,
+                tileset_id="demo.base",
+                tilesheet_id="overworld",
+                resolved_catalogue_path=resolved_path,
+                legacy_semantics_path=legacy_path,
+                runtime_families_dir=root / "runtime-families",
+            )
+            runtime_unit = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
+
+        tile = runtime_unit.tiles[tile_id]
+        self.assertEqual(tile.temperature, "resolved-cool")
+        self.assertEqual(tile.semantics, ("resolved-semantic",))
+        self.assertEqual(tile.motifs, ("resolved-motif",))
+        self.assertEqual(tile.category, "fixture-category")
+        self.assertEqual(tile.layer, TRANSITIONAL_NEUTRAL_TILE_LAYER)
+        self.assertIn(f"{LEGACY_LAYER_TAG_PREFIX}fixture-layer", tile.tags)
+        self.assertNotIn("poison-tag", tile.tags)
+        self.assertEqual(set(tile.variant_assets), {"base", "bg"})
+        self.assertEqual(set(tile.variant_atlas_cells), {"base", "bg"})
+        legacy = runtime_unit.legacy_semantics_for(tile_id)
+        self.assertIsNotNone(legacy)
+        assert legacy is not None
+        self.assertEqual(legacy.origin, "test-fixture")
+        self.assertEqual(legacy.facts["meaning"], "fixture legacy meaning")
+        self.assertEqual(legacy.facts["tags"], ("fixture-legacy-tag",))
+
+    def test_source_pack_runtime_asset_producer_requires_legacy_record_for_every_tile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = make_bridged_source_pack(root / "pack")
+            tile_id = "demo.overworld:all:0,0"
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            content_hash = content_hashes_by_tile_id(base_family, variant_ids=("base",))[tile_id]
+            semantic_dir = root / "semantic-catalogue"
+            semantic_dir.mkdir()
+            resolved_path = semantic_dir / "resolved-catalogue.json"
+            legacy_path = semantic_dir / "legacy-tile-semantics.json"
+            resolved_path.write_text(
+                semantic_catalogue_to_json(
+                    (ResolvedSemanticTile(content_hash=content_hash, facts={"temperature": "resolved-cool"}),),
+                    variant_ids=("base",),
+                ),
+                encoding="utf-8",
+            )
+            legacy_path.write_text(legacy_tile_semantics_to_json(()), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "missing legacy semantic record"):
+                produce_source_pack_runtime_family_asset(
+                    pack_path,
+                    tileset_id="demo.base",
+                    tilesheet_id="overworld",
+                    resolved_catalogue_path=resolved_path,
+                    legacy_semantics_path=legacy_path,
+                    runtime_families_dir=root / "runtime-families",
+                )
+
+    def test_source_pack_runtime_asset_producer_requires_string_category_and_layer(self) -> None:
+        cases: tuple[tuple[str, dict[str, LegacySemanticFactValue], str], ...] = (
+            ("missing-category", {"layer": "fixture-layer"}, "category"),
+            ("empty-category", {"category": "", "layer": "fixture-layer"}, "category"),
+            ("non-string-category", {"category": ("fixture",), "layer": "fixture-layer"}, "category"),
+            ("missing-layer", {"category": "fixture-category"}, "layer"),
+            ("empty-layer", {"category": "fixture-category", "layer": ""}, "layer"),
+            ("non-string-layer", {"category": "fixture-category", "layer": ("fixture",)}, "layer"),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = make_bridged_source_pack(root / "pack")
+            tile_id = "demo.overworld:all:0,0"
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            content_hash = content_hashes_by_tile_id(base_family, variant_ids=("base",))[tile_id]
+            semantic_dir = root / "semantic-catalogue"
+            semantic_dir.mkdir()
+            resolved_path = semantic_dir / "resolved-catalogue.json"
+            legacy_path = semantic_dir / "legacy-tile-semantics.json"
+            resolved_path.write_text(
+                semantic_catalogue_to_json(
+                    (ResolvedSemanticTile(content_hash=content_hash, facts={"temperature": "resolved-cool"}),),
+                    variant_ids=("base",),
+                ),
+                encoding="utf-8",
+            )
+
+            for label, legacy_facts, expected_field in cases:
+                with self.subTest(label=label):
+                    legacy_path.write_text(
+                        legacy_tile_semantics_to_json(
+                            (
+                                LegacyTileSemanticRecord(
+                                    tile_id=tile_id,
+                                    origin="test-fixture",
+                                    schema_version=1,
+                                    facts=legacy_facts,
+                                ),
+                            )
+                        ),
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaisesRegex(ValueError, f"non-empty string {expected_field!r}"):
+                        produce_source_pack_runtime_family_asset(
+                            pack_path,
+                            tileset_id="demo.base",
+                            tilesheet_id="overworld",
+                            resolved_catalogue_path=resolved_path,
+                            legacy_semantics_path=legacy_path,
+                            runtime_families_dir=root / "runtime-families",
+                        )
+
+    def test_source_pack_runtime_asset_producer_names_bad_semantic_input_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pack_path = make_bridged_source_pack(root / "pack")
+            resolved_path = root / "semantic-catalogue" / "resolved-catalogue.json"
+            legacy_path = root / "semantic-catalogue" / "legacy-tile-semantics.json"
+            resolved_path.parent.mkdir()
+            resolved_path.write_text("{not json", encoding="utf-8")
+            legacy_path.write_text(legacy_tile_semantics_to_json(()), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "resolved-catalogue\\.json"):
+                produce_source_pack_runtime_family_asset(
+                    pack_path,
+                    tileset_id="demo.base",
+                    tilesheet_id="overworld",
+                    resolved_catalogue_path=resolved_path,
+                    legacy_semantics_path=legacy_path,
+                    runtime_families_dir=root / "runtime-families",
+                )
 
     def test_bridge_names_variant_set_invariant_when_semantic_catalogue_hashes_do_not_match(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -2595,6 +2595,21 @@ class TileLibraryRegistryTests(unittest.TestCase):
                 facts={},
             )
 
+    def test_legacy_semantic_record_from_payload_requires_present_facts(self) -> None:
+        payload: dict[str, object] = {
+            "tile_id": "testfam:body",
+            "origin": "legacy_tiles_json",
+            "schema_version": 1,
+            "facts": {},
+        }
+
+        record = LegacyTileSemanticRecord.from_payload(payload, context="legacy record")
+
+        self.assertEqual(record.facts, {})
+        del payload["facts"]
+        with self.assertRaisesRegex(ValueError, "legacy record\\.facts must be a JSON object"):
+            LegacyTileSemanticRecord.from_payload(payload, context="legacy record")
+
     def test_legacy_semantic_record_rejects_non_string_fact_key(self) -> None:
         with self.assertRaisesRegex(ValueError, "facts keys must be non-empty strings"):
             LegacyTileSemanticRecord(

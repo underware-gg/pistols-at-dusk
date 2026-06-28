@@ -751,6 +751,13 @@ RUNTIME_AUTHORED_TILE_FIELDS = frozenset(
     }
 )
 
+# ADR 0014 migrates the legacy `layer` value into `tags` and removes the field
+# in a follow-up. Until then, runtime assets need one neutral placeholder for
+# the required TileRecord.layer field so no legacy layer value is promoted as a
+# field.
+TRANSITIONAL_NEUTRAL_TILE_LAYER = "legacy-layer-migrated"
+LEGACY_LAYER_TAG_PREFIX = "layer:"
+
 
 REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
 

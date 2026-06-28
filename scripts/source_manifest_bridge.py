@@ -356,6 +356,14 @@ def load_bridged_tile_library_unit(
     tilesheet_id: str,
     semantic_inputs: BridgedSemanticInputs,
 ) -> TileLibraryUnit:
+    """Load a promoted bridged unit for producer-side runtime asset materialisation.
+
+    Transitional contract: required non-content fields (`category`, `layer`) are
+    still provisional compatibility-catalogue carry-forward on this intermediate
+    unit. The production runtime-asset producer must seed them from the durable
+    legacy layer before serialising the runtime asset (ADR 0014).
+    """
+
     return bridge_logical_tilesheet_to_runtime_unit(
         load_tile_pack_manifest(pack_path),
         tileset_id=tileset_id,
