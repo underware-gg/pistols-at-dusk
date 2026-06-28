@@ -17,7 +17,7 @@ from typing import Iterable, Literal, Mapping, Protocol, Union, cast
 
 from typing_extensions import TypeAlias
 
-from _manifest_utils import GridBounds, bounds_inside, require_mapping, resolve_path
+from _manifest_utils import GridBounds, as_int, bounds_inside, require_list, require_mapping, resolve_path
 from tile_metadata import ModuleContextValue, RenderTraits
 
 
@@ -842,6 +842,27 @@ class LegacyTileSemanticRecord:
             facts[field_name] = tuple(values)
         object.__setattr__(self, "facts", MappingProxyType(facts))
 
+    @classmethod
+    def from_payload(cls, raw: object, *, context: str) -> LegacyTileSemanticRecord:
+        mapping = require_mapping(raw, context=context)
+        tile_id = mapping.get("tile_id")
+        if not isinstance(tile_id, str):
+            raise ValueError(f"{context}.tile_id must be a string")
+        origin = mapping.get("origin")
+        if not isinstance(origin, str):
+            raise ValueError(f"{context}.origin must be a string")
+        schema_version = as_int(mapping.get("schema_version"), context=f"{context}.schema_version")
+        facts_mapping = require_mapping(mapping.get("facts"), context=f"{context}.facts")
+        return cls(
+            tile_id=tile_id,
+            origin=origin,
+            schema_version=schema_version,
+            facts={
+                field: _legacy_fact_from_payload(value, context=f"{context}.facts.{field}")
+                for field, value in facts_mapping.items()
+            },
+        )
+
     def to_payload(self) -> dict[str, object]:
         return {
             "tile_id": self.tile_id,
@@ -858,6 +879,20 @@ def _legacy_fact_payload(value: LegacySemanticFactValue) -> object:
     if isinstance(value, tuple):
         return list(value)
     return value
+
+
+def _legacy_fact_from_payload(raw: object, *, context: str) -> LegacySemanticFactValue:
+    if raw is None or isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        values = require_list(cast(object, raw), context=context)
+        strings: list[str] = []
+        for index, item in enumerate(values):
+            if not isinstance(item, str):
+                raise ValueError(f"{context}[{index}] must be a string")
+            strings.append(item)
+        return tuple(strings)
+    raise ValueError(f"{context} must be null, a string, or an array of strings")
 
 
 def _empty_legacy_semantics() -> Mapping[str, LegacyTileSemanticRecord]:

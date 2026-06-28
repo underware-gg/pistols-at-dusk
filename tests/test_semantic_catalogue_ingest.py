@@ -17,9 +17,12 @@ from semantic_catalogue_ingest import (
     AuthoredSemanticPatch,
     DetectedSemanticTile,
     ResolvedSemanticTile,
+    SemanticContentIdentity,
+    authored_patch_from_json,
     content_hash_for_image,
     resolve_semantic_catalogue,
     semantic_catalogue_from_json,
+    semantic_catalogue_with_identity_from_json,
     semantic_catalogue_to_json,
 )
 
@@ -104,6 +107,117 @@ class SemanticCatalogueIngestTests(unittest.TestCase):
 
         self.assertEqual(first_json, second_json)
         self.assertEqual(semantic_catalogue_from_json(first_json), semantic_catalogue_from_json(second_json))
+
+    def test_resolved_catalogue_can_carry_content_identity(self) -> None:
+        content_hash = content_hash_for_image(_image((10, 20, 30, 255)))
+        resolved = (
+            ResolvedSemanticTile(
+                content_hash=content_hash,
+                facts={"temperature": "cool"},
+                authored_fields=("temperature",),
+            ),
+        )
+
+        loaded = semantic_catalogue_with_identity_from_json(
+            semantic_catalogue_to_json(resolved, variant_ids=("base", "night"))
+        )
+
+        self.assertEqual(loaded.records, resolved)
+        self.assertEqual(
+            loaded.content_identity,
+            SemanticContentIdentity(variant_ids=("base", "night")),
+        )
+
+    def test_resolved_catalogue_identity_rejects_duplicate_variant_ids(self) -> None:
+        content_hash = content_hash_for_image(_image((10, 20, 31, 255)))
+        resolved = (ResolvedSemanticTile(content_hash=content_hash, facts={"temperature": "cool"}),)
+
+        with self.assertRaisesRegex(ValueError, "variant_ids must not contain duplicates"):
+            semantic_catalogue_to_json(resolved, variant_ids=("base", "base"))
+
+    def test_resolved_catalogue_identity_reader_requires_identity(self) -> None:
+        content_hash = content_hash_for_image(_image((10, 20, 32, 255)))
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "tiles": [
+                {
+                    "content_hash": content_hash,
+                    "facts": {"temperature": "cool"},
+                    "authored_fields": [],
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "content_identity must be a JSON object"):
+            semantic_catalogue_with_identity_from_json(json.dumps(payload))
+
+    def test_resolved_catalogue_identity_reader_rejects_bad_basis(self) -> None:
+        content_hash = content_hash_for_image(_image((10, 20, 33, 255)))
+        payload = json.loads(semantic_catalogue_to_json((ResolvedSemanticTile(content_hash=content_hash, facts={}),), variant_ids=("base",)))
+        payload["content_identity"]["basis"] = "default_variant"
+
+        with self.assertRaisesRegex(ValueError, "basis must be 'variant_set'"):
+            semantic_catalogue_with_identity_from_json(json.dumps(payload))
+
+    def test_resolved_catalogue_identity_reader_rejects_empty_variant_ids(self) -> None:
+        content_hash = content_hash_for_image(_image((10, 20, 34, 255)))
+        payload = json.loads(semantic_catalogue_to_json((ResolvedSemanticTile(content_hash=content_hash, facts={}),), variant_ids=("base",)))
+        payload["content_identity"]["variant_ids"] = []
+
+        with self.assertRaisesRegex(ValueError, "variant_ids must not be empty"):
+            semantic_catalogue_with_identity_from_json(json.dumps(payload))
+
+    def test_authored_patch_loader_round_trips_sequence_fields(self) -> None:
+        content_hash = content_hash_for_image(_image((11, 12, 13, 255)))
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "patches": [
+                {
+                    "content_hash": content_hash,
+                    "facts": {
+                        "semantics": ["chair", "wood"],
+                        "style": None,
+                    },
+                }
+            ],
+        }
+
+        loaded = authored_patch_from_json(json.dumps(payload))
+
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0].facts["semantics"], ("chair", "wood"))
+        self.assertIsNone(loaded[0].facts["style"])
+
+    def test_authored_patch_loader_rejects_bad_schema_version(self) -> None:
+        payload: dict[str, object] = {
+            "schema_version": 99,
+            "patches": [],
+        }
+
+        with self.assertRaisesRegex(ValueError, "authored patch schema_version must be 1"):
+            authored_patch_from_json(json.dumps(payload))
+
+    def test_authored_patch_loader_rejects_non_string_content_hash(self) -> None:
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "patches": [{"content_hash": 17, "facts": {"temperature": "cool"}}],
+        }
+
+        with self.assertRaisesRegex(ValueError, "authored patch\\.patches\\[0\\]\\.content_hash must be a string"):
+            authored_patch_from_json(json.dumps(payload))
+
+    def test_authored_patch_loader_rejects_duplicate_content_hash(self) -> None:
+        content_hash = content_hash_for_image(_image((11, 12, 14, 255)))
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "patches": [
+                {"content_hash": content_hash, "facts": {"temperature": "cool"}},
+                {"content_hash": content_hash, "facts": {"temperature": "warm"}},
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "Duplicate authored semantic patch"):
+            authored_patch_from_json(json.dumps(payload))
 
     def test_patch_for_unknown_content_hash_raises(self) -> None:
         known = content_hash_for_image(_image((1, 1, 1, 255)))

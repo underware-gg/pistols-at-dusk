@@ -25,7 +25,6 @@ from tile_library import (
     FixedSeamOverrideSide,
     FrameCornerSlot,
     FrameSlot,
-    LegacySemanticFactValue,
     LegacyTileSemanticRecord,
     ParametricFrameConstruction,
     ParametricRunConstruction,
@@ -389,29 +388,8 @@ def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
     )
 
 
-def _legacy_fact_from_payload(raw: object, *, context: str) -> LegacySemanticFactValue:
-    if raw is None or isinstance(raw, str):
-        return raw
-    if isinstance(raw, list):
-        return _as_string_tuple(cast(object, raw), context=context)
-    raise ValueError(f"{context} must be null, a string, or an array of strings")
-
-
 def _legacy_semantic_record_from_payload(raw: object, *, context: str) -> LegacyTileSemanticRecord:
-    mapping = require_mapping(raw, context=context)
-    facts_mapping = require_mapping(mapping.get("facts", {}), context=f"{context}.facts")
-    return LegacyTileSemanticRecord(
-        tile_id=_as_str(mapping.get("tile_id"), context=f"{context}.tile_id"),
-        origin=_as_str(mapping.get("origin"), context=f"{context}.origin"),
-        schema_version=_as_int(mapping.get("schema_version"), context=f"{context}.schema_version"),
-        facts={
-            _as_str(field, context=f"{context}.facts key"): _legacy_fact_from_payload(
-                value,
-                context=f"{context}.facts.{field}",
-            )
-            for field, value in facts_mapping.items()
-        },
-    )
+    return LegacyTileSemanticRecord.from_payload(raw, context=context)
 
 
 def _tile_id(tile: TileRecord | None) -> str | None:

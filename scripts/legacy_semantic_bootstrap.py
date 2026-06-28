@@ -20,6 +20,7 @@ from semantic_catalogue_ingest import (
     detected_base_to_json,
     semantic_payload_to_json,
 )
+from _manifest_utils import require_list, require_mapping
 from tile_family_runtime import TileFamily, resolve_canonical_tile_image
 from tile_library import LegacyTileSemanticRecord, TileRecord
 
@@ -130,6 +131,35 @@ def legacy_tile_semantics_payload(records: tuple[LegacyTileSemanticRecord, ...])
             for record in sorted(records, key=lambda item: item.tile_id)
         ],
     }
+
+
+def legacy_tile_semantics_from_payload(
+    payload: object,
+    *,
+    context: str = "legacy tile semantics",
+) -> tuple[LegacyTileSemanticRecord, ...]:
+    mapping = require_mapping(payload, context=context)
+    if mapping.get("schema_version") != LEGACY_TILE_SEMANTICS_SCHEMA_VERSION:
+        raise ValueError(f"{context} schema_version must be {LEGACY_TILE_SEMANTICS_SCHEMA_VERSION}")
+    record_payloads = require_list(
+        mapping.get("legacy_tile_semantics"),
+        context=f"{context}.legacy_tile_semantics",
+    )
+    records: list[LegacyTileSemanticRecord] = []
+    seen_tile_ids: set[str] = set()
+    for index, raw_record in enumerate(record_payloads):
+        record_context = f"{context}.legacy_tile_semantics[{index}]"
+        record = LegacyTileSemanticRecord.from_payload(raw_record, context=record_context)
+        tile_id = record.tile_id
+        if tile_id in seen_tile_ids:
+            raise ValueError(f"{record_context} duplicates tile_id {tile_id!r}")
+        seen_tile_ids.add(tile_id)
+        records.append(record)
+    return tuple(records)
+
+
+def legacy_tile_semantics_from_json(payload: str) -> tuple[LegacyTileSemanticRecord, ...]:
+    return legacy_tile_semantics_from_payload(json.loads(payload))
 
 
 def write_bootstrap_outputs(result: LegacySemanticBootstrapResult, output_dir: Path) -> None:

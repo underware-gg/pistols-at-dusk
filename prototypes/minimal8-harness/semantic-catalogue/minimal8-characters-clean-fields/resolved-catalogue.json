@@ -1,0 +1,1595 @@
+{
+  "content_identity": {
+    "basis": "variant_set",
+    "hash": "content-sha256",
+    "variant_ids": [
+      "1bit",
+      "2bit_blue",
+      "2bit_colored",
+      "2bit_cyan",
+      "2bit_green",
+      "2bit_orange",
+      "2bit_purple",
+      "2bit_red",
+      "2bit_yellow"
+    ]
+  },
+  "schema_version": 1,
+  "tiles": [
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:015cfc593e293e7ec3996a4bf0e04752b74e24b39a49820104799cfb1d1ffba0",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:01adb91868ebe63eb6b1540db77d2ddc6007f8b03a025b2d0f1e46ff5c4f5814",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:03af64ab52168f810527e0ca45c977f753dabd6a16804646301d586dfc3dd712",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:04a8d7a344f63da5c179594e6c1af0bb33da07cad40fb4cdfe57270804dee647",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:0b17adb98dd07d861eeff0ab5562ab7dc5c6f5a5b7a935953c24fdf79dcbccae",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:0cafe8ca859d81e1d0afbfc130a8a5557579ab21bd8c6ec9086a4c7f5b234850",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:0e5f8e33d45e8af7120d03e1927a2a45ee063e4f8ddcb09090287741c2649255",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:1082ee423ab9003d2c4f518f720c0a9819b22b4f43d2811e90dc3f57375863da",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:12fd44f4f5b03ffc29e51396e7c9df3b2366dae1ef78055642ef39c526088727",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:14e336eb98063cf92e649263c5241a32c1a0cece40a6664ab6e8850d0a8fb583",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:1637b5724ecdd15d7aa8267a1dabf95aad22424c0ced4d6244902248f9318e68",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:1da36a4783ac56ab32551b56751a8edcf99c46f7f1098bfe4d596632035b73b4",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:254bc6dcd5fb35913cd5cc14b98a4e6b5889d692bb8788822a4389b715aeddd2",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:2725d1344edcc26fe3f9d91232ca705786db9faf4d469ff9cc84c19db999dcd5",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:29073e86ad98524faaf93e087cfb80a6e54f66cdc1b7c248f3d2cb6067b6f58d",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:29ff62c629d9190d192bd51c4ae356bfb427b70c4e0918121ff4d57fd8975dba",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:2d11f28a447abcbde2a02793953dc6acdbe190bd3f3c16795e4ca957ed195cf2",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:31814412c7b8f0815acedc76c15da0ea7182f16362a99640552a85ad19a50bf9",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:32976ac70f422732665a425f82a1018494533040950a7ad34c24f7add72106eb",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:3614d5efffbadf0375f435fafb92172b31dd1c99dabfdbb272e6c084d016761d",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:371fd6ec3ccd3e82f40dd0d2d732b19bb39f89258a7f352e82666a95b752d8ee",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:387672508bce5e3e380fa4dc4184331b12287d27ebfaa1f604e259a06c557382",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:3cc78b270e34b7b2385617617be2870fe252138ae8d659fa2e7a9e1c833cf664",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:3ea062a82a7ab8112c040b691651dc2c1a8b3fbf8692ac7ac3c36673aa80c270",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:3f49c86124f90cde4e7aa04769a928d8d84f385cf6999f97de51e977f151056f",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:3f4f9b843d985ad604778f71f56c605ccca8a024440eca457fadfd7408a7aa58",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:41766803b405a63115129c8c1e913ce5916d7467e9a1842cec8eb3d821d178bf",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:459868e043f2a82c58e1db8c0a72545e41e22ee320f312d1374ed6ced5012872",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:4a0fc1f991c1a314466a97dac516dc5d8b52ad0f7cb0afcaf9ffac1ed08f4346",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:4a73aa8b959cd767c606c5a61af9546299e473cc8cf3ec908faff979f0a4c90a",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:4f6cc49ed26dfac613cd2c924f8924edf522b29240b38183f22d29d17b8d68a8",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:558b33f9b9fd3aa14206e9b7396f70495373a422d01d205e059b73f007bb4040",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:5e23a18bfcab3fbd4f565334ff17b8b2588796d01d4dd6dd1d824fafda03bacd",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:61292db983b3cfc1540bf5c2ac709d1667e3fcdbf4e430dfa31ff3fb1f655620",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:718f8d795d01c0aea4cbdbda6692f57af0a105708d4dd82ffc34857236e7b2ca",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:7385594f195b72a8b2c8b0f53a16fcc4a27abbb5798d6a3f718a1566829ce324",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:794f9967778df70b92c5c73ec6e7f201309f0ae78ff49ae3ceb772f5623d278d",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:7b6716cebe3841e1e7092c4abf568375e80b01cdd54bdf26e2206858ed6257a5",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:7f7feb3b1c5b50c9c9db631e87d303223b45cea63690411584f255e515ce232e",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:8529719caf713f427d948903d898e23af1b7108c2de06c9e0e091691e3c3bd39",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:888d7c844fc9a52d0fa5e910d636fcdbeef06835c1f4a652b80f421c117506cf",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:90f8c45f02a6e2b2b11d774d9dee42465f46cc9fb5d2b1cf0af28e8e0a9f9586",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:95d126817bf33ed4d9689cdce90cb34614ae1986cc2f18d58ba89d0a2739cfd0",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:9cc89ff0b2a9e7ae04e0f0109015559de97433dec2b512ddce3dd019c2a3ebb8",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:a5bb99c4d39e1f2d0017afda41ecf8a11d6d8c679a0f7a2a8d8b2b5f101c7317",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:a8a1954ecb998b5a84131bea053eeafc401a494bc661db1f0e04570de127c9ad",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:ac92413ed732d19eb648d1ee1f046123746426a8ad69e1d6e399e0504f9ec263",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:af39944aed6915aa234cb28075f9674ad21b097f62217c60adf63ece1e53fecc",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:b1d1563a53e5fa32311c20cc25c2f58395dbc0dc24cdcf8d9929289084d6222f",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:b41aef955ce230d44e589635ca5f6af88006667a66907ecc0759ed2f8f8963f0",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:bdeb7c7d39eaa72af8a612ba6e7702293e028b9494800c741dbf302485e7b7ef",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:cc75592d123e23f38b2650c14501d0dd1dc6ebdbc0923bc552bb2e516ee98f6b",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:cca29639deca8426321a6f5f37bbdf0b7c081f403bc0e8ff8aa83212aca82de4",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:cf7c21a2248507b7d8ded4c07b55186d1a5b3598dda159ce65c215997bc9d521",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:cf7e96e08f1b328aa39230d12f756e67ffbcff9bcc92781cfb4824b452323df4",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:d8371b5c45145759f0f7d8370ed5cbf4722c0973dc3c4f3950f1216bdf0b9cb5",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:d91590eb70e45896c129ea2ec863f1f3b8b88a7ba8dde25f13beebd10fbcae02",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:dab643b6f68e61b325e0101bb113689bbc15f098eae27934b48c09e495df1e9e",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:e001f86bf97e7ec6feb96d15a71163e3887dd60d554a86e43cd85ac91d224189",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:f61bf3ddd9d4e858350d33cf9c1c72e33ba4a61f79ccc80327a3a714cf09d3ce",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:f93669abad988f99bee86af62988668331f04ac239aa0bffc49c5dac60d7b02a",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:fa94fc47f0fc4a9a8aa4252ab961002b2f1b8b8aa9f0b0aa3db3a9b404e461d2",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    },
+    {
+      "authored_fields": [
+        "contrast",
+        "facing",
+        "motifs",
+        "noise",
+        "orientation",
+        "pose",
+        "semantics",
+        "style",
+        "temperature"
+      ],
+      "content_hash": "content-sha256:fb14fe10dd0c5bce75b9b0a99d7f1ff73ad16cae6806c5fda74d1473e9f74afd",
+      "facts": {
+        "contrast": null,
+        "facing": null,
+        "motifs": [],
+        "noise": null,
+        "orientation": null,
+        "pose": null,
+        "semantics": [],
+        "style": null,
+        "temperature": null
+      }
+    }
+  ]
+}

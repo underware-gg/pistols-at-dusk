@@ -24,6 +24,8 @@ CONTENT_HASH_ALGORITHM = "sha256"
 CONTENT_HASH_PREFIX = f"content-{CONTENT_HASH_ALGORITHM}:"
 CONTENT_HASH_DIGEST_LENGTH = 64
 SEMANTIC_CATALOGUE_SCHEMA_VERSION = 1
+SEMANTIC_CONTENT_IDENTITY_BASIS = "variant_set"
+SEMANTIC_CONTENT_IDENTITY_HASH = f"content-{CONTENT_HASH_ALGORITHM}"
 
 _LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
 
@@ -164,6 +166,46 @@ class ResolvedSemanticTile:
         }
 
 
+@dataclass(frozen=True)
+class SemanticContentIdentity:
+    """Variant-set identity metadata for a durable resolved catalogue.
+
+    Content-keyed semantic records are only reproducible when callers compute
+    tile hashes over the same concrete variant set that produced the catalogue.
+    """
+
+    variant_ids: tuple[str, ...]
+    basis: str = SEMANTIC_CONTENT_IDENTITY_BASIS
+    hash: str = SEMANTIC_CONTENT_IDENTITY_HASH
+
+    def __post_init__(self) -> None:
+        if self.basis != SEMANTIC_CONTENT_IDENTITY_BASIS:
+            raise ValueError(f"SemanticContentIdentity.basis must be {SEMANTIC_CONTENT_IDENTITY_BASIS!r}")
+        if self.hash != SEMANTIC_CONTENT_IDENTITY_HASH:
+            raise ValueError(f"SemanticContentIdentity.hash must be {SEMANTIC_CONTENT_IDENTITY_HASH!r}")
+        variant_ids = tuple(self.variant_ids)
+        if not variant_ids:
+            raise ValueError("SemanticContentIdentity.variant_ids must not be empty")
+        if any(variant_id == "" for variant_id in variant_ids):
+            raise ValueError("SemanticContentIdentity.variant_ids must be non-empty strings")
+        if len(set(variant_ids)) != len(variant_ids):
+            raise ValueError("SemanticContentIdentity.variant_ids must not contain duplicates")
+        object.__setattr__(self, "variant_ids", variant_ids)
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "basis": self.basis,
+            "hash": self.hash,
+            "variant_ids": list(self.variant_ids),
+        }
+
+
+@dataclass(frozen=True)
+class ResolvedSemanticCatalogue:
+    records: tuple[ResolvedSemanticTile, ...]
+    content_identity: SemanticContentIdentity
+
+
 def _facts_payload(facts: SemanticFacts) -> dict[str, object]:
     payload: dict[str, object] = {}
     for field in sorted(facts):
@@ -221,15 +263,29 @@ def resolve_semantic_catalogue(
     return tuple(resolved)
 
 
-def semantic_catalogue_payload(records: tuple[ResolvedSemanticTile, ...]) -> dict[str, object]:
-    return {
+def semantic_catalogue_payload(
+    records: tuple[ResolvedSemanticTile, ...],
+    *,
+    variant_ids: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    identity: SemanticContentIdentity | None = None
+    if variant_ids is not None:
+        identity = SemanticContentIdentity(variant_ids=variant_ids)
+    payload: dict[str, object] = {
         "schema_version": SEMANTIC_CATALOGUE_SCHEMA_VERSION,
         "tiles": [record.to_payload() for record in sorted(records, key=lambda item: item.content_hash)],
     }
+    if identity is not None:
+        payload["content_identity"] = identity.to_payload()
+    return payload
 
 
-def semantic_catalogue_to_json(records: tuple[ResolvedSemanticTile, ...]) -> str:
-    return semantic_payload_to_json(semantic_catalogue_payload(records))
+def semantic_catalogue_to_json(
+    records: tuple[ResolvedSemanticTile, ...],
+    *,
+    variant_ids: tuple[str, ...] | None = None,
+) -> str:
+    return semantic_payload_to_json(semantic_catalogue_payload(records, variant_ids=variant_ids))
 
 
 def authored_patch_payload(patches: Iterable[AuthoredSemanticPatch]) -> dict[str, object]:
@@ -296,8 +352,62 @@ def semantic_catalogue_from_payload(payload: object, *, context: str = "semantic
     )
 
 
+def semantic_catalogue_with_identity_from_payload(
+    payload: object,
+    *,
+    context: str = "semantic catalogue",
+) -> ResolvedSemanticCatalogue:
+    mapping = require_mapping(payload, context=context)
+    records = semantic_catalogue_from_payload(mapping, context=context)
+    identity = _content_identity_from_payload(
+        mapping.get("content_identity"),
+        context=f"{context}.content_identity",
+    )
+    return ResolvedSemanticCatalogue(records=records, content_identity=identity)
+
+
 def semantic_catalogue_from_json(payload: str) -> tuple[ResolvedSemanticTile, ...]:
     return semantic_catalogue_from_payload(json.loads(payload))
+
+
+def semantic_catalogue_with_identity_from_json(payload: str) -> ResolvedSemanticCatalogue:
+    return semantic_catalogue_with_identity_from_payload(json.loads(payload))
+
+
+def authored_patch_from_payload(payload: object, *, context: str = "authored patch") -> tuple[AuthoredSemanticPatch, ...]:
+    mapping = require_mapping(payload, context=context)
+    if mapping.get("schema_version") != SEMANTIC_CATALOGUE_SCHEMA_VERSION:
+        raise ValueError(f"{context} schema_version must be {SEMANTIC_CATALOGUE_SCHEMA_VERSION}")
+    patch_payloads = require_list(mapping.get("patches"), context=f"{context}.patches")
+    patches: list[AuthoredSemanticPatch] = []
+    for index, raw_patch in enumerate(patch_payloads):
+        patch_context = f"{context}.patches[{index}]"
+        patch_mapping = require_mapping(raw_patch, context=patch_context)
+        content_hash = patch_mapping.get("content_hash")
+        if not isinstance(content_hash, str):
+            raise ValueError(f"{patch_context}.content_hash must be a string")
+        facts = _facts_from_payload(patch_mapping.get("facts"), context=f"{patch_context}.facts")
+        patches.append(AuthoredSemanticPatch(content_hash=content_hash, facts=facts))
+    return tuple(index_by_content_hash(tuple(patches), kind="authored semantic patch").values())
+
+
+def authored_patch_from_json(payload: str) -> tuple[AuthoredSemanticPatch, ...]:
+    return authored_patch_from_payload(json.loads(payload))
+
+
+def _content_identity_from_payload(raw: object, *, context: str) -> SemanticContentIdentity:
+    mapping = require_mapping(raw, context=context)
+    basis = mapping.get("basis")
+    if not isinstance(basis, str):
+        raise ValueError(f"{context}.basis must be a string")
+    hash_name = mapping.get("hash")
+    if not isinstance(hash_name, str):
+        raise ValueError(f"{context}.hash must be a string")
+    return SemanticContentIdentity(
+        basis=basis,
+        hash=hash_name,
+        variant_ids=tuple(_string_list_from_payload(mapping.get("variant_ids"), context=f"{context}.variant_ids")),
+    )
 
 
 def _facts_from_payload(raw: object, *, context: str) -> dict[str, SemanticFactValue]:

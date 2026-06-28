@@ -23,11 +23,22 @@ from legacy_semantic_bootstrap import (
     SemanticCollision,
     collision_report_payload,
     bootstrap_legacy_semantic_patch,
+    legacy_tile_semantics_from_json,
     write_bootstrap_outputs,
 )
-from semantic_catalogue_ingest import resolve_semantic_catalogue
+from semantic_catalogue_ingest import (
+    ResolvedSemanticTile,
+    authored_patch_from_json,
+    resolve_semantic_catalogue,
+    semantic_catalogue_with_identity_from_json,
+)
 from tile_family_ingest import load_source_tile_family
 from tile_library import LegacyTileSemanticRecord
+
+
+MINIMAL8_HARNESS = ROOT / "prototypes/minimal8-harness"
+MINIMAL8_MAIN_CATALOGUE_DIR = MINIMAL8_HARNESS / "semantic-catalogue/minimal8-clean-fields"
+MINIMAL8_CHARACTERS_CATALOGUE_DIR = MINIMAL8_HARNESS / "semantic-catalogue/minimal8-characters-clean-fields"
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -168,7 +179,154 @@ def _make_two_tile_family(
     return family_dir
 
 
+def _load_minimal8_expected_catalogue(
+    family_dir: Path,
+    *,
+    collision_resolutions_path: Path | None = None,
+) -> tuple[
+    tuple[str, ...],
+    tuple[ResolvedSemanticTile, ...],
+    tuple[LegacyTileSemanticRecord, ...],
+    tuple[SemanticCollision, ...],
+]:
+    family = load_source_tile_family(family_dir)
+    variant_ids = tuple(sorted(family.variants))
+    result = bootstrap_legacy_semantic_patch(family, variant_ids=variant_ids, raise_on_collisions=False)
+    patches = list(result.authored_patches)
+    if collision_resolutions_path is not None:
+        resolutions = authored_patch_from_json(collision_resolutions_path.read_text(encoding="utf-8"))
+        collision_hashes = {collision.content_hash for collision in result.collisions}
+        resolution_hashes = {patch.content_hash for patch in resolutions}
+        if resolution_hashes != collision_hashes:
+            raise AssertionError(
+                f"collision resolutions do not match collisions: "
+                f"extra={sorted(resolution_hashes - collision_hashes)} "
+                f"missing={sorted(collision_hashes - resolution_hashes)}"
+            )
+        patches.extend(resolutions)
+    return (
+        variant_ids,
+        resolve_semantic_catalogue(result.detected_base, tuple(patches)),
+        result.legacy_semantics,
+        result.collisions,
+    )
+
+
 class LegacySemanticBootstrapTests(unittest.TestCase):
+    def test_minimal8_durable_catalogue_matches_bootstrap_plus_collision_resolutions(self) -> None:
+        variant_ids, expected_records, expected_legacy, collisions = _load_minimal8_expected_catalogue(
+            MINIMAL8_HARNESS / "tile-families/minimal8",
+            collision_resolutions_path=MINIMAL8_MAIN_CATALOGUE_DIR / "collision-resolutions.json",
+        )
+
+        loaded = semantic_catalogue_with_identity_from_json(
+            (MINIMAL8_MAIN_CATALOGUE_DIR / "resolved-catalogue.json").read_text(encoding="utf-8")
+        )
+        loaded_legacy = legacy_tile_semantics_from_json(
+            (MINIMAL8_MAIN_CATALOGUE_DIR / "legacy-tile-semantics.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(len(variant_ids), 38)
+        self.assertEqual(len(collisions), 4)
+        self.assertEqual(len(expected_records), 747)
+        self.assertEqual(len(expected_legacy), 1408)
+        self.assertEqual(loaded.content_identity.variant_ids, variant_ids)
+        self.assertEqual(loaded.records, expected_records)
+        self.assertEqual(loaded_legacy, expected_legacy)
+
+    def test_minimal8_characters_durable_catalogue_matches_collision_free_bootstrap(self) -> None:
+        variant_ids, expected_records, expected_legacy, collisions = _load_minimal8_expected_catalogue(
+            MINIMAL8_HARNESS / "tile-families/minimal8-characters",
+        )
+
+        loaded = semantic_catalogue_with_identity_from_json(
+            (MINIMAL8_CHARACTERS_CATALOGUE_DIR / "resolved-catalogue.json").read_text(encoding="utf-8")
+        )
+        loaded_legacy = legacy_tile_semantics_from_json(
+            (MINIMAL8_CHARACTERS_CATALOGUE_DIR / "legacy-tile-semantics.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(len(variant_ids), 9)
+        self.assertEqual(len(collisions), 0)
+        self.assertEqual(len(expected_records), 63)
+        self.assertEqual(len(expected_legacy), 78)
+        self.assertEqual(loaded.content_identity.variant_ids, variant_ids)
+        self.assertEqual(loaded.records, expected_records)
+        self.assertEqual(loaded_legacy, expected_legacy)
+
+    def test_main_collision_resolutions_do_not_apply_to_characters_catalogue(self) -> None:
+        character_hashes = {
+            record.content_hash
+            for record in semantic_catalogue_with_identity_from_json(
+                (MINIMAL8_CHARACTERS_CATALOGUE_DIR / "resolved-catalogue.json").read_text(encoding="utf-8")
+            ).records
+        }
+        main_resolution_hashes = {
+            patch.content_hash
+            for patch in authored_patch_from_json(
+                (MINIMAL8_MAIN_CATALOGUE_DIR / "collision-resolutions.json").read_text(encoding="utf-8")
+            )
+        }
+
+        self.assertEqual(len(main_resolution_hashes), 4)
+        self.assertEqual(main_resolution_hashes & character_hashes, set())
+
+    def test_legacy_tile_semantics_loader_rejects_bad_schema_version(self) -> None:
+        payload: dict[str, object] = {
+            "schema_version": 99,
+            "legacy_tile_semantics": [],
+        }
+
+        with self.assertRaisesRegex(ValueError, "legacy tile semantics schema_version must be 1"):
+            legacy_tile_semantics_from_json(json.dumps(payload))
+
+    def test_legacy_tile_semantics_loader_rejects_duplicate_tile_id(self) -> None:
+        record = LegacyTileSemanticRecord(
+            tile_id="testfam:all:0,0",
+            origin=LEGACY_TILE_SEMANTICS_ORIGIN,
+            schema_version=LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
+            facts={"tags": ("fixture",)},
+        ).to_payload()
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "legacy_tile_semantics": [record, record],
+        }
+
+        with self.assertRaisesRegex(ValueError, "duplicates tile_id 'testfam:all:0,0'"):
+            legacy_tile_semantics_from_json(json.dumps(payload))
+
+    def test_legacy_tile_semantics_loader_rejects_bool_schema_version(self) -> None:
+        record = LegacyTileSemanticRecord(
+            tile_id="testfam:all:0,0",
+            origin=LEGACY_TILE_SEMANTICS_ORIGIN,
+            schema_version=LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
+            facts={},
+        ).to_payload()
+        record["schema_version"] = True
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "legacy_tile_semantics": [record],
+        }
+
+        with self.assertRaisesRegex(ValueError, "schema_version must be an integer"):
+            legacy_tile_semantics_from_json(json.dumps(payload))
+
+    def test_legacy_tile_semantics_loader_rejects_malformed_fact_value(self) -> None:
+        record = LegacyTileSemanticRecord(
+            tile_id="testfam:all:0,0",
+            origin=LEGACY_TILE_SEMANTICS_ORIGIN,
+            schema_version=LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
+            facts={},
+        ).to_payload()
+        cast(dict[str, object], record["facts"])["tags"] = ["valid", 17]
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "legacy_tile_semantics": [record],
+        }
+
+        with self.assertRaisesRegex(ValueError, "facts\\.tags\\[1\\] must be a string"):
+            legacy_tile_semantics_from_json(json.dumps(payload))
+
     def test_bootstrap_preserves_full_legacy_semantic_payload_per_physical_tile(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             family = load_source_tile_family(
