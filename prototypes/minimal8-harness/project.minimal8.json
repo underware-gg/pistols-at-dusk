@@ -1,16 +1,12 @@
 {
   "tile_families": [
     {
-      "source_pack": "./tile-packs/minimal8/pack.json",
-      "tileset_id": "minimal8",
-      "tilesheet_id": "main",
+      "runtime_asset": "./runtime-families/minimal8.json",
       "family_id": "minimal8",
       "variant_id": "1bit_colored_bg"
     },
     {
-      "source_pack": "./tile-packs/minimal8/pack.json",
-      "tileset_id": "characters",
-      "tilesheet_id": "characters",
+      "runtime_asset": "./runtime-families/minimal8.characters.json",
       "family_id": "minimal8.characters",
       "variant_id": "2bit_colored"
     }

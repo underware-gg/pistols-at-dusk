@@ -263,6 +263,12 @@ That command still scaffolds the family-shaped compatibility bundle. The staged
 source-pack manifests remain the primary committed entrypoint and currently need
 to be added around that bundle explicitly.
 
+Runtime projects now consume produced assets from
+[`runtime-families/`](runtime-families/). Source-ingest commands still need the
+source pack, source-layout maps, and vendor sheets, so operator examples use
+[`project.minimal8.source.json`](project.minimal8.source.json), a source-backed
+project kept for ingest/review workflows rather than runtime rendering.
+
 Scaffold a pattern snippet from a selected grid rectangle:
 
 ```bash
@@ -279,13 +285,13 @@ python3 scripts/harness.py scaffold-pattern \
 Inspect the selected family variant and get the real tile catalog:
 
 ```bash
-python3 scripts/source_ingest.py inspect-family prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py inspect-family prototypes/minimal8-harness/project.minimal8.source.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 Validate the full ingest contract for the canonical review sheet:
 
 ```bash
-python3 scripts/source_ingest.py validate-family-ingest prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py validate-family-ingest prototypes/minimal8-harness/project.minimal8.source.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That report now machine-checks that every Minimal 8 tile record has a
@@ -345,7 +351,7 @@ authoritative source-layout map instead:
 
 ```bash
 python3 scripts/source_ingest.py inspect-source-cell \
-  prototypes/minimal8-harness/project.minimal8.json \
+  prototypes/minimal8-harness/project.minimal8.source.json \
   --tileset 'minimal8@2bit_colored_bg' \
   --sheet-col 21 \
   --sheet-row 4
@@ -361,7 +367,7 @@ Audit the current alias / project reference surface against those confidence
 values:
 
 ```bash
-python3 scripts/source_ingest.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py audit-family-semantic-usage prototypes/minimal8-harness/project.minimal8.source.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That report surfaces family aliases, project aliases, pattern cells,
@@ -372,7 +378,7 @@ papering them over.
 Detect a first-pass source-layout suggestion directly from the bitmap:
 
 ```bash
-python3 scripts/source_ingest.py detect-source-layout prototypes/minimal8-harness/project.minimal8.json --tileset 'minimal8@1bit_colored_bg'
+python3 scripts/source_ingest.py detect-source-layout prototypes/minimal8-harness/project.minimal8.source.json --tileset 'minimal8@1bit_colored_bg'
 ```
 
 That writes `source_layout.detected.json` with suggested regions, clusters, and
@@ -440,7 +446,7 @@ Export a filtered semantic review pack for manual naming / composition passes:
 
 ```bash
 python3 scripts/source_ingest.py export-review-pack \
-  prototypes/minimal8-harness/project.minimal8.json \
+  prototypes/minimal8-harness/project.minimal8.source.json \
   --tileset 'minimal8@1bit_colored_bg' \
   --scene tavern \
   --category furniture \
@@ -460,7 +466,7 @@ Export a committed collection review pack for source-layout refinement:
 
 ```bash
 python3 scripts/source_ingest.py export-collection-review-pack \
-  prototypes/minimal8-harness/project.minimal8.json \
+  prototypes/minimal8-harness/project.minimal8.source.json \
   --tileset 'minimal8@1bit_colored_bg'
 ```
 

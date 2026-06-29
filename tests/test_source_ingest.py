@@ -13,13 +13,26 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 
 import source_ingest
+from minimal8_source_project import write_minimal8_source_pack_project
+
+
+def _source_project_path(test_case: unittest.TestCase, project_name: str = "project.minimal8.json") -> Path:
+    temp_dir = tempfile.TemporaryDirectory()
+    test_case.addCleanup(temp_dir.cleanup)
+    return write_minimal8_source_pack_project(
+        ROOT / "prototypes" / "minimal8-harness" / project_name,
+        Path(temp_dir.name) / f"source-{project_name}",
+    )
 
 
 class SourceIngestCliTests(unittest.TestCase):
     def test_main_inspect_source_cell_reports_region_cluster_and_mapped_tile(self) -> None:
-        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project_path = _source_project_path(self)
         stdout = io.StringIO()
 
         with patch.object(
@@ -51,7 +64,7 @@ class SourceIngestCliTests(unittest.TestCase):
         self.assertEqual(payload["tile"]["aliases"], ["underworld.glyph.c"])
 
     def test_main_inspect_source_cell_distinguishes_region_membership_from_tile_mapping(self) -> None:
-        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project_path = _source_project_path(self)
         stdout = io.StringIO()
 
         with patch.object(
@@ -80,7 +93,7 @@ class SourceIngestCliTests(unittest.TestCase):
         self.assertIsNone(payload["tile"])
 
     def test_main_validate_family_ingest_reports_complete_minimal8_family(self) -> None:
-        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+        project_path = _source_project_path(self)
         stdout = io.StringIO()
 
         with patch.object(
@@ -101,7 +114,7 @@ class SourceIngestCliTests(unittest.TestCase):
         self.assertEqual(payload["tile_count"], 1408)
 
     def test_main_inspect_family_exports_characters_source_layout(self) -> None:
-        project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.characters.json"
+        project_path = _source_project_path(self, "project.minimal8.characters.json")
         stdout = io.StringIO()
 
         with tempfile.TemporaryDirectory() as temp_dir:

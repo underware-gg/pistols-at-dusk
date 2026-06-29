@@ -27,12 +27,13 @@ Agents arrive via [AGENTS.md](../AGENTS.md). Humans typically arrive via the rep
 ## Current focus
 
 The Minimal 8 ingestion subsystem is the project's first substantive surface.
-The active source-side entrypoint now lives at
+The active source-side ingest entrypoint lives at
 [prototypes/minimal8-harness/tile-packs/minimal8](../prototypes/minimal8-harness/tile-packs/minimal8),
-while
+while the production runtime entrypoint is the produced runtime-family tree at
+[prototypes/minimal8-harness/runtime-families](../prototypes/minimal8-harness/runtime-families).
 [prototypes/minimal8-harness/tile-families/minimal8](../prototypes/minimal8-harness/tile-families/minimal8)
-remains the transitional compatibility bundle consumed through the current
-family-backed runtime path. Related decisions are in the
+remains a transitional compatibility / producer input rather than the Minimal 8
+runtime source. Related decisions are in the
 [decisions router](architecture/decisions/README.md). Runtime-side provenance
 and exact-reference reconstruction follow-up now live in
 [architecture/runtime-tile-genesis-and-provenance.md](architecture/runtime-tile-genesis-and-provenance.md).

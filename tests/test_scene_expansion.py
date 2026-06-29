@@ -135,6 +135,10 @@ def _project_config_with_template_dir(
             tile_family["source_pack"] = str(
                 (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
             )
+        if "runtime_asset" in tile_family:
+            tile_family["runtime_asset"] = str(
+                (PROJECT_PATH.parent / cast(str, tile_family["runtime_asset"])).resolve()
+            )
     else:
         for raw_spec in cast(list[object], config["tile_families"]):
             tile_family = cast(dict[str, Any], raw_spec)
@@ -143,6 +147,10 @@ def _project_config_with_template_dir(
             if "source_pack" in tile_family:
                 tile_family["source_pack"] = str(
                     (PROJECT_PATH.parent / cast(str, tile_family["source_pack"])).resolve()
+                )
+            if "runtime_asset" in tile_family:
+                tile_family["runtime_asset"] = str(
+                    (PROJECT_PATH.parent / cast(str, tile_family["runtime_asset"])).resolve()
                 )
     utility_tileset = cast(dict[str, Any], cast(dict[str, Any], config["tilesets"])["utility_land"])
     utility_tileset["sheet"] = str((PROJECT_PATH.parent / cast(str, utility_tileset["sheet"])).resolve())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_to_json
+from produce_minimal8_runtime_assets import produce_minimal8_runtime_assets
 from runtime_asset_producer import produce_source_pack_runtime_family_asset
 from semantic_catalogue_ingest import ResolvedSemanticTile, semantic_catalogue_to_json
 from source_manifest_bridge import (
@@ -1068,6 +1070,29 @@ class SourceManifestBridgeTests(unittest.TestCase):
         self.assertEqual(bridged.source_layout, legacy.source_layout)
         self.assertIsNotNone(bridged.source_layout)
         self.assertIsNotNone(legacy.source_layout)
+
+    @unittest.skipUnless(
+        os.environ.get("PAD_VERIFY_MINIMAL8_RUNTIME_ASSETS") == "1",
+        "set PAD_VERIFY_MINIMAL8_RUNTIME_ASSETS=1 to byte-verify the full generated Minimal 8 runtime tree",
+    )
+    def test_minimal8_runtime_asset_generation_matches_committed_tree(self) -> None:
+        committed_root = ROOT / "prototypes/minimal8-harness/runtime-families"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated_root = Path(temp_dir) / "runtime-families"
+
+            produce_minimal8_runtime_assets(runtime_families_dir=generated_root)
+
+            committed_files = {
+                path.relative_to(committed_root): path.read_bytes()
+                for path in committed_root.rglob("*")
+                if path.is_file()
+            }
+            generated_files = {
+                path.relative_to(generated_root): path.read_bytes()
+                for path in generated_root.rglob("*")
+                if path.is_file()
+            }
+        self.assertEqual(generated_files, committed_files)
 
     def test_bridge_surfaces_catalog_payload_errors_like_tile_family_load(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
