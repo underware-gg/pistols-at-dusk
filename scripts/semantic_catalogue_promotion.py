@@ -18,9 +18,6 @@ from tile_library import (
 )
 
 
-if INGEST_SEMANTIC_FIELDS & RUNTIME_AUTHORED_TILE_FIELDS:
-    raise ValueError("INGEST_SEMANTIC_FIELDS and RUNTIME_AUTHORED_TILE_FIELDS must be disjoint")
-
 _TILE_RECORD_FIELD_NAMES = frozenset(field.name for field in fields(TileRecord))
 if missing_fields := sorted(INGEST_SEMANTIC_FIELDS - _TILE_RECORD_FIELD_NAMES):
     raise ValueError(f"INGEST_SEMANTIC_FIELDS are not TileRecord fields: {', '.join(missing_fields)}")

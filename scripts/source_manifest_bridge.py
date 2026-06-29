@@ -18,8 +18,11 @@ from source_manifests import (
 )
 from tile_library import (
     CellContentInset,
+    LEGACY_LAYER_TAG_PREFIX,
     LegacyTileSemanticRecord,
     NON_CONTENT_LEGACY_TILE_FIELDS,
+    REQUIRED_NON_CONTENT_TILE_FIELDS,
+    TRANSITIONAL_NEUTRAL_TILE_LAYER,
     TILE_RECORD_FIELD_DEFAULTS,
     TileFamilyHeader,
     TileFamilyVariant,
@@ -301,6 +304,14 @@ def bridge_logical_tilesheet_to_runtime_unit(
     tilesheet_id: str,
     semantic_inputs: BridgedSemanticInputs,
 ) -> TileLibraryUnit:
+    """Bridge a logical tilesheet into a seeded runtime unit.
+
+    Required non-content fields (`category`, `layer`) are seeded from the durable
+    legacy layer here: `category` becomes the runtime field, and legacy `layer`
+    is preserved as a `layer:<value>` tag while the transitional field receives
+    the ADR 0014 neutral placeholder.
+    """
+
     base_family = bridge_logical_tilesheet_to_family(
         pack,
         tileset_id=tileset_id,
@@ -312,7 +323,7 @@ def bridge_logical_tilesheet_to_runtime_unit(
     )
     structural_unit = _structural_base_unit(base_family.runtime_unit)
     try:
-        return promote_semantic_catalogue(
+        promoted = promote_semantic_catalogue(
             structural_unit,
             resolved=semantic_inputs.resolved,
             content_hash_by_tile_id=content_hash_by_tile_id,
@@ -326,6 +337,7 @@ def bridge_logical_tilesheet_to_runtime_unit(
                 f"{semantic_inputs.variant_ids!r}"
             ) from exc
         raise
+    return _seed_required_non_content_fields_from_legacy(promoted)
 
 
 def _structural_base_unit(unit: TileLibraryUnit) -> TileLibraryUnit:
@@ -333,6 +345,41 @@ def _structural_base_unit(unit: TileLibraryUnit) -> TileLibraryUnit:
     runtime_tiles: dict[str, TileRecord] = {}
     for tile_id, tile in unit.tiles.items():
         runtime_tiles[tile_id] = replace(tile, **updates)
+    return unit.with_tiles(runtime_tiles)
+
+
+_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
+if _HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS != REQUIRED_NON_CONTENT_TILE_FIELDS:
+    raise ValueError(
+        "source manifest bridge required non-content field seeding is out of sync with "
+        f"REQUIRED_NON_CONTENT_TILE_FIELDS: handled={sorted(_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS)} "
+        f"required={sorted(REQUIRED_NON_CONTENT_TILE_FIELDS)}. If a required non-content field was added, add "
+        "_seed_required_non_content_fields_from_legacy logic for it; do not only update the handled set."
+    )
+
+
+def _legacy_fact_as_string(record: LegacyTileSemanticRecord, field: str, *, tile_id: str) -> str:
+    value = record.facts.get(field)
+    if not isinstance(value, str) or value == "":
+        raise ValueError(f"Legacy semantic record for tile {tile_id!r} must declare non-empty string {field!r}")
+    return value
+
+
+def _seed_required_non_content_fields_from_legacy(unit: TileLibraryUnit) -> TileLibraryUnit:
+    runtime_tiles: dict[str, TileRecord] = {}
+    for tile_id, tile in unit.tiles.items():
+        legacy = unit.legacy_semantics.get(tile_id)
+        if legacy is None:
+            raise ValueError(f"Cannot seed required runtime fields for tile {tile_id!r}: missing legacy semantic record")
+        category = _legacy_fact_as_string(legacy, "category", tile_id=tile_id)
+        legacy_layer = _legacy_fact_as_string(legacy, "layer", tile_id=tile_id)
+        layer_tag = f"{LEGACY_LAYER_TAG_PREFIX}{legacy_layer}"
+        runtime_tiles[tile_id] = replace(
+            tile,
+            category=category,
+            layer=TRANSITIONAL_NEUTRAL_TILE_LAYER,
+            tags=tuple(sorted(set(tile.tags) | {layer_tag})),
+        )
     return unit.with_tiles(runtime_tiles)
 
 
@@ -356,13 +403,7 @@ def load_bridged_tile_library_unit(
     tilesheet_id: str,
     semantic_inputs: BridgedSemanticInputs,
 ) -> TileLibraryUnit:
-    """Load a promoted bridged unit for producer-side runtime asset materialisation.
-
-    Transitional contract: required non-content fields (`category`, `layer`) are
-    still provisional compatibility-catalogue carry-forward on this intermediate
-    unit. The production runtime-asset producer must seed them from the durable
-    legacy layer before serialising the runtime asset (ADR 0014).
-    """
+    """Load a source pack manifest and bridge it into a seeded runtime unit."""
 
     return bridge_logical_tilesheet_to_runtime_unit(
         load_tile_pack_manifest(pack_path),

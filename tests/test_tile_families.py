@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 
 from _manifest_utils import GridBounds
 from seam_matching import MatchPolicy
@@ -56,11 +59,11 @@ from tile_library_codec import (
     tile_library_unit_to_json,
 )
 from layout_core import GridTileset, RuntimePackedTileset
+from pixel_content import canonical_rgba_bytes
 from runtime_asset_paths import atomic_asset_address_from_digest, atomic_asset_relative_path, runtime_family_root
-from runtime_asset_producer import (
-    canonical_rgba_bytes,
-    materialize_runtime_unit,
-    produce_runtime_family_asset,
+from runtime_asset_helpers import (
+    materialize_family_runtime_unit,
+    produce_family_runtime_asset,
 )
 from tile_families import (
     CompositeTileConfig,
@@ -3550,7 +3553,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             root = Path(temp_dir)
             family_dir = make_image_override_family_dir(root)
             runtime_dir = root / "runtime-families"
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
             variant = runtime_unit.variant("base")
             assert variant.atlas_path is not None
             atlas_path = runtime_dir / runtime_unit.family_id / variant.atlas_path
@@ -3568,7 +3571,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             root = Path(temp_dir)
             family_dir = make_image_override_family_dir(root)
             runtime_dir = root / "runtime-families"
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
             variant = runtime_unit.variant("base")
             assert variant.atlas_path is not None
             atlas_path = runtime_dir / runtime_unit.family_id / variant.atlas_path
@@ -3616,9 +3619,9 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             self.assertIsNotNone(source_unit.variant("base").sheet_path)
             self.assertEqual(source_unit.tiles["testfam:derived.override"].image_override, "derived/override.png")
 
-            output_path = produce_runtime_family_asset(family_dir, runtime_dir)
+            output_path = produce_family_runtime_asset(family_dir, runtime_dir)
             loaded = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
-            expected = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            expected = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
 
             self.assertEqual(loaded, expected)
             self.assertEqual(loaded.root, Path("."))
@@ -3728,7 +3731,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
                 ],
             )
             runtime_dir = root / "runtime-families"
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
             left = runtime_unit.tiles["testfam:all:0,0"]
             right = runtime_unit.tiles["testfam:all:1,0"]
             self.assertEqual(left.variant_atlas_cells["base"], SheetCell(col=0, row=0))
@@ -3749,7 +3752,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             root = Path(temp_dir)
             family_dir = make_runtime_rebind_family_dir(root)
 
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
             fixed = runtime_unit.constructions["test.fixed"]
             run = runtime_unit.constructions["test.run"]
             frame = runtime_unit.constructions["test.frame"]
@@ -3794,7 +3797,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             source_unit = TileFamily.load(family_dir).runtime_unit
             runtime_dir = root / "runtime-families"
 
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
 
             sheet_tile = source_unit.tiles["testfam:all:0,0"]
             override_tile = source_unit.tiles["testfam:derived.override"]
@@ -3849,7 +3852,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             source_family = TileFamily.load(family_dir)
             source_unit = source_family.runtime_unit
             runtime_dir = root / "runtime-families"
-            runtime_unit = materialize_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
+            runtime_unit = materialize_family_runtime_unit(family_dir, runtime_families_dir=runtime_dir)
             grid_tileset = GridTileset.from_variant(tile_library=source_unit, variant_id="base")
 
             sheet_tile = source_unit.tiles["testfam:all:0,0"]
@@ -3879,8 +3882,8 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             runtime_a = root / "runtime_a"
             runtime_b = root / "runtime_b"
 
-            output_a = produce_runtime_family_asset(family_a, runtime_a)
-            output_b = produce_runtime_family_asset(family_b, runtime_b)
+            output_a = produce_family_runtime_asset(family_a, runtime_a)
+            output_b = produce_family_runtime_asset(family_b, runtime_b)
 
             self.assertEqual(output_a.read_bytes(), output_b.read_bytes())
             asset_rgba_a = sorted(
@@ -3917,7 +3920,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             family_dir = make_duplicate_family_dir(root, identical=True)
             runtime_dir = root / "runtime-families"
 
-            output_path = produce_runtime_family_asset(family_dir, runtime_dir)
+            output_path = produce_family_runtime_asset(family_dir, runtime_dir)
             loaded = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
 
             left = loaded.tiles["testfam:all:0,0"].variant_assets["base"]
@@ -3931,7 +3934,7 @@ class RuntimeAssetProducerTests(unittest.TestCase):
             family_dir = make_image_override_family_dir(root, image_size=(12, 10))
 
             with self.assertRaisesRegex(ValueError, "testfam:derived.override.*expected \\(8, 8\\)"):
-                materialize_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
+                materialize_family_runtime_unit(family_dir, runtime_families_dir=root / "runtime-families")
 
 
 class FixedConstructionSeamValidationTests(unittest.TestCase):

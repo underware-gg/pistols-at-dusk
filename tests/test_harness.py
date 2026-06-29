@@ -29,13 +29,13 @@ import harness
 import tile_families
 import source_ingest_ops
 import layout_core
-from runtime_asset_producer import produce_runtime_family_asset
 from produce_minimal8_runtime_assets import minimal8_runtime_asset_spec
 from runtime_asset_paths import atomic_asset_relative_path
 from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_from_json
 from semantic_catalogue_ingest import index_by_content_hash, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import load_bridged_tile_family
 from tile_library import LEGACY_LAYER_TAG_PREFIX, TRANSITIONAL_NEUTRAL_TILE_LAYER, PlaceableRef
+from runtime_asset_helpers import produce_family_runtime_asset
 from minimal8_source_project import (
     source_minimal8_project_path as _source_minimal8_project_path,
     write_minimal8_source_pack_project,
@@ -377,7 +377,7 @@ def _make_runtime_asset_project(
     runtime_dir: Path,
     variant_id: str = "base",
 ) -> Path:
-    runtime_asset_path = produce_runtime_family_asset(family_dir, runtime_dir)
+    runtime_asset_path = produce_family_runtime_asset(family_dir, runtime_dir)
     project_path = root / "runtime-project.json"
     _write_json(
         project_path,
@@ -921,6 +921,26 @@ class Minimal8SourceProjectTests(unittest.TestCase):
         )
         self.assertEqual(generated, committed)
 
+    def test_source_operator_project_deriver_requires_exactly_one_family_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            runtime_project_path = root / "project.json"
+            output_path = root / "project.source.json"
+
+            _write_json(runtime_project_path, {"grid": {"tile_width": 8, "tile_height": 8}})
+            with self.assertRaisesRegex(ValueError, r"project\.json.*exactly one of tile_family or tile_families"):
+                write_minimal8_source_pack_project(runtime_project_path, output_path)
+
+            _write_json(
+                runtime_project_path,
+                {
+                    "tile_family": {"family_id": "minimal8", "variant_id": "1bit_colored_bg"},
+                    "tile_families": [{"family_id": "minimal8", "variant_id": "1bit_colored_bg"}],
+                },
+            )
+            with self.assertRaisesRegex(ValueError, r"project\.json.*exactly one of tile_family or tile_families"):
+                write_minimal8_source_pack_project(runtime_project_path, output_path)
+
 
 class LayoutProjectLoadingTests(unittest.TestCase):
     def test_get_tileset_lists_available_ids_for_unknown_lookup(self) -> None:
@@ -1156,20 +1176,22 @@ class LayoutProjectLoadingTests(unittest.TestCase):
                 fixture_root / "project.source.minimal8.json",
             )
             runtime_project_path = fixture_root / "project.minimal8.json"
+            main_spec = minimal8_runtime_asset_spec("minimal8")
+            characters_spec = minimal8_runtime_asset_spec("minimal8.characters")
             semantic_expectations = (
                 _minimal8_semantic_expectation(
                     fixture_root,
-                    family_id="minimal8",
-                    tileset_id="minimal8",
-                    tilesheet_id="main",
+                    family_id=main_spec.family_id,
+                    tileset_id=main_spec.tileset_id,
+                    tilesheet_id=main_spec.tilesheet_id,
                     family_tileset_id=MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
                     tile_id=MINIMAL8_PRODUCTION_MAIN_TILE_ID,
                 ),
                 _minimal8_semantic_expectation(
                     fixture_root,
-                    family_id="minimal8.characters",
-                    tileset_id="characters",
-                    tilesheet_id="characters",
+                    family_id=characters_spec.family_id,
+                    tileset_id=characters_spec.tileset_id,
+                    tilesheet_id=characters_spec.tilesheet_id,
                     family_tileset_id=MINIMAL8_PRODUCTION_CHARACTER_TILESET_ID,
                     tile_id=MINIMAL8_PRODUCTION_CHARACTER_TILE_ID,
                 ),
@@ -2934,6 +2956,14 @@ class LayoutProjectLoadingTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "source-backed grid tileset"),
         ):
             harness.main()
+
+    def test_query_semantic_catalog_rejects_runtime_asset_project(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires a source-backed grid tileset"):
+            source_ingest_ops.query_semantic_catalog(
+                ROOT / "prototypes/minimal8-harness/project.minimal8.json",
+                "minimal8@1bit_colored_bg",
+                limit=1,
+            )
 
     def test_characters_project_loads_bridged_family_without_runtime_scene_libraries(self) -> None:
         project = layout_core.LayoutProject(

@@ -6,7 +6,6 @@ pixels, and writes the runtime-family JSON plus content-addressed PNG assets.
 """
 from __future__ import annotations
 
-import hashlib
 import math
 import os
 import tempfile
@@ -19,15 +18,11 @@ from PIL import Image
 
 from layout_core import grid_dimensions_for_image
 from legacy_semantic_bootstrap import legacy_tile_semantics_from_json
-from pixel_content import canonical_rgba_bytes
+from pixel_content import canonical_image_digest
 from semantic_catalogue_ingest import ResolvedSemanticCatalogue, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import BridgedSemanticInputs, load_bridged_tile_library_unit
-from tile_family_ingest import load_source_tile_family
 from tile_family_runtime import resolve_canonical_tile_image
 from tile_library import (
-    LEGACY_LAYER_TAG_PREFIX,
-    REQUIRED_NON_CONTENT_TILE_FIELDS,
-    TRANSITIONAL_NEUTRAL_TILE_LAYER,
     LegacyTileSemanticRecord,
     SheetCell,
     TileFamilyVariant,
@@ -46,8 +41,7 @@ from runtime_asset_paths import (
 
 
 def atomic_asset_address(image: Image.Image) -> str:
-    digest = hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
-    return atomic_asset_address_from_digest(digest)
+    return atomic_asset_address_from_digest(canonical_image_digest(image))
 
 
 def deterministic_png_bytes(image: Image.Image) -> bytes:
@@ -118,16 +112,6 @@ def _runtime_tile(
     )
 
 
-_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
-if _HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS != REQUIRED_NON_CONTENT_TILE_FIELDS:
-    raise ValueError(
-        "runtime asset producer required non-content field seeding is out of sync with "
-        f"REQUIRED_NON_CONTENT_TILE_FIELDS: handled={sorted(_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS)} "
-        f"required={sorted(REQUIRED_NON_CONTENT_TILE_FIELDS)}. If a required non-content field was added, add "
-        "_seed_required_non_content_fields_from_legacy logic for it; do not only update the handled set."
-    )
-
-
 def _load_resolved_catalogue(path: Path) -> ResolvedSemanticCatalogue:
     try:
         return semantic_catalogue_with_identity_from_json(path.read_text(encoding="utf-8"))
@@ -140,31 +124,6 @@ def _load_legacy_semantics(path: Path) -> tuple[LegacyTileSemanticRecord, ...]:
         return legacy_tile_semantics_from_json(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise ValueError(f"Could not load legacy tile semantics {path}: {exc}") from exc
-
-
-def _legacy_fact_as_string(record: LegacyTileSemanticRecord, field: str, *, tile_id: str) -> str:
-    value = record.facts.get(field)
-    if not isinstance(value, str) or value == "":
-        raise ValueError(f"Legacy semantic record for tile {tile_id!r} must declare non-empty string {field!r}")
-    return value
-
-
-def _seed_required_non_content_fields_from_legacy(unit: TileLibraryUnit) -> TileLibraryUnit:
-    runtime_tiles: dict[str, TileRecord] = {}
-    for tile_id, tile in unit.tiles.items():
-        legacy = unit.legacy_semantics.get(tile_id)
-        if legacy is None:
-            raise ValueError(f"Cannot seed required runtime fields for tile {tile_id!r}: missing legacy semantic record")
-        category = _legacy_fact_as_string(legacy, "category", tile_id=tile_id)
-        legacy_layer = _legacy_fact_as_string(legacy, "layer", tile_id=tile_id)
-        layer_tag = f"{LEGACY_LAYER_TAG_PREFIX}{legacy_layer}"
-        runtime_tiles[tile_id] = replace(
-            tile,
-            category=category,
-            layer=TRANSITIONAL_NEUTRAL_TILE_LAYER,
-            tags=tuple(sorted(set(tile.tags) | {layer_tag})),
-        )
-    return unit.with_tiles(runtime_tiles)
 
 
 def _pack_order_key(tile: TileRecord) -> tuple[int, int, int, str]:
@@ -288,22 +247,12 @@ def materialize_runtime_unit_from_unit(unit: TileLibraryUnit, *, runtime_familie
     ).with_tiles(runtime_tiles)
 
 
-def materialize_runtime_unit(family_dir: Path, *, runtime_families_dir: Path) -> TileLibraryUnit:
-    family = load_source_tile_family(family_dir)
-    return materialize_runtime_unit_from_unit(family.runtime_unit, runtime_families_dir=runtime_families_dir)
-
-
 def produce_runtime_family_asset_from_unit(unit: TileLibraryUnit, runtime_families_dir: Path) -> Path:
     runtime_families_dir.mkdir(parents=True, exist_ok=True)
     runtime_unit = materialize_runtime_unit_from_unit(unit, runtime_families_dir=runtime_families_dir)
     output_path = runtime_families_dir / f"{runtime_unit.family_id}.json"
-    output_path.write_text(tile_library_unit_to_json(runtime_unit), encoding="utf-8")
+    _write_bytes_atomic(output_path, tile_library_unit_to_json(runtime_unit).encode("utf-8"))
     return output_path
-
-
-def produce_runtime_family_asset(family_dir: Path, runtime_families_dir: Path) -> Path:
-    family = load_source_tile_family(family_dir)
-    return produce_runtime_family_asset_from_unit(family.runtime_unit, runtime_families_dir)
 
 
 def produce_source_pack_runtime_family_asset(
@@ -329,5 +278,4 @@ def produce_source_pack_runtime_family_asset(
             variant_ids=catalogue.content_identity.variant_ids,
         ),
     )
-    seeded = _seed_required_non_content_fields_from_legacy(promoted)
-    return produce_runtime_family_asset_from_unit(seeded, runtime_families_dir)
+    return produce_runtime_family_asset_from_unit(promoted, runtime_families_dir)

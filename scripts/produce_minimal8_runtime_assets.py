@@ -47,11 +47,19 @@ def produce_minimal8_runtime_assets(
     *,
     harness_root: Path = HARNESS_ROOT,
     runtime_families_dir: Path | None = None,
+    family_ids: tuple[str, ...] | None = None,
 ) -> tuple[Path, ...]:
     pack_path = harness_root / "tile-packs" / "minimal8" / "pack.json"
     output_root = runtime_families_dir if runtime_families_dir is not None else harness_root / "runtime-families"
+    requested_family_ids = set(family_ids) if family_ids is not None else None
+    known_family_ids = {spec.family_id for spec in MINIMAL8_RUNTIME_ASSETS}
+    if requested_family_ids is not None:
+        if missing_family_ids := sorted(requested_family_ids - known_family_ids):
+            raise ValueError(f"Unsupported Minimal 8 family ids: {', '.join(missing_family_ids)}")
     output_paths: list[Path] = []
     for spec in MINIMAL8_RUNTIME_ASSETS:
+        if requested_family_ids is not None and spec.family_id not in requested_family_ids:
+            continue
         catalogue_root = harness_root / "semantic-catalogue" / spec.catalogue_dir
         output_paths.append(
             produce_source_pack_runtime_family_asset(

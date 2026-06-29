@@ -22,6 +22,7 @@ from runtime_asset_producer import produce_source_pack_runtime_family_asset
 from semantic_catalogue_ingest import ResolvedSemanticTile, semantic_catalogue_to_json
 from source_manifest_bridge import (
     BridgedSemanticInputs,
+    bridge_logical_tilesheet_to_runtime_unit,
     compare_staged_and_legacy_compatibility_family,
     load_bridged_tile_family,
     load_bridged_tile_library_unit,
@@ -741,6 +742,8 @@ class SourceManifestBridgeTests(unittest.TestCase):
                             origin="test-fixture",
                             schema_version=1,
                             facts={
+                                "category": "fixture-category",
+                                "layer": "fixture-layer",
                                 "meaning": "fixture legacy meaning",
                                 "temperature": "fixture legacy temperature",
                                 "tags": ("fixture-legacy-tag",),
@@ -756,11 +759,9 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(tile.semantics, ("resolved-semantic",))
             self.assertEqual(tile.motifs, ("resolved-motif",))
             self.assertIsNone(tile.meaning)
-            self.assertEqual(tile.tags, ())
-            # Category/layer are required non-content runtime fields; ADR 0014
-            # makes their final production source a slice-6 cutover concern.
-            self.assertEqual(tile.category, "ground")
-            self.assertEqual(tile.layer, "terrain")
+            self.assertEqual(tile.category, "fixture-category")
+            self.assertEqual(tile.layer, TRANSITIONAL_NEUTRAL_TILE_LAYER)
+            self.assertEqual(tile.tags, (f"{LEGACY_LAYER_TAG_PREFIX}fixture-layer",))
             legacy = unit.legacy_semantics_for(tile_id)
             self.assertIsNotNone(legacy)
             assert legacy is not None
@@ -768,6 +769,37 @@ class SourceManifestBridgeTests(unittest.TestCase):
             self.assertEqual(legacy.facts["meaning"], "fixture legacy meaning")
             self.assertEqual(legacy.facts["temperature"], "fixture legacy temperature")
             self.assertEqual(legacy.facts["tags"], ("fixture-legacy-tag",))
+
+    def test_bridge_transform_returns_seeded_runtime_unit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pack_path = make_bridged_source_pack(Path(temp_dir))
+            tile_id = "demo.overworld:all:0,0"
+            base_family = load_bridged_tile_family(pack_path, tileset_id="demo.base", tilesheet_id="overworld")
+            content_hash = content_hashes_by_tile_id(base_family, variant_ids=("base", "bg"))[tile_id]
+
+            unit = bridge_logical_tilesheet_to_runtime_unit(
+                load_tile_pack_manifest(pack_path),
+                tileset_id="demo.base",
+                tilesheet_id="overworld",
+                semantic_inputs=BridgedSemanticInputs(
+                    resolved=(ResolvedSemanticTile(content_hash=content_hash, facts={"temperature": "resolved-cool"}),),
+                    legacy_semantics=(
+                        LegacyTileSemanticRecord(
+                            tile_id=tile_id,
+                            origin="test-fixture",
+                            schema_version=1,
+                            facts={"category": "fixture-category", "layer": "fixture-layer"},
+                        ),
+                    ),
+                    variant_ids=("base", "bg"),
+                ),
+            )
+
+            tile = unit.tiles[tile_id]
+            self.assertEqual(tile.temperature, "resolved-cool")
+            self.assertEqual(tile.category, "fixture-category")
+            self.assertEqual(tile.layer, TRANSITIONAL_NEUTRAL_TILE_LAYER)
+            self.assertEqual(tile.tags, (f"{LEGACY_LAYER_TAG_PREFIX}fixture-layer",))
 
     def test_source_pack_runtime_asset_producer_uses_durable_semantics_and_catalogue_variant_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1120,6 +1152,44 @@ class SourceManifestBridgeTests(unittest.TestCase):
                 if path.is_file()
             }
         self.assertEqual(generated_files, committed_files)
+
+    def test_minimal8_characters_runtime_asset_generation_matches_committed_tree(self) -> None:
+        committed_root = ROOT / "prototypes/minimal8-harness/runtime-families"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated_root = Path(temp_dir) / "runtime-families"
+
+            produce_minimal8_runtime_assets(
+                runtime_families_dir=generated_root,
+                family_ids=("minimal8.characters",),
+            )
+
+            committed_files = {
+                path.relative_to(committed_root): path.read_bytes()
+                for root in (committed_root / "minimal8.characters",)
+                for path in root.rglob("*")
+                if path.is_file()
+            }
+            committed_files[Path("minimal8.characters.json")] = (
+                committed_root / "minimal8.characters.json"
+            ).read_bytes()
+            generated_files = {
+                path.relative_to(generated_root): path.read_bytes()
+                for path in generated_root.rglob("*")
+                if path.is_file()
+            }
+        self.assertEqual(generated_files, committed_files)
+
+    def test_minimal8_runtime_asset_generation_rejects_unknown_family_before_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated_root = Path(temp_dir) / "runtime-families"
+
+            with self.assertRaisesRegex(ValueError, "Unsupported Minimal 8 family ids: bad"):
+                produce_minimal8_runtime_assets(
+                    runtime_families_dir=generated_root,
+                    family_ids=("minimal8", "bad"),
+                )
+
+            self.assertFalse(generated_root.exists())
 
     def test_bridge_surfaces_catalog_payload_errors_like_tile_family_load(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
