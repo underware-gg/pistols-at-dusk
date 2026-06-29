@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from PIL import Image
 
 
@@ -11,3 +13,7 @@ CANONICAL_RGBA_FORMAT_HEADER = b"rgba8\n"
 def canonical_rgba_bytes(image: Image.Image) -> bytes:
     rgba = image.convert("RGBA")
     return CANONICAL_RGBA_FORMAT_HEADER + f"{rgba.width}x{rgba.height}\n".encode("ascii") + rgba.tobytes()
+
+
+def canonical_image_digest(image: Image.Image) -> str:
+    return hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()

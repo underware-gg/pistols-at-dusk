@@ -4,15 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hash_digests import SHA256_HEX_DIGEST_LENGTH, is_sha256_hex
+
 
 ATOMIC_ASSET_ALGORITHM = "sha256"
 ATOMIC_ASSET_PREFIX = f"{ATOMIC_ASSET_ALGORITHM}:"
-ATOMIC_ASSET_DIGEST_LENGTH = 64
-_LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
+ATOMIC_ASSET_DIGEST_LENGTH = SHA256_HEX_DIGEST_LENGTH
 
 
 def _validate_digest(digest: str, *, context: str) -> None:
-    if len(digest) != ATOMIC_ASSET_DIGEST_LENGTH or any(char not in _LOWER_HEX_DIGITS for char in digest):
+    if not is_sha256_hex(digest):
         raise ValueError(f"Unsupported atomic asset {context} {digest!r}")
 
 

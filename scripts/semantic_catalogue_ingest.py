@@ -17,17 +17,16 @@ from typing import Iterable, Mapping, Protocol, TypeAlias, TypeVar, cast
 from PIL import Image
 
 from _manifest_utils import require_list, require_mapping
-from pixel_content import canonical_rgba_bytes
+from hash_digests import SHA256_HEX_DIGEST_LENGTH, is_sha256_hex
+from pixel_content import canonical_image_digest
 
 
 CONTENT_HASH_ALGORITHM = "sha256"
 CONTENT_HASH_PREFIX = f"content-{CONTENT_HASH_ALGORITHM}:"
-CONTENT_HASH_DIGEST_LENGTH = 64
+CONTENT_HASH_DIGEST_LENGTH = SHA256_HEX_DIGEST_LENGTH
 SEMANTIC_CATALOGUE_SCHEMA_VERSION = 1
 SEMANTIC_CONTENT_IDENTITY_BASIS = "variant_set"
 SEMANTIC_CONTENT_IDENTITY_HASH = f"content-{CONTENT_HASH_ALGORITHM}"
-
-_LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
 
 _SEQUENCE_FACT_FIELDS = frozenset(
     {
@@ -83,10 +82,6 @@ def content_hash_for_variant_images(images_by_variant_id: Mapping[str, Image.Ima
     return f"{CONTENT_HASH_PREFIX}{digest.hexdigest()}"
 
 
-def canonical_image_digest(image: Image.Image) -> str:
-    return hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
-
-
 def _validate_content_hash(content_hash: str, *, context: str) -> None:
     if (
         not content_hash.startswith(CONTENT_HASH_PREFIX)
@@ -94,7 +89,7 @@ def _validate_content_hash(content_hash: str, *, context: str) -> None:
     ):
         raise ValueError(f"{context} must be a {CONTENT_HASH_PREFIX}<64 hex chars> content hash")
     digest = content_hash[len(CONTENT_HASH_PREFIX) :]
-    if any(char not in _LOWER_HEX_DIGITS for char in digest):
+    if not is_sha256_hex(digest):
         raise ValueError(f"{context} must be a {CONTENT_HASH_PREFIX}<64 hex chars> content hash")
 
 
