@@ -36,7 +36,10 @@ from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_sem
 from semantic_catalogue_ingest import index_by_content_hash, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import load_bridged_tile_family
 from tile_library import LEGACY_LAYER_TAG_PREFIX, TRANSITIONAL_NEUTRAL_TILE_LAYER, PlaceableRef
-from minimal8_source_project import write_minimal8_source_pack_project
+from minimal8_source_project import (
+    source_minimal8_project_path as _source_minimal8_project_path,
+    write_minimal8_source_pack_project,
+)
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -93,6 +96,14 @@ class Minimal8SemanticExpectation:
 def _copy_file(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dest)
+
+
+def _link_readonly_tree(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(src.resolve(), dest, target_is_directory=True)
+    except OSError:
+        shutil.copytree(src, dest)
 
 
 def _variant_with_id(variants: list[object], variant_id: str) -> dict[str, object]:
@@ -183,7 +194,7 @@ def _copy_minimal8_runtime_fixture(root: Path) -> Minimal8RuntimeFixture:
     )
     shutil.copytree(source_root / "scene-templates", fixture_root / "scene-templates")
     shutil.copytree(source_root / "scene-rules", fixture_root / "scene-rules")
-    shutil.copytree(source_root / "runtime-families" / "minimal8", fixture_root / "runtime-families" / "minimal8")
+    _link_readonly_tree(source_root / "runtime-families" / "minimal8", fixture_root / "runtime-families" / "minimal8")
     _copy_file(source_root / "runtime-families" / "minimal8.json", fixture_root / "runtime-families" / "minimal8.json")
     shutil.copytree(source_root / "tile-families" / "minimal8" / "derived", fixture_root / "tile-families" / "minimal8" / "derived")
 
@@ -407,11 +418,14 @@ def _copy_minimal8_production_harness(root: Path) -> Path:
         "tile-families",
         "tile-packs",
     ):
-        shutil.copytree(
-            source_root / dirname,
-            fixture_root / dirname,
-            ignore=shutil.ignore_patterns("__pycache__"),
-        )
+        if dirname == "runtime-families":
+            _link_readonly_tree(source_root / dirname, fixture_root / dirname)
+        else:
+            shutil.copytree(
+                source_root / dirname,
+                fixture_root / dirname,
+                ignore=shutil.ignore_patterns("__pycache__"),
+            )
     for manifest_path, list_key, resource_prefix in (
         (
             fixture_root / "tile-packs" / "minimal8" / "tilesheets" / "main.json",
@@ -466,15 +480,6 @@ def _localise_minimal8_variant_sheets(
 
 def _minimal8_catalogue_dir(fixture_root: Path, family_id: str) -> Path:
     return fixture_root / "semantic-catalogue" / minimal8_runtime_asset_spec(family_id).catalogue_dir
-
-
-def _source_minimal8_project_path(test_case: unittest.TestCase, project_name: str = "project.minimal8.json") -> Path:
-    temp_dir = tempfile.TemporaryDirectory()
-    test_case.addCleanup(temp_dir.cleanup)
-    return write_minimal8_source_pack_project(
-        ROOT / "prototypes" / "minimal8-harness" / project_name,
-        Path(temp_dir.name) / f"source-{project_name}",
-    )
 
 
 def _write_minimal8_production_stamp_layout(
@@ -898,6 +903,26 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
             project.get_tileset(other_variant_id)
             self.assertEqual(runtime_calls.count(other_variant_id), 1)
 
+
+class Minimal8SourceProjectTests(unittest.TestCase):
+    def test_committed_source_operator_project_matches_runtime_project_derivation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated_path = Path(temp_dir) / "project.minimal8.source.json"
+            write_minimal8_source_pack_project(
+                ROOT / "prototypes/minimal8-harness/project.minimal8.json",
+                generated_path,
+                source_pack="./tile-packs/minimal8/pack.json",
+                absolutise_paths=False,
+            )
+            generated = json.loads(generated_path.read_text(encoding="utf-8"))
+
+        committed = json.loads(
+            (ROOT / "prototypes/minimal8-harness/project.minimal8.source.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(generated, committed)
+
+
+class LayoutProjectLoadingTests(unittest.TestCase):
     def test_get_tileset_lists_available_ids_for_unknown_lookup(self) -> None:
         project_path = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
         project = layout_core.LayoutProject(project_path)
@@ -2867,6 +2892,48 @@ class LayoutProjectLazyTilesetTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(len(payload), 2)
         self.assertTrue(all(any(alias.startswith("indoors.bookcase") for alias in entry["aliases"]) for entry in payload))
+
+    def test_main_query_semantic_defaults_to_source_operator_project(self) -> None:
+        stdout = io.StringIO()
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "harness.py",
+                "query-semantic",
+                "--tileset",
+                "minimal8@1bit_colored_bg",
+                "--alias-prefix",
+                "indoors.bookcase",
+                "--limit",
+                "1",
+            ],
+        ), redirect_stdout(stdout):
+            harness.main()
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(len(payload), 1)
+        self.assertTrue(any(alias.startswith("indoors.bookcase") for alias in payload[0]["aliases"]))
+
+    def test_main_query_semantic_rejects_runtime_asset_project(self) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "harness.py",
+                    "query-semantic",
+                    str(ROOT / "prototypes/minimal8-harness/project.minimal8.json"),
+                    "--tileset",
+                    "minimal8@1bit_colored_bg",
+                    "--limit",
+                    "1",
+                ],
+            ),
+            self.assertRaisesRegex(ValueError, "source-backed grid tileset"),
+        ):
+            harness.main()
 
     def test_characters_project_loads_bridged_family_without_runtime_scene_libraries(self) -> None:
         project = layout_core.LayoutProject(

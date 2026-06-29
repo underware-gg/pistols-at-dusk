@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
         "inspect-family",
         help="Export grid, cluster, semantic, and contact-sheet inspection outputs for one project family variant.",
     )
-    inspect_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    inspect_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     inspect_parser.add_argument("--tileset", required=True)
     inspect_parser.add_argument("--output-dir", type=Path, default=None)
 
@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
         "detect-source-layout",
         help="Suggest source-sheet ingest regions, clusters, and multi-tile components from a family variant bitmap.",
     )
-    detect_source_layout_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    detect_source_layout_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     detect_source_layout_parser.add_argument("--tileset", required=True)
     detect_source_layout_parser.add_argument("--output-dir", type=Path, default=None)
 
@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
             "including its region/cluster context and any mapped family tile."
         ),
     )
-    inspect_source_cell_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    inspect_source_cell_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     inspect_source_cell_parser.add_argument("--tileset", required=True)
     inspect_source_cell_parser.add_argument("--sheet-col", required=True, type=int)
     inspect_source_cell_parser.add_argument("--sheet-row", required=True, type=int)
@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         "export-review-pack",
         help="Export a filtered semantic tile review pack with tile copies and an annotation doc.",
     )
-    review_pack_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    review_pack_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     review_pack_parser.add_argument("--tileset", required=True)
     review_pack_parser.add_argument("--output-dir", type=Path, default=None)
     review_pack_parser.add_argument("--scene", default=None)
@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         "export-collection-review-pack",
         help="Export a repo-backed, commit-friendly review pack for authored source-layout collections.",
     )
-    collection_review_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    collection_review_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     collection_review_parser.add_argument("--tileset", required=True)
     collection_review_parser.add_argument("--output-dir", type=Path, default=None)
     collection_review_parser.add_argument("--scratch-output-dir", type=Path, default=None)
@@ -71,14 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
         "validate-family-ingest",
         help="Validate that every family tile has source_group, cluster_ids, meaning, and meaning_confidence coverage.",
     )
-    validate_ingest_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    validate_ingest_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     validate_ingest_parser.add_argument("--tileset", required=True)
 
     audit_usage_parser = subparsers.add_parser(
         "audit-family-semantic-usage",
         help="Surface aliases and project refs that still land on non-confirmed family meanings.",
     )
-    audit_usage_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_PROJECT)
+    audit_usage_parser.add_argument("project", nargs="?", type=Path, default=harness.DEFAULT_SOURCE_PROJECT)
     audit_usage_parser.add_argument("--tileset", required=True)
     audit_usage_parser.add_argument("--layouts-dir", type=Path, default=None)
     return parser

@@ -16,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_to_json
+import layout_core
 from produce_minimal8_runtime_assets import produce_minimal8_runtime_assets
 from runtime_asset_producer import produce_source_pack_runtime_family_asset
 from semantic_catalogue_ingest import ResolvedSemanticTile, semantic_catalogue_to_json
@@ -773,6 +774,10 @@ class SourceManifestBridgeTests(unittest.TestCase):
             root = Path(temp_dir)
             pack_path = make_bridged_source_pack(root / "pack")
             tile_id = "demo.overworld:all:0,0"
+            bg_sheet_path = pack_path.parent / "art" / "overworld.bg.png"
+            bg_sheet = Image.open(bg_sheet_path).convert("RGBA")
+            bg_sheet.putpixel((1, 1), (12, 34, 56, 255))
+            bg_sheet.save(bg_sheet_path)
             set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "temperature"], "poison-hot")
             set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "semantics"], ["poison-semantic"])
             set_json_value(pack_path.parent / "legacy-family" / "tiles.json", [0, "category"], "poison-category")
@@ -829,6 +834,28 @@ class SourceManifestBridgeTests(unittest.TestCase):
                 runtime_families_dir=root / "runtime-families",
             )
             runtime_unit = tile_library_unit_from_json(output_path.read_text(encoding="utf-8"))
+            runtime_project_path = root / "runtime-project.json"
+            write_json(
+                runtime_project_path,
+                {
+                    "tile_family": {
+                        "runtime_asset": str(output_path),
+                        "family_id": "demo.overworld",
+                        "variant_id": "bg",
+                    },
+                    "grid": {"tile_width": 8, "tile_height": 8},
+                    "tilesets": {},
+                    "aliases": {},
+                    "patterns": {},
+                },
+            )
+            runtime_project = layout_core.LayoutProject(runtime_project_path)
+            rendered = layout_core.render_pattern_image(
+                runtime_project,
+                runtime_project.pattern_from_ref(tile_id),
+            )
+            self.assertEqual(rendered.size, (8, 8))
+            self.assertIsNotNone(rendered.getbbox())
 
         tile = runtime_unit.tiles[tile_id]
         self.assertEqual(tile.temperature, "resolved-cool")

@@ -79,6 +79,7 @@ install_source_tile_family_loader()
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROJECT = ROOT / "prototypes/minimal8-harness/project.minimal8.json"
+DEFAULT_SOURCE_PROJECT = ROOT / "prototypes/minimal8-harness/project.minimal8.source.json"
 DEFAULT_LAYOUTS_DIR = ROOT / "prototypes/minimal8-harness/layouts"
 DEFAULT_OUTPUT_DIR = ROOT / "prototypes/minimal8-harness/generated"
 DEFAULT_INSPECT_DIR = ROOT / "prototypes/minimal8-harness/scratch.local/inspect"
@@ -1177,7 +1178,7 @@ def main() -> None:
     render_all_parser.add_argument("layouts_dir", nargs="?", type=Path, default=DEFAULT_LAYOUTS_DIR)
 
     tiled_parser = subparsers.add_parser("export-tiled-kit", help="Export the selected tileset as a Tiled-ready 8x8 kit.")
-    tiled_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    tiled_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_SOURCE_PROJECT)
     tiled_parser.add_argument("--tileset", required=True)
     tiled_parser.add_argument("--output-dir", type=Path, default=None)
 
@@ -1185,7 +1186,7 @@ def main() -> None:
         "export-public-tile-pack",
         help="Export an engine-light annotated tile pack with public JSON/CSV metadata and PNG overviews.",
     )
-    public_pack_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    public_pack_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_SOURCE_PROJECT)
     public_pack_parser.add_argument("--tileset", required=True)
     public_pack_parser.add_argument("--output-dir", type=Path, default=None)
     public_pack_parser.add_argument("--slug", default=None)
@@ -1195,7 +1196,7 @@ def main() -> None:
         "query-semantic",
         help="Query the canonical semantic tile metadata for a project tileset.",
     )
-    semantic_query_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    semantic_query_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_SOURCE_PROJECT)
     semantic_query_parser.add_argument("--tileset", required=True)
     semantic_query_parser.add_argument("--region", default=None)
     semantic_query_parser.add_argument("--category", default=None)
@@ -1218,7 +1219,7 @@ def main() -> None:
         "scaffold-pattern",
         help="Emit a JSON pattern snippet from a selected rectangle of grid cells.",
     )
-    scaffold_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    scaffold_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_SOURCE_PROJECT)
     scaffold_parser.add_argument("--tileset", required=True)
     scaffold_parser.add_argument("--name", required=True)
     scaffold_parser.add_argument("--x", type=int, required=True)

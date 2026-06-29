@@ -43,22 +43,6 @@ def minimal8_runtime_asset_spec(family_id: str) -> Minimal8RuntimeAssetSpec:
     raise ValueError(f"Unsupported Minimal 8 family id: {family_id!r}")
 
 
-def minimal8_source_pack_spec(
-    family_id: str,
-    *,
-    variant_id: str,
-    source_pack: str,
-) -> dict[str, object]:
-    spec = minimal8_runtime_asset_spec(family_id)
-    return {
-        "source_pack": source_pack,
-        "tileset_id": spec.tileset_id,
-        "tilesheet_id": spec.tilesheet_id,
-        "family_id": family_id,
-        "variant_id": variant_id,
-    }
-
-
 def produce_minimal8_runtime_assets(
     *,
     harness_root: Path = HARNESS_ROOT,

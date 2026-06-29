@@ -2877,9 +2877,10 @@ def query_semantic_catalog(
     limit: int | None = None,
 ) -> list[SemanticCatalogEntry]:
     project = LayoutProject(project_path)
+    _source_grid_tileset(project, tileset_id)
     family = project.source_family_for_tileset(tileset_id)
     if family is None:
-        return []
+        raise ValueError(f"Tileset {tileset_id!r} is not backed by a tile family")
     records = family.query(
         category=category,
         scene=scene,

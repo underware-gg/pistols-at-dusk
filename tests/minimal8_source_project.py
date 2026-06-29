@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import tempfile
+import unittest
 from pathlib import Path
 from typing import Any, cast
 
-from produce_minimal8_runtime_assets import minimal8_source_pack_spec
+from produce_minimal8_runtime_assets import minimal8_runtime_asset_spec
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +22,14 @@ def source_pack_spec_for_minimal8_family(
     variant_id: str,
     source_pack: str,
 ) -> dict[str, object]:
-    return minimal8_source_pack_spec(family_id, variant_id=variant_id, source_pack=source_pack)
+    spec = minimal8_runtime_asset_spec(family_id)
+    return {
+        "source_pack": source_pack,
+        "tileset_id": spec.tileset_id,
+        "tilesheet_id": spec.tilesheet_id,
+        "family_id": family_id,
+        "variant_id": variant_id,
+    }
 
 
 def resolve_test_path(base_dir: Path, raw_path: str) -> Path:
@@ -39,9 +48,17 @@ def absolutise_project_paths(payload: dict[str, object], *, base_dir: Path) -> N
             spec["sheet"] = str(resolve_test_path(base_dir, cast(str, spec["sheet"])))
 
 
-def write_minimal8_source_pack_project(runtime_project_path: Path, output_path: Path) -> Path:
+def write_minimal8_source_pack_project(
+    runtime_project_path: Path,
+    output_path: Path,
+    *,
+    source_pack: str | None = None,
+    absolutise_paths: bool = True,
+) -> Path:
     base_dir = runtime_project_path.parent
-    pack_path = str((base_dir / "tile-packs" / "minimal8" / "pack.json").resolve())
+    pack_path = source_pack
+    if pack_path is None:
+        pack_path = str((base_dir / "tile-packs" / "minimal8" / "pack.json").resolve())
     project_payload = cast(dict[str, Any], json.loads(runtime_project_path.read_text(encoding="utf-8")))
     if "tile_families" in project_payload:
         project_payload["tile_families"] = [
@@ -59,6 +76,19 @@ def write_minimal8_source_pack_project(runtime_project_path: Path, output_path: 
             variant_id=cast(str, spec["variant_id"]),
             source_pack=pack_path,
         )
-    absolutise_project_paths(project_payload, base_dir=base_dir)
+    if absolutise_paths:
+        absolutise_project_paths(project_payload, base_dir=base_dir)
     write_json(output_path, project_payload)
     return output_path
+
+
+def source_minimal8_project_path(
+    test_case: unittest.TestCase,
+    project_name: str = "project.minimal8.json",
+) -> Path:
+    temp_dir = tempfile.TemporaryDirectory()
+    test_case.addCleanup(temp_dir.cleanup)
+    return write_minimal8_source_pack_project(
+        ROOT / "prototypes" / "minimal8-harness" / project_name,
+        Path(temp_dir.name) / f"source-{project_name}",
+    )
