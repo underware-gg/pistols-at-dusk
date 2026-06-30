@@ -79,6 +79,7 @@ from tile_library import (
     require_variant_sheet_path,
     resolve_tile_image_override_path,
     TileLibraryUnit,
+    with_layer_tag,
 )
 
 DEFAULT_TRANSPARENT_MODE = "top_left"
@@ -600,7 +601,6 @@ EXACT_DUPLICATE_INHERITED_SEQUENCE_FIELDS = frozenset(
 EXACT_DUPLICATE_INHERITED_SCALAR_FIELDS = frozenset(
     {
         "image_override",
-        "layer",
         "category",
         "transparent",
         "walkable",
@@ -1736,10 +1736,9 @@ def _resolve_tiles_from_catalog(
                 genesis=genesis,
                 exact_duplicate_of=resolved_duplicate_of,
                 image_override=image_override,
-                layer=str(spec["layer"]),
                 category=str(spec["category"]),
                 transparent=bool(spec["transparent"]),
-                tags=inherited_sequence("tags"),
+                tags=with_layer_tag(inherited_sequence("tags"), str(spec["layer"])),
                 aliases=aliases_by_tile.get(tile_id, ()),
                 walkable=cast(bool, walkable_raw) if walkable_raw is not None else None,
                 blocking=cast(bool, blocking_raw) if blocking_raw is not None else None,

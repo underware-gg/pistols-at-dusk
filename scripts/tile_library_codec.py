@@ -267,7 +267,6 @@ def _tile_record_payload(tile: TileRecord) -> dict[str, object]:
     return {
         "id": tile.id,
         "family_id": tile.family_id,
-        "layer": tile.layer,
         "category": tile.category,
         "transparent": tile.transparent,
         "tags": list(tile.tags),
@@ -315,10 +314,11 @@ def _tile_record_payload(tile: TileRecord) -> dict[str, object]:
 
 def _tile_record_from_payload(raw: object, *, context: str) -> TileRecord:
     mapping = require_mapping(raw, context=context)
+    if "layer" in mapping:
+        raise ValueError(f"{context}.layer is no longer supported; use legacy_tile_semantics and layer:* tags")
     return TileRecord(
         id=_as_str(mapping.get("id"), context=f"{context}.id"),
         family_id=_as_str(mapping.get("family_id"), context=f"{context}.family_id"),
-        layer=_as_str(mapping.get("layer"), context=f"{context}.layer"),
         category=_as_str(mapping.get("category"), context=f"{context}.category"),
         transparent=_as_bool(mapping.get("transparent"), context=f"{context}.transparent"),
         tags=_as_string_tuple(mapping.get("tags", []), context=f"{context}.tags"),

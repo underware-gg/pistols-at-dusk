@@ -694,7 +694,6 @@ class TileGenesis:
 class TileRecord:
     id: str
     family_id: str
-    layer: str
     category: str
     transparent: bool
     genesis: TileGenesis
@@ -751,15 +750,34 @@ RUNTIME_AUTHORED_TILE_FIELDS = frozenset(
     }
 )
 
-# ADR 0014 migrates the legacy `layer` value into `tags` and removes the field
-# in a follow-up. Until then, runtime assets need one neutral placeholder for
-# the required TileRecord.layer field so no legacy layer value is promoted as a
-# field.
-TRANSITIONAL_NEUTRAL_TILE_LAYER = "legacy-layer-migrated"
 LEGACY_LAYER_TAG_PREFIX = "layer:"
 
 
-REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
+def parse_layer_tag(tags: Iterable[str]) -> str | None:
+    for tag in tags:
+        if tag.startswith(LEGACY_LAYER_TAG_PREFIX):
+            return tag[len(LEGACY_LAYER_TAG_PREFIX) :]
+    return None
+
+
+def with_layer_tag(tags: Iterable[str], value: str) -> tuple[str, ...]:
+    layer_tag = f"{LEGACY_LAYER_TAG_PREFIX}{value}"
+    merged: list[str] = []
+    insert_at: int | None = None
+    for tag in tags:
+        if tag.startswith(LEGACY_LAYER_TAG_PREFIX):
+            if insert_at is None:
+                insert_at = len(merged)
+            continue
+        merged.append(tag)
+    if insert_at is None:
+        merged.append(layer_tag)
+    else:
+        merged.insert(insert_at, layer_tag)
+    return tuple(merged)
+
+
+REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category"})
 
 NON_CONTENT_LEGACY_TILE_FIELDS = frozenset(
     {

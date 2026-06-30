@@ -22,7 +22,7 @@ from semantic_catalogue_ingest import (
 )
 from _manifest_utils import require_list, require_mapping
 from tile_family_runtime import TileFamily, resolve_canonical_tile_image
-from tile_library import LegacyTileSemanticRecord, TileRecord
+from tile_library import LegacyTileSemanticRecord, TileRecord, parse_layer_tag
 
 
 LEGACY_TILE_SEMANTICS_SCHEMA_VERSION = 1
@@ -54,7 +54,8 @@ LEGACY_TILE_SEMANTIC_FIELDS = frozenset(
 )
 
 _TILE_RECORD_FIELD_NAMES = frozenset(field.name for field in fields(TileRecord))
-if missing_legacy_fields := sorted(LEGACY_TILE_SEMANTIC_FIELDS - _TILE_RECORD_FIELD_NAMES):
+_LEGACY_SNAPSHOT_ONLY_FIELDS = frozenset({"layer"})
+if missing_legacy_fields := sorted(LEGACY_TILE_SEMANTIC_FIELDS - _TILE_RECORD_FIELD_NAMES - _LEGACY_SNAPSHOT_ONLY_FIELDS):
     raise ValueError(f"LEGACY_TILE_SEMANTIC_FIELDS are not TileRecord fields: {', '.join(missing_legacy_fields)}")
 
 
@@ -287,12 +288,22 @@ def _semantic_facts_for_tile(tile: TileRecord) -> Mapping[str, SemanticFactValue
     return MappingProxyType({field: getattr(tile, field) for field in INGEST_SEMANTIC_FIELDS})
 
 
+def _legacy_layer_for_tile(tile: TileRecord) -> str | None:
+    return parse_layer_tag(tile.tags)
+
+
+def _legacy_facts_for_tile(tile: TileRecord) -> Mapping[str, SemanticFactValue]:
+    facts = {field: getattr(tile, field) for field in LEGACY_TILE_SEMANTIC_FIELDS - _LEGACY_SNAPSHOT_ONLY_FIELDS}
+    facts["layer"] = _legacy_layer_for_tile(tile)
+    return MappingProxyType(facts)
+
+
 def _legacy_semantic_record_for_tile(tile: TileRecord) -> LegacyTileSemanticRecord:
     return LegacyTileSemanticRecord(
         tile_id=tile.id,
         origin=LEGACY_TILE_SEMANTICS_ORIGIN,
         schema_version=LEGACY_TILE_SEMANTICS_SCHEMA_VERSION,
-        facts={field: getattr(tile, field) for field in LEGACY_TILE_SEMANTIC_FIELDS},
+        facts=_legacy_facts_for_tile(tile),
     )
 
 

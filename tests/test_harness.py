@@ -34,7 +34,7 @@ from runtime_asset_paths import atomic_asset_relative_path
 from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_from_json
 from semantic_catalogue_ingest import index_by_content_hash, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import load_bridged_tile_family
-from tile_library import LEGACY_LAYER_TAG_PREFIX, TRANSITIONAL_NEUTRAL_TILE_LAYER, PlaceableRef
+from tile_library import LEGACY_LAYER_TAG_PREFIX, PlaceableRef
 from runtime_asset_helpers import produce_family_runtime_asset
 from minimal8_source_project import (
     source_minimal8_project_path as _source_minimal8_project_path,
@@ -1241,8 +1241,8 @@ class LayoutProjectLoadingTests(unittest.TestCase):
                 for field, expected_value in semantic_expectation.clean_facts.items():
                     self.assertEqual(getattr(tile, field), expected_value)
                 self.assertEqual(tile.category, semantic_expectation.legacy_category)
-                self.assertEqual(tile.layer, TRANSITIONAL_NEUTRAL_TILE_LAYER)
                 self.assertIn(f"{LEGACY_LAYER_TAG_PREFIX}{semantic_expectation.legacy_layer}", tile.tags)
+                self.assertFalse(hasattr(tile, "layer"))
                 legacy = tile_library.legacy_semantics_for(semantic_expectation.tile_id)
                 self.assertIsNotNone(legacy)
                 assert legacy is not None

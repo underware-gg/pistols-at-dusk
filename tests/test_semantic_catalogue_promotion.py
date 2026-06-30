@@ -38,7 +38,6 @@ def _tile(tile_id: str, *, sheet_col: int, meaning: str = "stool") -> TileRecord
     return TileRecord(
         id=tile_id,
         family_id="test.family",
-        layer="object",
         category="furniture",
         transparent=True,
         tags=("legacy",),
@@ -115,7 +114,6 @@ class SemanticCataloguePromotionTests(unittest.TestCase):
         self.assertEqual(promoted_tile.tags, ("legacy",))
         self.assertEqual(promoted_tile.source_notes, "legacy source note")
         self.assertEqual(promoted_tile.category, "furniture")
-        self.assertEqual(promoted_tile.layer, "object")
         self.assertFalse(promoted_tile.walkable)
         self.assertTrue(promoted_tile.blocking)
         self.assertEqual(promoted_tile.requires_exposed_on, ("north",))

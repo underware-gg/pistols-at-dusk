@@ -18,17 +18,16 @@ from source_manifests import (
 )
 from tile_library import (
     CellContentInset,
-    LEGACY_LAYER_TAG_PREFIX,
     LegacyTileSemanticRecord,
     NON_CONTENT_LEGACY_TILE_FIELDS,
     REQUIRED_NON_CONTENT_TILE_FIELDS,
-    TRANSITIONAL_NEUTRAL_TILE_LAYER,
     TILE_RECORD_FIELD_DEFAULTS,
     TileFamilyHeader,
     TileFamilyVariant,
     TileLibraryUnit,
     TileLibraryPromotedMetadata,
     TileRecord,
+    with_layer_tag,
 )
 from source_layout_model import (
     SourceLayoutIngestion,
@@ -306,10 +305,9 @@ def bridge_logical_tilesheet_to_runtime_unit(
 ) -> TileLibraryUnit:
     """Bridge a logical tilesheet into a seeded runtime unit.
 
-    Required non-content fields (`category`, `layer`) are seeded from the durable
-    legacy layer here: `category` becomes the runtime field, and legacy `layer`
-    is preserved as a `layer:<value>` tag while the transitional field receives
-    the ADR 0014 neutral placeholder.
+    Required non-content field `category` is seeded from the durable legacy layer
+    here. The legacy `layer` value is preserved permanently as a `layer:<value>`
+    tag.
     """
 
     base_family = bridge_logical_tilesheet_to_family(
@@ -348,7 +346,7 @@ def _structural_base_unit(unit: TileLibraryUnit) -> TileLibraryUnit:
     return unit.with_tiles(runtime_tiles)
 
 
-_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category", "layer"})
+_HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS = frozenset({"category"})
 if _HANDLED_REQUIRED_NON_CONTENT_TILE_FIELDS != REQUIRED_NON_CONTENT_TILE_FIELDS:
     raise ValueError(
         "source manifest bridge required non-content field seeding is out of sync with "
@@ -365,6 +363,15 @@ def _legacy_fact_as_string(record: LegacyTileSemanticRecord, field: str, *, tile
     return value
 
 
+def _optional_legacy_fact_as_string(record: LegacyTileSemanticRecord, field: str, *, tile_id: str) -> str | None:
+    value = record.facts.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str) or value == "":
+        raise ValueError(f"Legacy semantic record for tile {tile_id!r} must declare non-empty string {field!r}")
+    return value
+
+
 def _seed_required_non_content_fields_from_legacy(unit: TileLibraryUnit) -> TileLibraryUnit:
     runtime_tiles: dict[str, TileRecord] = {}
     for tile_id, tile in unit.tiles.items():
@@ -372,13 +379,11 @@ def _seed_required_non_content_fields_from_legacy(unit: TileLibraryUnit) -> Tile
         if legacy is None:
             raise ValueError(f"Cannot seed required runtime fields for tile {tile_id!r}: missing legacy semantic record")
         category = _legacy_fact_as_string(legacy, "category", tile_id=tile_id)
-        legacy_layer = _legacy_fact_as_string(legacy, "layer", tile_id=tile_id)
-        layer_tag = f"{LEGACY_LAYER_TAG_PREFIX}{legacy_layer}"
+        legacy_layer = _optional_legacy_fact_as_string(legacy, "layer", tile_id=tile_id)
         runtime_tiles[tile_id] = replace(
             tile,
             category=category,
-            layer=TRANSITIONAL_NEUTRAL_TILE_LAYER,
-            tags=tuple(sorted(set(tile.tags) | {layer_tag})),
+            tags=tile.tags if legacy_layer is None else with_layer_tag(tile.tags, legacy_layer),
         )
     return unit.with_tiles(runtime_tiles)
 

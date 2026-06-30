@@ -33,6 +33,7 @@ from tile_library import (
     SheetCell,
     TileClusterRecord,
     TileRecord,
+    parse_layer_tag,
 )
 from source_layout_model import (
     SourceLayoutCollection,
@@ -83,7 +84,6 @@ class RawCatalogEntry(TypedDict):
 class SemanticCatalogEntry(TypedDict):
     id: str
     family_id: str
-    layer: str
     category: str
     transparent: bool
     tags: list[str]
@@ -199,7 +199,6 @@ def build_semantic_catalog_entries(
         entry: SemanticCatalogEntry = {
             "id": meta.id,
             "family_id": meta.family_id,
-            "layer": meta.layer,
             "category": meta.category,
             "transparent": meta.transparent,
             "tags": list(meta.tags),
@@ -356,7 +355,7 @@ def build_tile_edge_catalog(project: LayoutProject, tileset_id: str) -> list[Til
                         if semantic is None
                         else {
                             "tile_id": semantic["id"],
-                            "layer": semantic["layer"],
+                            "layer": parse_layer_tag(semantic["tags"]),
                             "category": semantic["category"],
                             "physical_ref": semantic["physical_ref"],
                         }
@@ -1700,7 +1699,7 @@ def _public_tile_entry(
             "source_cluster_ids": source_cluster_ids,
             "source_group": entry["source_group"],
         },
-        "layer": entry["layer"],
+        "layer": parse_layer_tag(entry["tags"]) or "",
         "category": entry["category"],
         "tags": list(entry["tags"]),
         "aliases": list(entry["aliases"]),
@@ -1946,7 +1945,7 @@ def _write_public_tiles_csv(entries: Sequence[dict[str, object]], output_path: P
                     "col": "" if sheet is None else cast(int, sheet["col"]),
                     "row": "" if sheet is None else cast(int, sheet["row"]),
                     "category": cast(str, entry["category"]),
-                    "layer": cast(str, entry["layer"]),
+                    "layer": parse_layer_tag(cast(list[str], entry["tags"])) or "",
                     "confidence": confidence,
                     "aliases": "|".join(cast(list[str], entry["aliases"])),
                     "tags": "|".join(cast(list[str], entry["tags"])),
@@ -2929,7 +2928,6 @@ def inspect_source_cell(
             "id": tile.id,
             "canonical_tile_id": family.canonical_tile_id(tile.id),
             "family_id": tile.family_id,
-            "layer": tile.layer,
             "category": tile.category,
             "sheet": {
                 "col": tile.genesis.sheet_col,

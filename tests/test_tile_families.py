@@ -50,8 +50,10 @@ from tile_library import (
     connection_surface_for_placeable,
     entity_template_from_placeable,
     lower_tile_asset_to_cells,
+    parse_layer_tag,
     project_parametric_frame,
     resolve_tile_image_override_path,
+    with_layer_tag,
 )
 from tile_library_codec import (
     tile_library_unit_from_json,
@@ -1605,7 +1607,6 @@ def _make_tile(
     return TileRecord(
         id=tile_id,
         family_id=family_id,
-        layer="map",
         category="tile",
         transparent=False,
         tags=(),
@@ -1712,7 +1713,6 @@ class TileGenesisTests(unittest.TestCase):
         record = TileRecord(
             id="testfam:derived.shelf",
             family_id="testfam",
-            layer="map",
             category="tile",
             transparent=True,
             tags=(),
@@ -2332,6 +2332,13 @@ def _json_strings(value: object) -> list[str]:
 
 
 class TileLibraryRegistryTests(unittest.TestCase):
+    def test_with_layer_tag_replaces_existing_layer_tags(self) -> None:
+        tags = with_layer_tag(("alpha", "layer:old", "beta", "layer:older"), "new")
+
+        self.assertEqual(tags, ("alpha", "layer:new", "beta"))
+        self.assertEqual(parse_layer_tag(tags), "new")
+        self.assertEqual(sum(1 for tag in tags if tag.startswith("layer:")), 1)
+
     def test_runtime_library_unit_serializes_and_deserializes(self) -> None:
         unit = _make_serialized_runtime_unit_fixture()
 
@@ -2483,6 +2490,14 @@ class TileLibraryRegistryTests(unittest.TestCase):
         variants.append(json.loads(json.dumps(variants[0])))
 
         with self.assertRaisesRegex(ValueError, "runtime library.attachment_sets\\[0\\].variants\\[1\\] duplicates id 'default'"):
+            tile_library_unit_from_payload(payload)
+
+    def test_runtime_library_loader_rejects_legacy_tile_layer_key(self) -> None:
+        payload = _runtime_payload_fixture()
+        tile = _tile_payload_by_id(payload, "testfam:body")
+        tile["layer"] = "legacy-layer-migrated"
+
+        with self.assertRaisesRegex(ValueError, "runtime library.tiles\\[0\\].layer is no longer supported"):
             tile_library_unit_from_payload(payload)
 
     def test_runtime_library_loader_rejects_duplicate_sheet_cells(self) -> None:

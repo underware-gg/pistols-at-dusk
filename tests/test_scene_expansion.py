@@ -1314,7 +1314,6 @@ def _make_tile_record(tile_id: str) -> TileRecord:
     return TileRecord(
         id=tile_id,
         family_id="testfam",
-        layer="architecture",
         category="tile",
         transparent=False,
         tags=(),
