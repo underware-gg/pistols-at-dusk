@@ -2,16 +2,18 @@
 
 ## Overview
 
-The current prototype now has a clearer boundary between source-shaped ingestion data and the runtime surface that scene composition consumes. Phase 1 of the Ingestion–Runtime Separation work split the old all-in-one family module into runtime, ingest/operator, and shared value layers while leaving a transitional compatibility facade in place.
+The Ingestion–Runtime Separation (IRS) boundary is closed for production. The runtime loads committed `runtime_asset` family libraries (under `prototypes/minimal8-harness/runtime-families/`) and never reads source-manifest files, `tiles.json`, vendor sheets, or the compatibility bundle at load/render time. Phases 1–3 of the IRS work are complete: Phase 1 split the family module into runtime/ingest/shared layers; Phase 2 introduced content-addressed atomic tile assets and synthetic packed atlases ([ADR 0012](decisions/0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md)); Phase 3 refined the semantic catalogue with content-keyed clean semantics and a preserved legacy metadata layer ([ADR 0013](decisions/0013-content-keyed-semantics-and-legacy-metadata-layer.md)), and made tile membership plural while removing the `layer` field from `TileRecord` in favour of `layer:<v>` tags ([ADR 0014](decisions/0014-tile-membership-is-plural-category-is-a-primary-grouping.md)).
 
-The current ingest/runtime boundary is:
+The source pack, source-layout files, compatibility bundle, and vendor sheets remain committed as ingest/producer inputs and operator surfaces; the build-side producer still reads `tiles.json`. Only the production runtime path is clear of them.
 
-- staged pack / tileset / logical-tilesheet manifests now exist on the source side
-- a one-way bridge adapts those staged source manifests into the current family-backed compatibility path
-- the Minimal 8 project now enters through that staged source-pack path
-- the runtime still consumes `TileLibraryUnit` / `TileLibraryRegistry` rather than source manifests directly
-- `TileLibraryUnit` now carries the runtime-relevant metadata explicitly promoted from the staged source manifests: source-pack identity, source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and documented hints that were intentionally promoted for runtime/tooling use
-- runtime family loading and validation now live in an ingest-clean `tile_family_runtime` module, while source-layout loading, coverage, detection, and bootstrap helpers live in `tile_family_ingest`
+The ingest/runtime boundary:
+
+- staged pack / tileset / logical-tilesheet manifests live on the source side
+- a one-way bridge adapts those staged source manifests into the family-backed compatibility path (ingest/operator surfaces)
+- the Minimal 8 project enters through the staged source-pack path for ingest; the production runtime path loads produced `runtime_asset` libraries instead
+- the runtime consumes `TileLibraryUnit` / `TileLibraryRegistry` rather than source manifests directly
+- `TileLibraryUnit` carries the runtime-relevant metadata explicitly promoted from the staged source manifests: source-pack identity, source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and documented hints that were intentionally promoted for runtime/tooling use
+- runtime family loading and validation live in an ingest-clean `tile_family_runtime` module, while source-layout loading, coverage, detection, and bootstrap helpers live in `tile_family_ingest`
 - source-layout records and helpers shared across that boundary live in `source_layout_model`
 - `tile_families` remains a transitional compatibility facade for legacy imports during the split
 
@@ -51,6 +53,8 @@ That split keeps the source of truth aligned with the asset itself while also gi
 ## Current Runtime Shape
 
 - Runtime family loader/validator module: [scripts/tile_family_runtime.py](../../scripts/tile_family_runtime.py)
+- Runtime tile-library asset codec (serialize/deserialize `TileLibraryUnit`): [scripts/tile_library_codec.py](../../scripts/tile_library_codec.py)
+- Runtime tilesheet export (exports from committed runtime assets only): [scripts/runtime_tilesheet_export.py](../../scripts/runtime_tilesheet_export.py)
 - Ingest/operator family module: [scripts/tile_family_ingest.py](../../scripts/tile_family_ingest.py)
 - Shared source-layout value types: [scripts/source_layout_model.py](../../scripts/source_layout_model.py)
 - Transitional compatibility facade: [scripts/tile_families.py](../../scripts/tile_families.py)
@@ -60,6 +64,15 @@ That split keeps the source of truth aligned with the asset itself while also gi
 - Harness entrypoint (scene-runtime + render + CLI): [scripts/harness.py](../../scripts/harness.py)
 - Minimal 8 source pack: [prototypes/minimal8-harness/tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8)
 - Minimal 8 compatibility bundle: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8)
+- Minimal 8 runtime-family assets (committed produced output): [prototypes/minimal8-harness/runtime-families/](../../prototypes/minimal8-harness/runtime-families/)
+
+Build-side / ingest-side producer pipeline:
+
+- Ingest-side runtime asset producer (reads source/compat family, writes runtime-family JSON + content-addressed PNGs): [scripts/runtime_asset_producer.py](../../scripts/runtime_asset_producer.py)
+- Regenerate committed Minimal 8 runtime-family assets (producer entrypoint): [scripts/produce_minimal8_runtime_assets.py](../../scripts/produce_minimal8_runtime_assets.py)
+- Semantic catalogue resolver (within-ingest non-clobber: base facts + sparse authored patches, authored wins): [scripts/semantic_catalogue_ingest.py](../../scripts/semantic_catalogue_ingest.py)
+- Semantic catalogue promotion (promotes resolved ingest catalogue into runtime tile units): [scripts/semantic_catalogue_promotion.py](../../scripts/semantic_catalogue_promotion.py)
+- Legacy `tiles.json` bootstrap (one-time bootstrap of content-keyed semantic patch from legacy metadata): [scripts/legacy_semantic_bootstrap.py](../../scripts/legacy_semantic_bootstrap.py)
 
 In the current implementation:
 
@@ -104,6 +117,9 @@ See [docs/architecture/decisions/README.md](decisions/README.md).
 - [Minimal 8 Source-Sheet Notes](minimal8-source-sheet-notes.md) — sheet-level facts captured during Minimal 8 ingestion.
 - [Runtime Tile Genesis and Provenance](decisions/0005-runtime-tile-genesis-and-provenance.md) (ADR 0005) — runtime-owned provenance model for tracing resolved tiles and scene stamps back to their promoted source genesis without reopening ingest-time files.
 - [Runtime/Ingest Family Module Split](decisions/0011-runtime-ingest-family-module-split.md) (ADR 0011) — Phase 1 module boundary for runtime family loading, ingest/operator helpers, shared source-layout values, and the transitional facade.
+- [Runtime Owns Its Pixels](decisions/0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md) (ADR 0012) — IRS Phase 2: atomic content-addressed tile assets and synthetic packed atlases; production runtime path no longer reads vendor sheets or source manifests.
+- [Content-Keyed Semantics and Legacy Metadata Layer](decisions/0013-content-keyed-semantics-and-legacy-metadata-layer.md) (ADR 0013) — IRS Phase 3: clean content-keyed semantic catalogue with a preserved legacy metadata layer for migration continuity.
+- [Tile Membership Is Plural; Category Is a Single Primary Grouping](decisions/0014-tile-membership-is-plural-category-is-a-primary-grouping.md) (ADR 0014) — membership plural via tags; `category` is the single primary grouping; `layer` field removed from `TileRecord` in favour of `layer:<v>` tags.
 - [Source-Sheet Ingestion Model](source-sheet-ingestion-model.md) — separation between source-sheet layout and tile semantics.
 
 ## Operator Surfaces

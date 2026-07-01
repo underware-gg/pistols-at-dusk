@@ -60,13 +60,19 @@ The "do not silently rewrite older entries" rule above applies to versions that 
 
 Each `docs/changelog/vX.Y.Z.md` file documents one version. On `main` that version is the latest experimental shipped state; on a branch it is a draft that becomes shipped when the branch integrates to `main`.
 
-Required shape:
+Conventional shape (scaffolded by `release-prepare` where applicable; the full structure is a convention, not machine-enforced):
 
 - `# vX.Y.Z — YYYY-MM-DD` heading
 - a top-line bold `**Summary**` line: one short sentence describing the contributor-visible or downstream-visible effect of the version
 - optional short prose context
 - top-level detail bullets as needed to describe the shipped surface clearly; there is no fixed cap when more detail materially improves release clarity
 - optional one-level nested bullets for important identifiers
+
+Tooling-enforced requirements (`scripts/release_workflow.py version-check` and the `commit-msg` hook check these):
+
+- the file must contain a top-line bold `**Summary**` line (non-empty, no trailing period, no version suffix `(vX.Y.Z)`)
+- the `Summary` text must appear verbatim in exactly one `docs/CHANGELOG.md` row for this version
+- the `README.md` Version badge must match `VERSION`
 
 Rules:
 
@@ -83,7 +89,7 @@ Rules:
 
 Each `docs/changelog/releases/vX.Y.Z-<slug>.md` file documents the later stable promotion of an existing version.
 
-Required shape:
+Conventional shape (scaffolded by `release-prepare`; the full structure beyond the heading is a convention, not machine-enforced):
 
 - top-line heading `# <Title> (vX.Y.Z)`
 - `Shipped: YYYY-MM-DD`
@@ -92,6 +98,13 @@ Required shape:
 - `## Highlights`
 - `## Stable Validation`
 - `## Version`
+
+Tooling-enforced requirements (`scripts/release_workflow.py release` checks these):
+
+- the file must start with a `# <Title> (vX.Y.Z)` heading matching the current version
+- the file must not contain any `TODO` placeholders
+- `docs/CHANGELOG.md` must contain exactly one stable release row for this version using the derived `Release: <title>` label
+- the full version bundle (version file, CHANGELOG row, README badge) must also be coherent — `release` runs the equivalent of `version-check` as part of its validation
 
 Rules:
 

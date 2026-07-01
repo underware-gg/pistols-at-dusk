@@ -10,9 +10,11 @@ Practical guidance for contributors and agents working in this repo. Repo layout
 
 ## Canonical sources of truth
 
-- Minimal 8 sheet/family semantics: [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8).
+- Minimal 8 authored semantic content (tiles, aliases, clusters, constructions): [prototypes/minimal8-harness/tile-families/minimal8](../../prototypes/minimal8-harness/tile-families/minimal8) — transitional compatibility / producer input; the active source-ingest entrypoint is [tile-packs/minimal8](../../prototypes/minimal8-harness/tile-packs/minimal8) and the production runtime entrypoint is [runtime-families/](../../prototypes/minimal8-harness/runtime-families).
 - Harness runtime: [scripts/harness.py](../../scripts/harness.py).
-- Family ingest / loader / query model: [scripts/tile_families.py](../../scripts/tile_families.py).
+- Shared project/render base: [scripts/layout_core.py](../../scripts/layout_core.py).
+- Source-ingest CLI: [scripts/source_ingest.py](../../scripts/source_ingest.py).
+- Transitional family compatibility facade: [scripts/tile_families.py](../../scripts/tile_families.py).
 - Runtime library surface: [scripts/tile_library.py](../../scripts/tile_library.py).
 - Scene DSL evaluator: [scripts/scene_templates.py](../../scripts/scene_templates.py).
 

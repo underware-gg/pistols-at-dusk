@@ -10,7 +10,8 @@ Current implementation note:
 - `scripts/source_ingest.py`, `scripts/reference_grid.py`, and `scripts/reference_tile_match.py` are the operator-facing source-side tools for inspecting, reviewing, and matching raw-sheet/reference material (`source_ingest.py` is the CLI entrypoint; the operator function bodies live in `source_ingest_ops.py`)
 - Minimal 8 project loading now enters through the staged source-pack manifests rather than a direct family path
 - the current Minimal 8 tilesheet manifest still points at `tile-families/minimal8/ingestion.json` for the source-layout payload through the transitional compatibility/source-layout adapter
-- runtime scene work still must not depend on source-manifest files after compatibility units are built
+- as of [ADR 0012](decisions/0012-runtime-owns-pixels-atomic-assets-synthetic-sheets.md), the production runtime path no longer reads source-manifest files; it loads committed `runtime_asset` libraries only; the IRS boundary is closed for production
+- ADR 0013 further refined the semantic metadata layer (content-keyed clean semantics + preserved legacy layer); ADR 0014 made tile membership plural and removed the `layer` field from `TileRecord` in favour of `layer:<v>` tags
 
 ## Problem
 

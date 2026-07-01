@@ -31,7 +31,7 @@ Run:
 
 ```bash
 python3 scripts/source_ingest.py inspect-family \
-  prototypes/minimal8-harness/project.minimal8.json \
+  prototypes/minimal8-harness/project.minimal8.source.json \
   --tileset 'minimal8@1bit_colored_bg'
 ```
 
@@ -57,7 +57,7 @@ Run:
 
 ```bash
 python3 scripts/source_ingest.py export-review-pack \
-  prototypes/minimal8-harness/project.minimal8.json \
+  prototypes/minimal8-harness/project.minimal8.source.json \
   --tileset 'minimal8@1bit_colored_bg' \
   --scene tavern \
   --category furniture \
@@ -66,6 +66,29 @@ python3 scripts/source_ingest.py export-review-pack \
 ```
 
 Use the generated `review_notes.md` to write plain-language corrections per tile. Do not encode metadata by hand unless you want to.
+
+### Export a clean runtime tilesheet
+
+Run (runtime-side, no ingest inputs required):
+
+```bash
+python3 scripts/harness.py export-clean-tilesheet \
+  prototypes/minimal8-harness/project.minimal8.json \
+  --tileset 'minimal8@1bit_colored_bg' \
+  --type canonical-reference
+```
+
+Two `--type` values are supported:
+
+- `canonical-reference` — clean atlas PNG + rich `metadata.json` + manifest.
+  Accepts an optional `--scale N` multiplier (e.g. `--scale 4` for a 4× preview).
+- `tiled` — game-engine Tiled `.tsx` tileset alongside the atlas sheet.
+  Scale is not accepted; Tiled exports are native 1× engine-import artefacts.
+
+Both types write to `prototypes/minimal8-harness/scratch.local/clean-tilesheets/`
+by default (override with `--output-dir`). The export reads committed
+runtime-family assets only — ingest inputs (`tiles.json`, vendor source sheets,
+`ingestion.json`) are not required and are never read.
 
 ### Inspect resolved scene entities
 
@@ -87,7 +110,23 @@ This exports a JSON runtime snapshot that keeps scene entities intact before the
 
 Projects select a default family variant in `tile_family.variant_id`.
 
-Current Minimal 8 example:
+The production runtime project (`project.minimal8.json`) loads committed
+runtime-family JSON directly via `runtime_asset`:
+
+```json
+{
+  "tile_family": {
+    "runtime_asset": "./runtime-families/minimal8.json",
+    "family_id": "minimal8",
+    "variant_id": "1bit_colored_bg"
+  }
+}
+```
+
+The source-ingest operator project (`project.minimal8.source.json`) uses
+`source_pack` instead, which points at the staged pack / tileset / tilesheet
+hierarchy and feeds source-side tooling (inspect, review-pack, ingest
+validation):
 
 ```json
 {
@@ -101,8 +140,8 @@ Current Minimal 8 example:
 }
 ```
 
-Direct `tile_family.path` loading still exists as a transitional fallback, but
-the primary committed project path is now `tile_family.source_pack`.
+Direct `tile_family.path` loading still exists as a transitional fallback for
+legacy family packages.
 
 You can still explicitly reference another loaded variant using direct sheet address syntax:
 

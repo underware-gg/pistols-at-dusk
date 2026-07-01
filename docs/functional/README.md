@@ -3,9 +3,9 @@
 ## Compatibility Family Package Format
 
 The active source-side ingest truth is the staged pack / tileset /
-logical-tilesheet hierarchy. The current runtime compatibility bundle is still a
-directory package
-with manifests for variant metadata, source-sheet layout, semantics, and aliases:
+logical-tilesheet hierarchy. The current compatibility bundle is a
+directory package used as a build-side / producer input, with manifests for
+variant metadata, source-sheet layout, semantics, and aliases:
 
 - `family.json`
   - family ID
@@ -19,6 +19,7 @@ with manifests for variant metadata, source-sheet layout, semantics, and aliases
   - semantic groupings and member sets
 - `tiles.json`
   - per-tile semantic records keyed by stable tile IDs
+  - `layer` — required legacy-bundle field; maps to a `layer:<v>` tag when promoted to the runtime clean model
   - direct sheet provenance via `sheet_col` / `sheet_row` for sheet-backed tiles
   - optional per-tile `cell_content_inset` override of the family default (e.g. full-bleed tiles)
 - `constructions.json`
@@ -36,7 +37,7 @@ Current Minimal 8 compatibility bundle:
 
 Minimal 8 now enters through the staged pack / tileset / logical-tilesheet
 manifest hierarchy. The legacy family package remains the transitional
-compatibility bundle that feeds the current runtime/library path.
+compatibility bundle that feeds the source-ingest / bridge path.
 
 [scripts/source_manifest_bridge.py](../../scripts/source_manifest_bridge.py) is the one-way transitional adapter that lets those staged source manifests feed the current family-backed compatibility/runtime path without making the source manifests themselves a runtime dependency.
 
@@ -64,7 +65,31 @@ Rules:
 
 ## Project Consumption Model
 
-Projects do not own sheet semantics anymore. They consume a family-backed runtime unit and pick a default variant. Minimal 8 now does that through the staged source-pack entrypoint:
+Projects do not own sheet semantics anymore. They consume a family-backed runtime unit and pick a default variant. Three loading tiers exist:
+
+**`runtime_asset` — production runtime (recommended).** Loads a committed
+`TileLibraryUnit` JSON directly, with no ingest inputs required at load or
+render time. This is what the committed `project.minimal8.json` uses:
+
+```json
+{
+  "tile_family": {
+    "runtime_asset": "./runtime-families/minimal8.json",
+    "family_id": "minimal8",
+    "variant_id": "1bit_colored_bg"
+  }
+}
+```
+
+The loader reads the runtime-family JSON and constructs a `TileLibraryUnit`
+directly (`_load_family_from_runtime_asset`), bypassing the source-manifest
+bridge entirely.
+
+**`source_pack` — source-ingest operator use.** Points at the staged pack /
+tileset / tilesheet hierarchy. Used by `project.minimal8.source.json` for
+source-side tooling (inspect-family, export-review-pack, validate-family-ingest).
+At load, the bridge adapts staged source manifests into a `TileLibraryUnit`
+compatibility surface; ingest inputs must be present:
 
 ```json
 {
@@ -78,16 +103,17 @@ Projects do not own sheet semantics anymore. They consume a family-backed runtim
 }
 ```
 
-Legacy direct-family loading still exists as a transitional fallback, and
-projects may also mix multiple family-backed runtime units:
+**`path` — legacy fallback.** Direct-path loading of a compatibility family
+package directory; transitional only.
+
+Projects may mix multiple family-backed units:
 
 ```json
 {
   "tile_families": [
     {
-      "source_pack": "./tile-packs/minimal8/pack.json",
-      "tileset_id": "minimal8",
-      "tilesheet_id": "main",
+      "runtime_asset": "./runtime-families/minimal8.json",
+      "family_id": "minimal8",
       "variant_id": "1bit_colored_bg"
     },
     {"path": "./tile-families/mini-medieval", "variant_id": "default"}
@@ -102,9 +128,10 @@ When multiple family-backed units are loaded:
 - explicit family refs like `family.id:3,4` or `family.id@variant:3,4` resolve against the owning loaded unit
 - unique family aliases and unique tile ids may also resolve against a non-default loaded unit
 
-At runtime, the harness now derives a compatibility view before doing ordinary scene work:
+At runtime, the harness derives a `TileLibraryUnit` compatibility view before doing ordinary scene work. How that view is built depends on the project tier:
 
-- staged source packs bridge into the current family-backed compatibility path
+- `runtime_asset` families load the `TileLibraryUnit` JSON directly — no bridge, no ingest inputs needed
+- staged source packs bridge into the current family-backed compatibility path via `source_manifest_bridge.py`
 - legacy family packages may still be loaded directly as transitional compatibility inputs for migration and test coverage
 - the runtime consumes a `TileLibraryUnit` compatibility surface carrying only the runtime data and lookups needed for normal scene work
 - that compatibility surface now also carries the runtime-relevant metadata explicitly promoted from staged source manifests: source-pack identity, selected source tileset / tilesheet identity, named module-context axes when declared, effective render traits, and any documented hints that were explicitly promoted for runtime/tooling use
@@ -149,14 +176,23 @@ Family-backed public tile-pack export now includes:
 
 ## Review-Pack Workflow
 
-1. Export a review pack from the family-backed catalog.
+The source-ingest review-pack cycle feeds corrections back into the legacy
+compatibility bundle. `tiles.json` is a legacy build-side input — it is not
+the target of new semantic authoring work:
+
+1. Export a review pack from the source-backed catalog (`project.minimal8.source.json`).
 2. Annotate `review_notes.md` in plain English.
 3. Translate those notes into:
-   - `tiles.json`
+   - `tiles.json` (legacy bundle — corrections land here during the ingest phase)
    - `aliases.json`
    - `clusters.json` when sheet-group meaning becomes clearer
 
 The engine does not parse freeform human notes automatically in this pass.
+
+For runtime export, use the ingest-free `export-clean-tilesheet` harness
+command instead; it reads committed runtime-family assets and writes to
+`scratch.local` without touching ingest inputs. See
+[user/README.md](../user/README.md) for the CLI.
 
 ## Module-Level Documentation
 
@@ -181,7 +217,7 @@ Behavioural tests are part of the functional layer — they document what the sy
 - [test_source_manifest_bridge.py](../../tests/test_source_manifest_bridge.py) — one-way source-manifest bridge coverage: synthetic adapter fixtures plus equivalence checks against the current Minimal 8 family-backed runtime shape.
 - [test_source_ingest.py](../../tests/test_source_ingest.py) — source-side ingest CLI coverage: source-sheet cell lookup and ingest validation through the dedicated ingest entrypoint.
 - [test_scene_expansion.py](../../tests/test_scene_expansion.py) — scene-template DSL: expression evaluator, data-mode expansion, `entity` / `place_scene` / `scatter` ops, binding isolation, cycle detection.
-- [test_harness.py](../../tests/test_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts.
+- [test_harness.py](../../tests/test_harness.py) — harness-level expansion (entity stamps, parametric-run lowering) and end-to-end render contracts; also covers the `runtime_asset` project model (render equivalence vs. source project, delete-ingest acceptance that runtime rendering survives removal of all ingest inputs) and clean-tilesheet export (canonical-reference and tiled types, scale validation).
 - [test_prototype_output.py](../../tests/test_prototype_output.py) — staged render output and archive-on-diff behaviour.
 - [test_reference_grid.py](../../tests/test_reference_grid.py) — render-grid crop math, exact base-tile recovery from scaled screenshots, partial-edge padding, relevant-region trimming, and non-destructive four-sided guide overlay placement.
 - [test_reference_tile_match.py](../../tests/test_reference_tile_match.py) — exact duplicate detection, structural candidate scoring, semantic blank classification, relevant-region filtering, and manual-review override handling for recovered reference cells.

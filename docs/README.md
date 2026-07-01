@@ -4,8 +4,8 @@ This repo conforms to the [Agent-Ready Documentation Standard v1.0](https://gith
 
 ## Layers
 
-- [User](user/README.md) — task-oriented workflows: ingest a sprite family, inspect a variant, export a review pack, choose a colorway.
-- [Functional](functional/README.md) — what the system does: family-package format, addressing forms, project consumption model, review-pack workflow.
+- [User](user/README.md) — task-oriented workflows: ingest a sprite family, inspect a variant, export a review pack, export a clean tilesheet, choose a colorway.
+- [Functional](functional/README.md) — what the system does: family-package format, addressing forms, runtime asset consumption model, clean-tilesheet export, project consumption model, review-pack workflow.
 - [Architecture](architecture/README.md) — how the system is structured: ingestion/render layering, runtime shape, decision records router, supporting notes.
 - [Contributor](contributor/README.md) — how to contribute: process, release workflow, working rules, repo structure, change discipline.
 - [Standards](standards/README.md) — imported and shared documentation standards: versioning, changelog, commit messages, canary.

@@ -96,11 +96,12 @@ That commit becomes the new **latest** experimental shipped state. It is not tag
 
 When promoting an existing version on `main` to stable:
 
-1. Create the matching release artefacts under `docs/changelog/releases/`
-2. Add the matching `Release: <title>` row to `docs/CHANGELOG.md`
-3. Run `python scripts/release_workflow.py release`
+1. Run `python scripts/release_workflow.py release-prepare --title "<Title>" --slug <slug>` to scaffold the release file under `docs/changelog/releases/` and insert the `Release: <title>` row in `docs/CHANGELOG.md`; edit both to add the authored narrative (replace all `TODO` placeholders)
+2. Run `python scripts/release_workflow.py release`
 
-`release` creates:
+`release-prepare` scaffolds the release file and CHANGELOG row; the release title and narrative remain authored content. Both steps are `main`-only and fail loudly when run from any other branch.
+
+`release` runs a full bundle validity check (equivalent to `version-check`) before creating anything, then creates:
 
 - the stable promotion commit
 - the stable Git tag `vX.Y.Z`

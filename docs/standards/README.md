@@ -11,4 +11,4 @@ Current contents:
 
 This folder is for cross-cutting documentation standards. Contributor workflow rules that are repo-specific live in [CONTRIBUTING.md](../../CONTRIBUTING.md) and [docs/contributor/](../contributor/README.md).
 
-The repo also follows the [Agent-Ready Documentation Standard v1.0](https://github.com/Rob-Morris/obsidian-brain/blob/main/docs/standards/agent-ready-documentation.md) for layered documentation structure; adoption notes live in [docs/contributor/documentation-standard.md](../contributor/documentation-standard.md).
+The repo also follows the [Agent-Ready Documentation Standard v1.0](https://github.com/Rob-Morris/obsidian-brain/blob/main/docs/standards/agent-ready-documentation.md) for layered documentation structure (note: that link points to a personal private repo and may not be publicly accessible); adoption notes live in [docs/contributor/documentation-standard.md](../contributor/documentation-standard.md).

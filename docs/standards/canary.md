@@ -61,7 +61,7 @@ Rules:
 
 - every task ID in the brief must appear exactly once in the log
 - `done` means the action was actually performed
-- `skip` requires a real reason based on what was evaluated
+- `skip` requires a mandatory comma and a non-empty reason: `skip, <reason>`; `skip` alone fails the format check
 - canary logs are transient and gitignored
 - canary logs must stay unstaged and uncommitted; the pre-commit hook rejects `.canary--pre-commit` if it is staged as an added or modified path
 
@@ -69,12 +69,13 @@ Rules:
 
 The distributed pre-commit hook:
 
-1. checks that the `README.md` version badge matches `VERSION`
-2. reads `.canaries/pre-commit.md`
-3. rejects the commit if `.canary--pre-commit` is staged as an added or modified path
-4. extracts all task IDs between `## Tasks` and `## Log`
-5. verifies `.canary--pre-commit` exists and covers every task ID with valid formatting
-6. deletes the log file after a successful check so stale receipts cannot be reused
+1. runs `bash scripts/check_pyright.sh` and fails the commit if typecheck fails
+2. checks that the `README.md` version badge matches `VERSION`
+3. reads `.canaries/pre-commit.md`; if the file does not exist the hook prints a notice and exits 0 (silent skip — the canary check is bypassed entirely)
+4. rejects the commit if `.canary--pre-commit` is staged as an added or modified path
+5. extracts all task IDs between `## Tasks` and `## Log`; if none are found the hook skips and exits 0
+6. verifies `.canary--pre-commit` exists and covers every task ID with valid formatting
+7. deletes the log file after a successful check so stale receipts cannot be reused
 
 ## Related
 
