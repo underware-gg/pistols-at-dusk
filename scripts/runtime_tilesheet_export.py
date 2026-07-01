@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import shutil
 from dataclasses import dataclass
+from html import escape as escape_xml
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -21,6 +22,7 @@ from tile_library import SheetCell, TileFamilyVariant, TileGenesis, TileLibraryU
 
 
 CANONICAL_REFERENCE_EXPORT_TYPE = "canonical-reference"
+TILED_EXPORT_TYPE = "tiled"
 DEFAULT_CLEAN_TILESHEET_DIRNAME = "clean-tilesheets"
 
 
@@ -37,9 +39,18 @@ class RuntimeTilesheetExportResult:
     export_type: str
     output_dir: Path
     tilesheet_path: Path
-    metadata_path: Path
+    metadata_path: Path | None
     manifest_path: Path
     scaled_tilesheet_path: Path | None = None
+    tiled_tileset_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class RuntimeAtlas:
+    path: Path
+    columns: int
+    rows: int
+    size: tuple[int, int]
 
 
 RuntimeTilesheetExporter = Callable[
@@ -71,10 +82,7 @@ def _sheet_cell_payload(cell: SheetCell) -> dict[str, int]:
 
 
 def _tile_metadata_payload(tile: TileRecord, *, variant_id: str) -> dict[str, object]:
-    try:
-        atlas_cell = tile.variant_atlas_cells[variant_id]
-    except KeyError as exc:
-        raise ValueError(f"Tile {tile.id!r} has no atlas cell for variant {variant_id!r}") from exc
+    atlas_cell = _variant_atlas_cell(tile, variant_id=variant_id)
     return {
         "id": tile.id,
         "category": tile.category,
@@ -89,6 +97,13 @@ def _tile_metadata_payload(tile: TileRecord, *, variant_id: str) -> dict[str, ob
         "transparent": tile.transparent,
         "genesis": _tile_genesis_payload(tile.genesis),
     }
+
+
+def _variant_atlas_cell(tile: TileRecord, *, variant_id: str) -> SheetCell:
+    try:
+        return tile.variant_atlas_cells[variant_id]
+    except KeyError as exc:
+        raise ValueError(f"Tile {tile.id!r} has no atlas cell for variant {variant_id!r}") from exc
 
 
 def _require_runtime_variant(context: RuntimeTilesheetExportContext) -> TileFamilyVariant:
@@ -106,17 +121,11 @@ def _require_runtime_variant(context: RuntimeTilesheetExportContext) -> TileFami
     return variant
 
 
-def _export_canonical_reference(
-    context: RuntimeTilesheetExportContext,
-    output_dir: Path,
-    options: Mapping[str, object],
-) -> RuntimeTilesheetExportResult:
-    scale = options.get("scale", 1)
-    if isinstance(scale, bool) or not isinstance(scale, int):
-        raise ValueError(f"canonical-reference scale must be a positive integer, got {scale!r}")
-    if scale < 1:
-        raise ValueError(f"canonical-reference scale must be positive, got {scale}")
+def _runtime_export_dir(context: RuntimeTilesheetExportContext, output_dir: Path) -> Path:
+    return output_dir / context.tile_library.family_id / context.variant_id
 
+
+def _validate_runtime_atlas(context: RuntimeTilesheetExportContext) -> RuntimeAtlas:
     variant = _require_runtime_variant(context)
     atlas_relative_path = variant.atlas_path
     atlas_columns = variant.atlas_columns
@@ -141,30 +150,82 @@ def _export_canonical_reference(
             f"Runtime export tileset {context.tileset_id!r} variant {context.variant_id!r} atlas {atlas_path} "
             f"has size {atlas_size}, expected {expected_size}"
         )
+    return RuntimeAtlas(path=atlas_path, columns=atlas_columns, rows=atlas_rows, size=atlas_size)
 
-    family_dir = output_dir / context.tile_library.family_id / context.variant_id
-    family_dir.mkdir(parents=True, exist_ok=True)
+
+def _copy_runtime_atlas(atlas: RuntimeAtlas, family_dir: Path) -> Path:
     tilesheet_path = family_dir / "tilesheet.png"
+    # The committed atlas is already the clean runtime-owned sheet; the 1x
+    # export keeps the exact PNG bytes rather than re-encoding.
+    shutil.copyfile(atlas.path, tilesheet_path)
+    return tilesheet_path
+
+
+def _sorted_tiles(context: RuntimeTilesheetExportContext) -> list[TileRecord]:
+    return sorted(context.tile_library.tiles.values(), key=lambda record: record.id)
+
+
+def _manifest_payload(
+    context: RuntimeTilesheetExportContext,
+    *,
+    export_type: str,
+    atlas: RuntimeAtlas,
+    tile_count: int,
+    tilesheet_path: Path,
+    extra: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "export_type": export_type,
+        "family_id": context.tile_library.family_id,
+        "tileset_id": context.tileset_id,
+        "variant_id": context.variant_id,
+        "tile_count": tile_count,
+        "tilesheet": {
+            "path": tilesheet_path.name,
+            "columns": atlas.columns,
+            "rows": atlas.rows,
+            "width": atlas.size[0],
+            "height": atlas.size[1],
+            "tile_width": context.tile_library.tile_width,
+            "tile_height": context.tile_library.tile_height,
+        },
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def _export_canonical_reference(
+    context: RuntimeTilesheetExportContext,
+    output_dir: Path,
+    options: Mapping[str, object],
+) -> RuntimeTilesheetExportResult:
+    scale = options.get("scale", 1)
+    if isinstance(scale, bool) or not isinstance(scale, int):
+        raise ValueError(f"canonical-reference scale must be a positive integer, got {scale!r}")
+    if scale < 1:
+        raise ValueError(f"canonical-reference scale must be positive, got {scale}")
+
+    atlas = _validate_runtime_atlas(context)
+
+    family_dir = _runtime_export_dir(context, output_dir)
+    family_dir.mkdir(parents=True, exist_ok=True)
+    tilesheet_path = _copy_runtime_atlas(atlas, family_dir)
     metadata_path = family_dir / "metadata.json"
     manifest_path = family_dir / "manifest.json"
     scaled_tilesheet_path = None
 
-    # The committed atlas is already the clean runtime-owned sheet; the 1x
-    # export keeps the exact PNG bytes rather than re-encoding.
-    shutil.copyfile(atlas_path, tilesheet_path)
     if scale != 1:
         scaled_tilesheet_path = family_dir / f"tilesheet@{scale}x.png"
-        atlas_image = Image.open(atlas_path).convert("RGBA")
+        atlas_image = Image.open(atlas.path).convert("RGBA")
         scaled = resize_nearest(
             atlas_image,
             (atlas_image.width * scale, atlas_image.height * scale),
         )
         scaled_tilesheet_path.write_bytes(deterministic_png_bytes(scaled))
 
-    tiles = [
-        _tile_metadata_payload(tile, variant_id=context.variant_id)
-        for tile in sorted(context.tile_library.tiles.values(), key=lambda record: record.id)
-    ]
+    tiles = [_tile_metadata_payload(tile, variant_id=context.variant_id) for tile in _sorted_tiles(context)]
     metadata_path.write_bytes(
         _json_bytes(
             {
@@ -176,24 +237,14 @@ def _export_canonical_reference(
             }
         )
     )
-    manifest_payload: dict[str, object] = {
-        "schema_version": 1,
-        "export_type": CANONICAL_REFERENCE_EXPORT_TYPE,
-        "family_id": context.tile_library.family_id,
-        "tileset_id": context.tileset_id,
-        "variant_id": context.variant_id,
-        "tile_count": len(tiles),
-        "tilesheet": {
-            "path": tilesheet_path.name,
-            "columns": atlas_columns,
-            "rows": atlas_rows,
-            "width": atlas_size[0],
-            "height": atlas_size[1],
-            "tile_width": context.tile_library.tile_width,
-            "tile_height": context.tile_library.tile_height,
-        },
-        "metadata_path": metadata_path.name,
-    }
+    manifest_payload = _manifest_payload(
+        context,
+        export_type=CANONICAL_REFERENCE_EXPORT_TYPE,
+        atlas=atlas,
+        tile_count=len(tiles),
+        tilesheet_path=tilesheet_path,
+        extra={"metadata_path": metadata_path.name},
+    )
     if scaled_tilesheet_path is not None:
         manifest_payload["scaled_tilesheet"] = {
             "path": scaled_tilesheet_path.name,
@@ -210,8 +261,111 @@ def _export_canonical_reference(
     )
 
 
+def _joined(values: tuple[str, ...]) -> str:
+    return ", ".join(values)
+
+
+def _tsx_property(name: str, value: str | bool) -> str:
+    if isinstance(value, bool):
+        return f'      <property name="{escape_xml(name)}" type="bool" value="{str(value).lower()}"/>'
+    return f'      <property name="{escape_xml(name)}" type="string" value="{escape_xml(value)}"/>'
+
+
+def _tiled_tile_properties(tile: TileRecord) -> list[str]:
+    properties = [
+        _tsx_property("tile_id", tile.id),
+        _tsx_property("category", tile.category),
+        _tsx_property("tags", _joined(tile.tags)),
+        _tsx_property("semantics", _joined(tile.semantics)),
+        _tsx_property("motifs", _joined(tile.motifs)),
+        _tsx_property("affordances", _joined(tile.affordances)),
+        _tsx_property("alt_uses", _joined(tile.alt_uses)),
+    ]
+    if tile.walkable is not None:
+        properties.append(_tsx_property("walkable", tile.walkable))
+    if tile.blocking is not None:
+        properties.append(_tsx_property("blocking", tile.blocking))
+    properties.append(_tsx_property("transparent", tile.transparent))
+    return properties
+
+
+def _tiled_tileset_xml(
+    *,
+    context: RuntimeTilesheetExportContext,
+    atlas: RuntimeAtlas,
+    tilesheet_filename: str,
+) -> str:
+    tile_count = atlas.columns * atlas.rows
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        (
+            f'<tileset version="1.10" tiledversion="1.12.1" name="{escape_xml(context.tileset_id)}" '
+            f'tilewidth="{context.tile_library.tile_width}" tileheight="{context.tile_library.tile_height}" '
+            f'tilecount="{tile_count}" columns="{atlas.columns}">'
+        ),
+        (
+            f'  <image source="{escape_xml(tilesheet_filename)}" '
+            f'width="{atlas.size[0]}" height="{atlas.size[1]}"/>'
+        ),
+    ]
+    for tile in _sorted_tiles(context):
+        cell = _variant_atlas_cell(tile, variant_id=context.variant_id)
+        tiled_id = cell.row * atlas.columns + cell.col
+        lines.append(f'  <tile id="{tiled_id}">')
+        lines.append("    <properties>")
+        lines.extend(_tiled_tile_properties(tile))
+        lines.append("    </properties>")
+        lines.append("  </tile>")
+    lines.append("</tileset>")
+    return "\n".join(lines) + "\n"
+
+
+def _export_tiled(
+    context: RuntimeTilesheetExportContext,
+    output_dir: Path,
+    options: Mapping[str, object],
+) -> RuntimeTilesheetExportResult:
+    scale = options.get("scale", 1)
+    if scale != 1:
+        raise ValueError("Scaled output is only supported by the canonical-reference export type; tiled exports are native 1x engine-import artefacts")
+    atlas = _validate_runtime_atlas(context)
+    tiled_tileset_xml = _tiled_tileset_xml(
+        context=context,
+        atlas=atlas,
+        tilesheet_filename="tilesheet.png",
+    )
+    family_dir = _runtime_export_dir(context, output_dir)
+    family_dir.mkdir(parents=True, exist_ok=True)
+    tilesheet_path = _copy_runtime_atlas(atlas, family_dir)
+    tiled_tileset_path = family_dir / "tileset.tsx"
+    manifest_path = family_dir / "manifest.json"
+
+    tiled_tileset_path.write_text(tiled_tileset_xml, encoding="utf-8")
+    manifest_path.write_bytes(
+        _json_bytes(
+            _manifest_payload(
+                context,
+                export_type=TILED_EXPORT_TYPE,
+                atlas=atlas,
+                tile_count=len(context.tile_library.tiles),
+                tilesheet_path=tilesheet_path,
+                extra={"tiled_tileset_path": tiled_tileset_path.name},
+            )
+        )
+    )
+    return RuntimeTilesheetExportResult(
+        export_type=TILED_EXPORT_TYPE,
+        output_dir=family_dir,
+        tilesheet_path=tilesheet_path,
+        metadata_path=None,
+        manifest_path=manifest_path,
+        tiled_tileset_path=tiled_tileset_path,
+    )
+
+
 EXPORT_TYPES: Mapping[str, RuntimeTilesheetExporter] = {
     CANONICAL_REFERENCE_EXPORT_TYPE: _export_canonical_reference,
+    TILED_EXPORT_TYPE: _export_tiled,
 }
 
 
