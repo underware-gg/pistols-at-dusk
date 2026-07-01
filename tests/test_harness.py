@@ -1392,6 +1392,68 @@ class LayoutProjectLoadingTests(unittest.TestCase):
                     self.assertFalse(family_dir.exists())
                     self.assertEqual(_tree_file_bytes(output_dir), {})
 
+    def test_runtime_clean_tilesheet_export_core_attributes_are_single_sourced(self) -> None:
+        runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture_root = _copy_minimal8_production_harness(Path(temp_dir))
+            unit = tile_library_unit_from_json(
+                (fixture_root / "runtime-families" / "minimal8.json").read_text(encoding="utf-8")
+            )
+            tile = unit.tiles[MINIMAL8_PRODUCTION_MAIN_TILE_ID]
+            core_names = tuple(
+                attribute.name
+                for attribute in runtime_tilesheet_export.EXPORTABLE_TILE_ATTRIBUTE_CORE
+            )
+
+            metadata_payload = runtime_tilesheet_export._tile_metadata_payload(
+                tile,
+                variant_id="1bit_colored_bg",
+            )
+            self.assertEqual(
+                tuple(name for name in metadata_payload if name in core_names),
+                core_names,
+            )
+
+            properties_xml = runtime_tilesheet_export._tiled_tile_properties(tile)
+            property_names = tuple(
+                line.split('name="', 1)[1].split('"', 1)[0]
+                for line in properties_xml
+            )
+            self.assertEqual(
+                tuple(name for name in property_names if name in core_names),
+                core_names,
+            )
+
+    def test_runtime_clean_tilesheet_export_preserves_projection_none_policy(self) -> None:
+        runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture_root = _copy_minimal8_production_harness(Path(temp_dir))
+            unit = tile_library_unit_from_json(
+                (fixture_root / "runtime-families" / "minimal8.json").read_text(encoding="utf-8")
+            )
+            tile = unit.tiles["minimal8:architecture:0,1"]
+            self.assertIsNone(tile.walkable)
+            self.assertIsNone(tile.blocking)
+
+            metadata_payload = runtime_tilesheet_export._tile_metadata_payload(
+                tile,
+                variant_id="1bit_colored_bg",
+            )
+            self.assertIn("walkable", metadata_payload)
+            self.assertIn("blocking", metadata_payload)
+            self.assertIsNone(metadata_payload["walkable"])
+            self.assertIsNone(metadata_payload["blocking"])
+            self.assertIn("transparent", metadata_payload)
+
+            properties_xml = runtime_tilesheet_export._tiled_tile_properties(tile)
+            property_names = tuple(
+                line.split('name="', 1)[1].split('"', 1)[0]
+                for line in properties_xml
+            )
+            self.assertNotIn("walkable", property_names)
+            self.assertNotIn("blocking", property_names)
+            self.assertIn("transparent", property_names)
+
     def test_runtime_clean_tilesheet_export_writes_tiled_tileset(self) -> None:
         runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
         with tempfile.TemporaryDirectory() as temp_dir:

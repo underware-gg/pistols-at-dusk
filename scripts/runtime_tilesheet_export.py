@@ -12,7 +12,7 @@ import shutil
 from dataclasses import dataclass
 from html import escape as escape_xml
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Literal, Mapping, cast
 
 from PIL import Image
 
@@ -24,6 +24,26 @@ from tile_library import SheetCell, TileFamilyVariant, TileGenesis, TileLibraryU
 CANONICAL_REFERENCE_EXPORT_TYPE = "canonical-reference"
 TILED_EXPORT_TYPE = "tiled"
 DEFAULT_CLEAN_TILESHEET_DIRNAME = "clean-tilesheets"
+ExportableTileAttributeKind = Literal["string", "string_list", "bool"]
+
+
+@dataclass(frozen=True)
+class ExportableTileAttribute:
+    name: str
+    kind: ExportableTileAttributeKind
+
+
+EXPORTABLE_TILE_ATTRIBUTE_CORE: tuple[ExportableTileAttribute, ...] = (
+    ExportableTileAttribute("category", "string"),
+    ExportableTileAttribute("tags", "string_list"),
+    ExportableTileAttribute("semantics", "string_list"),
+    ExportableTileAttribute("motifs", "string_list"),
+    ExportableTileAttribute("affordances", "string_list"),
+    ExportableTileAttribute("alt_uses", "string_list"),
+    ExportableTileAttribute("walkable", "bool"),
+    ExportableTileAttribute("blocking", "bool"),
+    ExportableTileAttribute("transparent", "bool"),
+)
 
 
 @dataclass(frozen=True)
@@ -81,22 +101,26 @@ def _sheet_cell_payload(cell: SheetCell) -> dict[str, int]:
     return {"col": cell.col, "row": cell.row}
 
 
+def _json_core_attribute_payload(tile: TileRecord) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for attribute in EXPORTABLE_TILE_ATTRIBUTE_CORE:
+        value = getattr(tile, attribute.name)
+        if attribute.kind == "string_list":
+            payload[attribute.name] = list(cast(tuple[str, ...], value))
+        else:
+            payload[attribute.name] = value
+    return payload
+
+
 def _tile_metadata_payload(tile: TileRecord, *, variant_id: str) -> dict[str, object]:
     atlas_cell = _variant_atlas_cell(tile, variant_id=variant_id)
-    return {
+    payload: dict[str, object] = {
         "id": tile.id,
-        "category": tile.category,
-        "tags": list(tile.tags),
-        "semantics": list(tile.semantics),
-        "motifs": list(tile.motifs),
-        "affordances": list(tile.affordances),
-        "alt_uses": list(tile.alt_uses),
-        "atlas_cell": _sheet_cell_payload(atlas_cell),
-        "walkable": tile.walkable,
-        "blocking": tile.blocking,
-        "transparent": tile.transparent,
-        "genesis": _tile_genesis_payload(tile.genesis),
+        **_json_core_attribute_payload(tile),
     }
+    payload["atlas_cell"] = _sheet_cell_payload(atlas_cell)
+    payload["genesis"] = _tile_genesis_payload(tile.genesis)
+    return payload
 
 
 def _variant_atlas_cell(tile: TileRecord, *, variant_id: str) -> SheetCell:
@@ -271,21 +295,27 @@ def _tsx_property(name: str, value: str | bool) -> str:
     return f'      <property name="{escape_xml(name)}" type="string" value="{escape_xml(value)}"/>'
 
 
+def _tsx_core_attribute_property(tile: TileRecord, attribute: ExportableTileAttribute) -> str | None:
+    value = getattr(tile, attribute.name)
+    if attribute.kind == "string_list":
+        return _tsx_property(attribute.name, _joined(cast(tuple[str, ...], value)))
+    if attribute.kind == "bool":
+        if value is None:
+            return None
+        return _tsx_property(attribute.name, cast(bool, value))
+    if attribute.kind == "string":
+        return _tsx_property(attribute.name, cast(str, value))
+    raise ValueError(f"unhandled attribute kind {attribute.kind!r} for {attribute.name!r}")
+
+
 def _tiled_tile_properties(tile: TileRecord) -> list[str]:
     properties = [
         _tsx_property("tile_id", tile.id),
-        _tsx_property("category", tile.category),
-        _tsx_property("tags", _joined(tile.tags)),
-        _tsx_property("semantics", _joined(tile.semantics)),
-        _tsx_property("motifs", _joined(tile.motifs)),
-        _tsx_property("affordances", _joined(tile.affordances)),
-        _tsx_property("alt_uses", _joined(tile.alt_uses)),
     ]
-    if tile.walkable is not None:
-        properties.append(_tsx_property("walkable", tile.walkable))
-    if tile.blocking is not None:
-        properties.append(_tsx_property("blocking", tile.blocking))
-    properties.append(_tsx_property("transparent", tile.transparent))
+    for attribute in EXPORTABLE_TILE_ATTRIBUTE_CORE:
+        prop = _tsx_core_attribute_property(tile, attribute)
+        if prop is not None:
+            properties.append(prop)
     return properties
 
 
