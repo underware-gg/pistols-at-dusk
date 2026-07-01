@@ -53,6 +53,7 @@ from source_ingest_ops import (
     query_semantic_catalog,
     export_tiled_kit,
 )
+from runtime_tilesheet_export import export_project_runtime_tilesheet
 from tile_family_project_ingest import install_source_tile_family_loader
 from layout_core import (
     resize_nearest,
@@ -89,6 +90,7 @@ DEFAULT_REVIEW_PACK_DIR = ROOT / "prototypes/minimal8-harness/scratch.local/revi
 DEFAULT_COLLECTION_REVIEW_DIR = ROOT / "prototypes/minimal8-harness/reviews/collections"
 DEFAULT_COLLECTION_REVIEW_SCRATCH_DIR = ROOT / "prototypes/minimal8-harness/scratch.local/review-collections"
 DEFAULT_PUBLIC_TILE_PACK_DIR = ROOT / "prototypes/minimal8-harness/scratch.local/public-tile-packs"
+DEFAULT_CLEAN_TILESHEET_DIR = ROOT / "prototypes/minimal8-harness/scratch.local/clean-tilesheets"
 
 DEFAULT_LAYER_ORDER = [
     "water",
@@ -1192,6 +1194,17 @@ def main() -> None:
     public_pack_parser.add_argument("--slug", default=None)
     public_pack_parser.add_argument("--scale", type=int, default=8)
 
+    clean_tilesheet_parser = subparsers.add_parser(
+        "export-clean-tilesheet",
+        help="Export a runtime-owned clean tilesheet plus canonical reference metadata.",
+    )
+    clean_tilesheet_parser.add_argument("project", nargs="?", type=Path, default=DEFAULT_PROJECT)
+    clean_tilesheet_parser.add_argument("--tileset", required=True)
+    clean_tilesheet_parser.add_argument("--variant", default=None)
+    clean_tilesheet_parser.add_argument("--type", default="canonical-reference")
+    clean_tilesheet_parser.add_argument("--output-dir", type=Path, default=DEFAULT_CLEAN_TILESHEET_DIR)
+    clean_tilesheet_parser.add_argument("--scale", type=int, default=1)
+
     semantic_query_parser = subparsers.add_parser(
         "query-semantic",
         help="Query the canonical semantic tile metadata for a project tileset.",
@@ -1270,6 +1283,16 @@ def main() -> None:
             slug = args.slug or slugify_identifier(args.tileset)
             output_dir = DEFAULT_PUBLIC_TILE_PACK_DIR / slug
         print(export_public_tile_pack(args.project, args.tileset, output_dir, scale=args.scale))
+    elif args.command == "export-clean-tilesheet":
+        result = export_project_runtime_tilesheet(
+            args.project,
+            tileset_id=args.tileset,
+            variant_id=args.variant,
+            output_dir=args.output_dir,
+            export_type=args.type,
+            scale=args.scale,
+        )
+        print(result.output_dir)
     elif args.command == "query-semantic":
         walkable = None if args.walkable is None else args.walkable == "true"
         blocking = None if args.blocking is None else args.blocking == "true"

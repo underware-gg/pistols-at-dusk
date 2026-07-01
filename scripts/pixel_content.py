@@ -1,8 +1,9 @@
-"""Canonical pixel byte helpers shared by ingest-side producers."""
+"""Canonical pixel byte helpers shared by runtime and ingest producers."""
 
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
 
 from PIL import Image
 
@@ -17,3 +18,9 @@ def canonical_rgba_bytes(image: Image.Image) -> bytes:
 
 def canonical_image_digest(image: Image.Image) -> str:
     return hashlib.sha256(canonical_rgba_bytes(image)).hexdigest()
+
+
+def deterministic_png_bytes(image: Image.Image) -> bytes:
+    buffer = BytesIO()
+    image.convert("RGBA").save(buffer, format="PNG", optimize=False, compress_level=9)
+    return buffer.getvalue()

@@ -10,7 +10,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, cast
 from unittest.mock import patch
@@ -31,6 +31,7 @@ import source_ingest_ops
 import layout_core
 from produce_minimal8_runtime_assets import minimal8_runtime_asset_spec
 from runtime_asset_paths import atomic_asset_relative_path
+from tile_library_codec import tile_library_unit_from_json
 from legacy_semantic_bootstrap import content_hashes_by_tile_id, legacy_tile_semantics_from_json
 from semantic_catalogue_ingest import index_by_content_hash, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import load_bridged_tile_family
@@ -96,6 +97,14 @@ class Minimal8SemanticExpectation:
 def _copy_file(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dest)
+
+
+def _tree_file_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def _link_readonly_tree(src: Path, dest: Path) -> None:
@@ -1248,6 +1257,166 @@ class LayoutProjectLoadingTests(unittest.TestCase):
                 assert legacy is not None
                 self.assertEqual(legacy.facts["category"], semantic_expectation.legacy_category)
                 self.assertEqual(legacy.facts["layer"], semantic_expectation.legacy_layer)
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
+
+    def test_runtime_clean_tilesheet_export_writes_canonical_reference_outputs(self) -> None:
+        runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_root = _copy_minimal8_production_harness(root)
+            project_path = fixture_root / "project.minimal8.json"
+            first_output = root / "export-a"
+            second_output = root / "export-b"
+
+            first_result = runtime_tilesheet_export.export_project_runtime_tilesheet(
+                project_path,
+                tileset_id=MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
+                output_dir=first_output,
+                scale=2,
+            )
+            second_result = runtime_tilesheet_export.export_project_runtime_tilesheet(
+                project_path,
+                tileset_id=MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
+                output_dir=second_output,
+                scale=2,
+            )
+            cli_output = root / "export-cli"
+            stdout = io.StringIO()
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "harness.py",
+                    "export-clean-tilesheet",
+                    str(project_path),
+                    "--tileset",
+                    MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
+                    "--output-dir",
+                    str(cli_output),
+                ],
+            ), redirect_stdout(stdout):
+                harness.main()
+
+            self.assertEqual(_tree_file_bytes(first_output), _tree_file_bytes(second_output))
+            self.assertTrue(second_result.manifest_path.is_file())
+            self.assertTrue((cli_output / "minimal8" / "1bit_colored_bg" / "manifest.json").is_file())
+            self.assertIn(str(cli_output / "minimal8" / "1bit_colored_bg"), stdout.getvalue())
+            self.assertTrue(first_result.tilesheet_path.is_file())
+            self.assertTrue(first_result.metadata_path.is_file())
+            self.assertTrue(first_result.manifest_path.is_file())
+            self.assertIsNotNone(first_result.scaled_tilesheet_path)
+            assert first_result.scaled_tilesheet_path is not None
+            self.assertTrue(first_result.scaled_tilesheet_path.is_file())
+
+            manifest = cast(
+                dict[str, object],
+                json.loads(first_result.manifest_path.read_text(encoding="utf-8")),
+            )
+            self.assertEqual(manifest["export_type"], "canonical-reference")
+            self.assertEqual(manifest["family_id"], "minimal8")
+            self.assertEqual(manifest["tileset_id"], MINIMAL8_PRODUCTION_MAIN_TILESET_ID)
+            self.assertEqual(manifest["variant_id"], "1bit_colored_bg")
+            self.assertGreater(cast(int, manifest["tile_count"]), 0)
+            tilesheet_payload = cast(dict[str, object], manifest["tilesheet"])
+            self.assertEqual(tilesheet_payload["tile_width"], 8)
+            self.assertEqual(tilesheet_payload["tile_height"], 8)
+
+            metadata = cast(
+                dict[str, object],
+                json.loads(first_result.metadata_path.read_text(encoding="utf-8")),
+            )
+            tiles = cast(list[object], metadata["tiles"])
+            self.assertGreater(len(tiles), 0)
+            main_tile = next(
+                cast(dict[str, object], tile)
+                for tile in tiles
+                if cast(dict[str, object], tile)["id"] == MINIMAL8_PRODUCTION_MAIN_TILE_ID
+            )
+            self.assertEqual(main_tile["category"], "structure")
+            self.assertIn("atlas_cell", main_tile)
+            self.assertIn("genesis", main_tile)
+            self.assertIsInstance(main_tile["tags"], list)
+            self.assertIsInstance(main_tile["semantics"], list)
+            self.assertIsInstance(main_tile["motifs"], list)
+            self.assertIsInstance(main_tile["affordances"], list)
+            self.assertIsInstance(main_tile["alt_uses"], list)
+
+            atlas_path = (
+                fixture_root
+                / "runtime-families"
+                / "minimal8"
+                / "sheets"
+                / "1bit_colored_bg.png"
+            )
+            self.assertEqual(first_result.tilesheet_path.read_bytes(), atlas_path.read_bytes())
+
+    def test_runtime_clean_tilesheet_export_validates_before_writing_outputs(self) -> None:
+        runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_root = _copy_minimal8_production_harness(root)
+            variant_id = "1bit_colored_bg"
+            unit = tile_library_unit_from_json(
+                (fixture_root / "runtime-families" / "minimal8.json").read_text(encoding="utf-8")
+            )
+            variant = unit.variant(variant_id)
+            assert variant.atlas_columns is not None
+            broken_unit = replace(
+                unit,
+                variants={
+                    **unit.variants,
+                    variant_id: replace(variant, atlas_columns=variant.atlas_columns + 1),
+                },
+            )
+            output_dir = root / "bad-export"
+            family_dir = output_dir / "minimal8" / variant_id
+            context = runtime_tilesheet_export.RuntimeTilesheetExportContext(
+                tile_library=broken_unit,
+                asset_root=fixture_root / "runtime-families" / "minimal8",
+                tileset_id=MINIMAL8_PRODUCTION_MAIN_TILESET_ID,
+                variant_id=variant_id,
+            )
+
+            with self.assertRaisesRegex(ValueError, "has size .* expected"):
+                runtime_tilesheet_export.export_runtime_tilesheet(context, output_dir)
+
+            self.assertFalse(family_dir.exists())
+            self.assertEqual(_tree_file_bytes(output_dir), {})
+
+    def test_runtime_clean_tilesheet_export_works_after_ingest_inputs_are_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_root = _copy_minimal8_production_harness(root)
+            for ingest_dirname in ("semantic-catalogue", "tile-families", "tile-packs"):
+                shutil.rmtree(fixture_root / ingest_dirname)
+            shutil.rmtree(fixture_root / "resources")
+
+            runtime_module_names = ("runtime_tilesheet_export", "layout_core", *tuple(sorted(INGEST_ONLY_MODULES)))
+            _restore_modules_after_test(self, runtime_module_names)
+            for module_name in runtime_module_names:
+                sys.modules.pop(module_name, None)
+            runtime_tilesheet_export = importlib.import_module("runtime_tilesheet_export")
+            self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
+
+            result = runtime_tilesheet_export.export_project_runtime_tilesheet(
+                fixture_root / "project.minimal8.json",
+                tileset_id=MINIMAL8_PRODUCTION_CHARACTER_TILESET_ID,
+                output_dir=root / "clean-export",
+            )
+            self.assertTrue(result.tilesheet_path.is_file())
+            self.assertTrue(result.metadata_path.is_file())
+            self.assertTrue(result.manifest_path.is_file())
+            metadata = cast(
+                dict[str, object],
+                json.loads(result.metadata_path.read_text(encoding="utf-8")),
+            )
+            character_tile = next(
+                cast(dict[str, object], tile)
+                for tile in cast(list[object], metadata["tiles"])
+                if cast(dict[str, object], tile)["id"] == MINIMAL8_PRODUCTION_CHARACTER_TILE_ID
+            )
+            self.assertEqual(character_tile["id"], MINIMAL8_PRODUCTION_CHARACTER_TILE_ID)
+            self.assertIn("atlas_cell", character_tile)
             self.assertTrue(INGEST_ONLY_MODULES.isdisjoint(sys.modules))
 
     def test_runtime_scene_work_stays_self_sufficient_after_manifest_files_are_deleted(self) -> None:

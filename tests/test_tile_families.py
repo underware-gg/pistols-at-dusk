@@ -93,6 +93,7 @@ class RuntimeImportBoundaryTests(unittest.TestCase):
             "tile_library.py",
             "tile_library_codec.py",
             "runtime_asset_paths.py",
+            "runtime_tilesheet_export.py",
             "seam_matching.py",
             "seam_profiles.py",
             "compatibility_family.py",

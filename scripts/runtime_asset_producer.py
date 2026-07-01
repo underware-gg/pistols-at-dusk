@@ -10,7 +10,6 @@ import math
 import os
 import tempfile
 from dataclasses import replace
-from io import BytesIO
 from pathlib import Path
 from typing import Mapping
 
@@ -18,7 +17,7 @@ from PIL import Image
 
 from layout_core import grid_dimensions_for_image
 from legacy_semantic_bootstrap import legacy_tile_semantics_from_json
-from pixel_content import canonical_image_digest
+from pixel_content import canonical_image_digest, deterministic_png_bytes
 from semantic_catalogue_ingest import ResolvedSemanticCatalogue, semantic_catalogue_with_identity_from_json
 from source_manifest_bridge import BridgedSemanticInputs, load_bridged_tile_library_unit
 from tile_family_runtime import resolve_canonical_tile_image
@@ -42,12 +41,6 @@ from runtime_asset_paths import (
 
 def atomic_asset_address(image: Image.Image) -> str:
     return atomic_asset_address_from_digest(canonical_image_digest(image))
-
-
-def deterministic_png_bytes(image: Image.Image) -> bytes:
-    buffer = BytesIO()
-    image.convert("RGBA").save(buffer, format="PNG", optimize=False, compress_level=9)
-    return buffer.getvalue()
 
 
 def _write_bytes_atomic(path: Path, data: bytes) -> None:

@@ -1144,6 +1144,12 @@ class LayoutProject:
             return None
         return selection.runtime_unit
 
+    def runtime_asset_root_for_tileset(self, tileset_id: str) -> Path | None:
+        selection = self._family_selection_for_tileset(tileset_id)
+        if selection is None:
+            return None
+        return selection.asset_root
+
     def family_tile_record_for_resolved_tile(self, tile: ResolvedTile) -> TileRecord | None:
         tile_library = self.tile_library_unit_for_tileset(tile.tileset_id)
         if tile_library is None:
